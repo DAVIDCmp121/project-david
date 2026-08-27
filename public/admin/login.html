@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+  <meta charset="UTF-8">
+  <title>ເຂົ້າສູ່ລະບົບ</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="login-box">
+    <div class="lock-icon">🔒</div>
+    <h1>ເຂົ້າສູ່ລະບົບແອດມິນ</h1>
+    <input type="text" id="username" placeholder="ຊື່ຜູ້ໃຊ້">
+    <input type="password" id="password" placeholder="ລະຫັດຜ່ານ">
+    <button onclick="login()">ເຂົ້າສູ່ລະບົບ</button>
+    <p id="error-msg" style="color: #7A2039;"></p>
+  </main>
+
+  <script>
+    async function login() {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        window.location.href = 'index.html';
+      } else {
+        document.getElementById('error-msg').textContent = data.error;
+      }
+    }
+  </script>
+</body>
+</html>

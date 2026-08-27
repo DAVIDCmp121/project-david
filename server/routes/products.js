@@ -1,0 +1,52 @@
+const express = require('express');
+const router = express.Router();
+const db = require('../db');
+const multer = require('multer');
+const path = require('path');
+const requireAuth = require('../middleware/requireAuth');   // ➕ เพิ่มบรรทัดนี้
+
+// ตั้งค่າ multer ให้เก็บไฟล์ที่ public/uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, '../../public/uploads'));
+  },
+  filename: (req, file, cb) => {
+    // ตั้งชื่อไฟล์ใหม่ ป้องกันชื่อซ (ใช้เวลาปัจจุบัน + นามสกุลไฟล์เดิม)
+    const uniqueName = Date.now() + path.extname(file.originalname);
+    cb(null, uniqueName);
+  }
+});
+
+const upload = multer({ storage: storage });
+
+// ดึงสินค้าทั้งหมด
+router.get('/', (req, res) => {
+  const products = db.prepare('SELECT * FROM products').all();
+  res.json(products);
+});
+
+// เพิ่มสินค้าใหม่ (รับไฟล์รูปภาพด้วย)
+router.post('/', upload.single('image'), (req, res) => {
+  const { name, price, size, color, stock } = req.body;
+  const image = req.file ? '/uploads/' + req.file.filename : '';
+
+  const stmt = db.prepare(
+    'INSERT INTO products (name, price, size, color, stock, image) VALUES (?, ?, ?, ?, ?, ?)'
+  );
+  const result = stmt.run(name, price, size, color, stock, image);
+  res.json({ id: result.lastInsertRowid });
+});
+
+// ລົບສິນຄ້າ (ຕ້ອງ login ກ່ອນ) — ລົບອໍເດີເກົ່າທີ່ຜູກກັບສິນຄ້ານີ້ນຳ
+router.delete('/:id', requireAuth, (req, res) => {
+  const productId = req.params.id;
+
+  // ລບອໍເດີທີ່ອ້າງອິງເຖິງສິນຄ້ານີ້ກ່ອນ (ບໍ່ຢາງນັ້ນຈະຕິດ FOREIGN KEY)
+  db.prepare('DELETE FROM orders WHERE product_id = ?').run(productId);
+
+  // ຈາກນັ້ນຄ່ອຍລົບສິນຄ້າ
+  db.prepare('DELETE FROM products WHERE id = ?').run(productId);
+
+  res.json({ success: true });
+});
+module.exports = router;

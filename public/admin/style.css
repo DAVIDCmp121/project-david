@@ -1,0 +1,238 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --ink: #171310;
+  --ink-soft: #241d17;
+  --gold: #D4AF37;
+  --gold-soft: #F0D98C;
+  --ivory: #FBF7EE;
+  --ivory-dark: #F1EAD9;
+  --burgundy: #7A2039;
+  --olive: #4B5D3A;
+  --text: #2B2620;
+  --muted: #8a8074;
+}
+
+body {
+  font-family: 'Segoe UI', 'Noto Sans Lao', sans-serif;
+  background: var(--ivory);
+  color: var(--text);
+}
+
+header {
+  background: linear-gradient(160deg, var(--ink), var(--ink-soft));
+  color: var(--gold);
+  padding: 18px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+header h1 {
+  font-size: 20px;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+header h1::before {
+  content: "ຮ";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: var(--gold);
+  color: var(--ink);
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+nav {
+  display: flex;
+  gap: 6px;
+  background: rgba(255,255,255,0.06);
+  padding: 4px;
+  border-radius: 10px;
+}
+
+nav a {
+  color: var(--gold-soft);
+  text-decoration: none;
+  padding: 8px 16px;
+  border-radius: 7px;
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+nav a:hover {
+  background: rgba(212,175,55,0.15);
+}
+
+nav a.active {
+  background: var(--gold);
+  color: var(--ink);
+}
+
+main {
+  padding: 24px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.add-form {
+  background: white;
+  padding: 22px;
+  border-radius: 14px;
+  margin-bottom: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  box-shadow: 0 4px 14px rgba(23,19,16,0.06);
+  border-top: 3px solid var(--gold);
+}
+
+.add-form h2 {
+  width: 100%;
+  margin-bottom: 6px;
+  color: var(--ink);
+  font-size: 18px;
+}
+
+.add-form input {
+  padding: 10px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  flex: 1;
+  min-width: 110px;
+  font-size: 14px;
+}
+
+.add-form input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.add-form button {
+  padding: 10px 20px;
+  background: var(--olive);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s ease;
+}
+
+.add-form button:hover {
+  background: #3d4c2f;
+}
+
+table {
+  width: 100%;
+  background: white;
+  border-radius: 14px;
+  overflow: hidden;
+  border-collapse: collapse;
+  box-shadow: 0 4px 14px rgba(23,19,16,0.06);
+}
+
+th, td {
+  padding: 14px;
+  text-align: left;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 14px;
+}
+
+th {
+  background: var(--ink);
+  color: var(--gold);
+  font-weight: 600;
+}
+
+tr:nth-child(even) td {
+  background: var(--ivory);
+}
+
+tr:hover td {
+  background: var(--gold-soft);
+  background: rgba(212,175,55,0.08);
+}
+
+.delete-btn {
+  background: var(--burgundy);
+  color: white;
+  border: none;
+  padding: 7px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background 0.2s ease;
+}
+
+.delete-btn:hover {
+  background: #5e1830;
+}
+
+.login-box {
+  max-width: 380px;
+  margin: 100px auto;
+  background: white;
+  padding: 36px;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(23,19,16,0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  border-top: 4px solid var(--gold);
+  text-align: center;
+}
+
+.login-box .lock-icon {
+  font-size: 32px;
+  margin-bottom: 4px;
+}
+
+.login-box h1 {
+  font-size: 22px;
+  margin-bottom: 8px;
+  color: var(--ink);
+}
+
+.login-box input {
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.login-box input:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.login-box button {
+  padding: 12px;
+  background: var(--ink);
+  color: var(--gold);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 15px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.login-box button:hover {
+  background: var(--gold);
+  color: var(--ink);
+}

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+  <meta charset="UTF-8">
+  <title>ຫຼັງບ້ານຮ້ານ</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>ຈັດການຮ້ານ</h1>
+    <nav>
+      <a href="index.html" class="active">ສິນຄ້າ</a>
+      <a href="orders.html">ຄຳສັ່ງຊື້</a>
+      <a href="qrcode.html">QR Code</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="add-form">
+      <h2>ເພີ່ມສິນຄ້າໃໝ່</h2>
+      <input type="text" id="name" placeholder="ຊື່ສິນຄ້າ">
+      <input type="number" id="price" placeholder="ລາຄາ">
+      <input type="text" id="size" placeholder="ໄຊສ໌">
+      <input type="text" id="color" placeholder="ສີ">
+      <input type="number" id="stock" placeholder="ຈຳນວນສະຕັອກ">
+      <input type="file" id="image" accept="image/*">
+      <button onclick="addProduct()">ເພີ່ມສິນຄ້າ</button>
+    </section>
+
+    <section id="product-list">
+      <p>ກຳລັງໂຫລດ...</p>
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>
