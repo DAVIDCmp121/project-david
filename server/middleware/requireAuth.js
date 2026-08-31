@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const { JWT_SECRET } = require('../routes/auth');
+const JWT_SECRET = require('../jwtSecret');
 
 // ຟງຊັນນີ້ໃຊ້ກວດສອບກ່ອນເຂົ້າ API ທີ່ຕ້ອງການສິດແອດມິນ
 function requireAuth(req, res, next) {

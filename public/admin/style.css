@@ -236,3 +236,129 @@ tr:hover td {
   background: var(--gold);
   color: var(--ink);
 }
+/* ==== ปรับปรุงส่วนแสดง QR รับเงินร้าน ==== */
+.qr-settings {
+  max-width: 420px;
+  margin: 24px auto;
+  padding: 20px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  text-align: center;
+}
+
+.qr-settings h2 {
+  font-size: 18px;
+  margin-bottom: 16px;
+}
+
+.qr-settings-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.qr-settings-box img#current-qr {
+  max-width: 240px;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  border: 1px solid #eee;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.qr-settings-box input[type="file"] {
+  font-size: 13px;
+}
+
+.qr-settings-box button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  background: #111;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.qr-settings-box button:hover {
+  opacity: 0.85;
+}
+/* ==== ปุ่ม QR settings ที่ header ==== */
+.qr-settings-btn {
+  margin-left: auto;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 8px;
+  background: #111;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+}
+.qr-settings-btn:hover { opacity: 0.85; }
+
+nav {
+  display: flex;
+  align-items: center;
+}
+
+/* ==== Modal popup ==== */
+.modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-box {
+  background: #fff;
+  padding: 24px;
+  border-radius: 16px;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+  max-width: 360px;
+  width: 90%;
+  text-align: center;
+  position: relative;
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  border: none;
+  background: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: #888;
+}
+
+.qr-settings-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.qr-settings-box img#current-qr {
+  max-width: 220px;
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  border: 1px solid #eee;
+}
+
+.qr-settings-box button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  background: #111;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}

@@ -1,6 +1,6 @@
 // ໂຫລດຄຳສັ່ງຊື້ທັງໝົດຈາກ API
 async function loadOrders() {
-  const res = await fetch('/api/orders');
+  const res = await fetch('/api/orders', { credentials: 'include' });
   const orders = await res.json();
 
   const container = document.getElementById('order-list');
@@ -42,6 +42,7 @@ async function completeOrder(id) {
   await fetch(`/api/orders/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify({ status: 'completed' })
   });
   loadOrders();

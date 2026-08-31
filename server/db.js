@@ -48,12 +48,15 @@ db.exec(`
 `);
 
 // ຕາຕະລາງບັນຊີແອດມິນ (admin account)
-db.exec(`
-  CREATE TABLE IF NOT EXISTS admins (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL
-  )
-`);
+db.exec(`CREATE TABLE IF NOT EXISTS admins (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT UNIQUE NOT NULL,
+  password TEXT NOT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+)`);
 
+const adminColumns = db.prepare(`PRAGMA table_info(admins)`).all().map(c => c.name);
+if (!adminColumns.includes('name')) {
+  db.exec(`ALTER TABLE admins ADD COLUMN name TEXT`);
+}
 module.exports = db;
