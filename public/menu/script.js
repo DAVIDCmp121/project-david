@@ -29,49 +29,9 @@ async function loadProducts() {
 }
 
 function openCheckout(id) {
-  currentProduct = window.allProducts.find(p => p.id === id);
-  currentQty = 1;
-  updateCheckoutView();
-  document.getElementById('checkout-overlay').classList.remove('hidden');
-}
-
-function closeCheckout() {
-  document.getElementById('checkout-overlay').classList.add('hidden');
-  currentProduct = null;
-}
-
-function changeQty(delta) {
-  const newQty = currentQty + delta;
-  if (newQty < 1) return;
-  if (newQty > currentProduct.stock) return;
-  currentQty = newQty;
-  updateCheckoutView();
-}
-
-function updateCheckoutView() {
-  document.getElementById('checkout-img').src = currentProduct.image || '';
-  document.getElementById('checkout-name').textContent = currentProduct.name;
-  document.getElementById('checkout-price').textContent = currentProduct.price + ' ກີບ / ອັນ';
-  document.getElementById('checkout-qty').textContent = currentQty;
-  document.getElementById('checkout-total-price').textContent = (currentProduct.price * currentQty) + ' ກີບ';
-}
-
-async function confirmOrder() {
-  const res = await fetch('/api/orders', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ product_id: currentProduct.id, quantity: currentQty })
-  });
-
-  const data = await res.json();
-
-  if (res.ok) {
-    closeCheckout();
-    alert('ຊຳລະເງິນສຳເລັດ ຂອບໃຈທີ່ອຸດໜູນ! ✅');
-    loadProducts();
-  } else {
-    alert('ເກີດຂໍ້ຜິດພາດ: ' + data.error);
-  }
+  const product = window.allProducts.find(p => p.id === id);
+  sessionStorage.setItem('checkoutProduct', JSON.stringify(product));
+  window.location.href = 'checkout.html';
 }
 
 loadProducts();

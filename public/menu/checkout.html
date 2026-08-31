@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ຢືນຢັນການສັ່ງຊື້ — POLO SHOP</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="checkout.css">
+</head>
+<body>
+  <div class="checkout-page">
+
+    <div class="steps-bar">
+      <div class="step active" id="step-indicator-1">1. ສິນຄ້າ</div>
+      <div class="step" id="step-indicator-2">2. ຂໍ້ມູນ</div>
+      <div class="step" id="step-indicator-3">3. ສະລິບ</div>
+      <div class="step" id="step-indicator-4">4. ຢືນຢັນ</div>
+    </div>
+
+    <!-- ຂັ້ນ 1: ສະຫຼຸບສິນຄ້າ -->
+    <div class="step-panel" id="step-1">
+      <h2>ສິນຄ້າທີ່ເລືອກ</h2>
+      <div class="summary-product">
+        <img id="sum-img" src="" alt="">
+        <div>
+          <h3 id="sum-name"></h3>
+          <p id="sum-price"></p>
+        </div>
+      </div>
+      <div class="qty-control">
+        <span>ຈຳນວນ:</span>
+        <button onclick="changeQty(-1)">−</button>
+        <span id="sum-qty">1</span>
+        <button onclick="changeQty(1)">+</button>
+      </div>
+      <div class="checkout-total">
+        <span>ລວມທັງໝົດ</span>
+        <span id="sum-total">0 ກີບ</span>
+      </div>
+      <button class="next-btn" onclick="goToStep(2)">ຕໍ່ໄປ</button>
+    </div>
+
+    <!-- ຂັ້ນ 2: ຂໍ້ມູນລູກຄ້າ -->
+    <div class="step-panel hidden" id="step-2">
+      <h2>ຂໍ້ມູນຈັດສົ່ງ</h2>
+      <input type="tel" id="customer-phone" placeholder="ເບີໂທຕິດຕໍ່">
+      <textarea id="customer-address" placeholder="ທີ່ຢູ່ຈັດສົ່ງ"></textarea>
+      <div class="btn-row">
+        <button class="back-btn" onclick="goToStep(1)">ກັບຄືນ</button>
+        <button class="next-btn" onclick="validateStep2()">ຕໍ່ໄປ</button>
+      </div>
+    </div>
+
+    <!-- ຂັ້ນ 3: ຈ່າຍເງິນ + ອັບໂຫລດສະລິບ -->
+    <div class="step-panel hidden" id="step-3">
+      <h2>ສະແກນຈ່າຍເງິນ</h2>
+      <img id="payment-qr-img" src="" alt="QR ຮັບເງິນ" class="payment-qr">
+      <p id="qr-missing-msg" class="hidden">ຮ້ານຍັງບໍ່ໄດ້ຕັ້ງ QR ຮັບເງິນ ກະລຸນາຕິດຕໍ່ຮ້ານ</p>
+      <label class="upload-label">ອັບໂຫລດຮູບສະລິບໂອນເງິນ</label>
+      <input type="file" id="slip-file" accept="image/*" onchange="previewSlip()">
+      <img id="slip-preview" class="hidden">
+      <div class="btn-row">
+        <button class="back-btn" onclick="goToStep(2)">ກັບຄືນ</button>
+        <button class="next-btn" onclick="validateStep3()">ຕໍ່ໄປ</button>
+      </div>
+    </div>
+
+    <!-- ຂັ້ນ 4: ຢືນຢັນ -->
+    <div class="step-panel hidden" id="step-4">
+      <h2>ກວດສອບຂໍ້ມູນກ່ອນຢືນຢັນ</h2>
+      <div class="final-summary">
+        <p><b>ສິນຄ້າ:</b> <span id="final-name"></span></p>
+        <p><b>ຈຳນວນ:</b> <span id="final-qty"></span></p>
+        <p><b>ລວມ:</b> <span id="final-total"></span></p>
+        <p><b>ເບີໂທ:</b> <span id="final-phone"></span></p>
+        <p><b>ທີ່ຢູ່:</b> <span id="final-address"></span></p>
+      </div>
+      <div class="btn-row">
+        <button class="back-btn" onclick="goToStep(3)">ກັບຄືນ</button>
+        <button class="confirm-btn" id="confirm-btn" onclick="submitOrder()">ຢືນຢັນການສັ່ງຊື້</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="checkout.js"></script>
+</body>
+</html>

@@ -84,3 +84,44 @@ async function deleteProduct(id) {
 }
 
 loadProducts();
+async function loadCurrentQr() {
+  const res = await fetch('/api/settings/payment-qr');
+  const data = await res.json();
+  const img = document.getElementById('current-qr');
+  const status = document.getElementById('qr-status');
+
+  if (data.qrImage) {
+    img.src = data.qrImage;
+    img.style.display = 'block';
+    status.textContent = 'QR ປັດຈຸບັນ:';
+  } else {
+    status.textContent = 'ຍັງບໍ່ໄດ້ອັບໂຫລດ QR';
+  }
+}
+
+async function uploadQr() {
+  const fileInput = document.getElementById('qr-file');
+  const file = fileInput.files[0];
+  if (!file) {
+    alert('ກະລຸນາເລືອກຮູບ QR ກ່ອນ');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('qrImage', file);
+
+  const res = await fetch('/api/settings/payment-qr', {
+    method: 'POST',
+    body: formData
+  });
+
+  if (res.ok) {
+    alert('ອັບໂຫລດ QR ສຳເລັດ ✅');
+    fileInput.value = '';
+    loadCurrentQr();
+  } else {
+    alert('ອັບໂຫລດບໍ່ສຳເລັດ');
+  }
+}
+
+loadCurrentQr();

@@ -7,6 +7,15 @@
 </head>
 <body>
   <header>
+    <section class="qr-settings">
+  <h2>ຮູບ QR ຮັບເງິນຂອງຮ້ານ</h2>
+  <div class="qr-settings-box">
+    <img id="current-qr" src="" alt="ຍັງບໍ່ມີ QR" style="display:none;">
+    <p id="qr-status">ກຳລັງກວດສອບ...</p>
+    <input type="file" id="qr-file" accept="image/*">
+    <button onclick="uploadQr()">ອັບໂຫລດ QR</button>
+  </div>
+</section>
     <h1>ຈັດການຮ້ານ</h1>
     <nav>
       <a href="index.html" class="active">ສິນຄ້າ</a>

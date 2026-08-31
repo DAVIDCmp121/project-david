@@ -16,34 +16,6 @@
     <p>ກຳລັງໂຫລດ...</p>
   </main>
 
-  <!-- ກ່ອງຢືນຢັນການສັ່ງຊື້ (Modal) -->
-  <div id="checkout-overlay" class="overlay hidden">
-    <div class="checkout-box">
-      <h2>ຢືນຢັນການສັ່ງຊື້</h2>
-      <div class="checkout-product">
-        <img id="checkout-img" src="" alt="">
-        <div>
-          <h3 id="checkout-name"></h3>
-          <p id="checkout-price"></p>
-        </div>
-      </div>
-
-      <div class="qty-control">
-        <span>ຈຳນວນ:</span>
-        <button onclick="changeQty(-1)">−</button>
-        <span id="checkout-qty">1</span>
-        <button onclick="changeQty(1)">+</button>
-      </div>
-
-      <div class="checkout-total">
-        <span>ລວມທັງໝົດ</span>
-        <span id="checkout-total-price">0 ກີບ</span>
-      </div>
-
-      <button class="confirm-btn" onclick="confirmOrder()">ຢືນຢັນຊຳລະເງິນ</button>
-      <button class="cancel-btn" onclick="closeCheckout()">ຍົກເລີກ</button>
-    </div>
-  </div>
 
   <script src="script.js"></script>
 </body>

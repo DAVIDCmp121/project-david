@@ -26,6 +26,27 @@ db.exec(`
   )
 `);
 
+// ➕ ເພີ່ມຖັນໃໝ່ໃສ່ orders (ຖ້າຍັງບໍ່ມີ) — ເບີໂທ, ທີ່ຢູ່, ຮູບສະລິບ
+const orderColumns = db.prepare(`PRAGMA table_info(orders)`).all().map(c => c.name);
+
+if (!orderColumns.includes('customer_phone')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN customer_phone TEXT`);
+}
+if (!orderColumns.includes('customer_address')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN customer_address TEXT`);
+}
+if (!orderColumns.includes('slip_image')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN slip_image TEXT`);
+}
+
+// ➕ ຕາຕະລາງໃໝ່ — ເກັບ QR ຮັບເງິນຂອງຮ້ານ (ໃຊ້ຮ່ວມກັນທຸກອໍເດີ)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  )
+`);
+
 // ຕາຕະລາງບັນຊີແອດມິນ (admin account)
 db.exec(`
   CREATE TABLE IF NOT EXISTS admins (

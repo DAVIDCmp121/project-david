@@ -16,6 +16,9 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, '../public')));
 
+const settingsRouter = require('./routes/settings');
+// ...
+app.use('/api/settings', settingsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/orders', ordersRouter);
