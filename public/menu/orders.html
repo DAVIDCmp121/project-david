@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ອໍເດີຂອງຂ້ອຍ - POLO SHOP</title>
+<style>
+  :root {
+    --gold: #C9A227;
+    --black: #1a1a1a;
+    --ivory: #FFFFF0;
+    --burgundy: #6d1a2f;
+    --olive: #6b7a3a;
+  }
+  body {
+    background: var(--black);
+    color: var(--ivory);
+    font-family: 'Noto Sans Lao', sans-serif;
+    margin: 0;
+    padding: 20px;
+  }
+  h1 {
+    color: var(--gold);
+    text-align: center;
+    font-size: 1.5rem;
+  }
+  /* --- Login form --- */
+  #loginBox {
+    max-width: 360px;
+    margin: 40px auto;
+    background: #242424;
+    padding: 24px;
+    border-radius: 12px;
+    border: 1px solid var(--gold);
+  }
+  #loginBox input {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 12px;
+    border-radius: 6px;
+    border: 1px solid #555;
+    background: #333;
+    color: var(--ivory);
+    box-sizing: border-box;
+  }
+  #loginBox button {
+    width: 100%;
+    padding: 10px;
+    background: var(--gold);
+    color: var(--black);
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  #loginError {
+    color: #ff6b6b;
+    text-align: center;
+    margin-top: 8px;
+    min-height: 20px;
+  }
+  /* --- Orders table --- */
+  #ordersSection { display: none; max-width: 900px; margin: 0 auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #242424;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  th, td {
+    padding: 12px;
+    text-align: center;
+    border-bottom: 1px solid #333;
+    font-size: 0.9rem;
+  }
+  th {
+    background: var(--gold);
+    color: var(--black);
+  }
+  .badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    color: #fff;
+    white-space: nowrap;
+  }
+  .badge-awaiting_review { background: #e63946; }   /* แดง - รอตรวจสลิป */
+  .badge-confirmed       { background: #e9c46a; color: #222; } /* เหลือง - ยืนยันแล้ว */
+  .badge-shipped         { background: #457b9d; }   /* ฟ้า - จัดสงแล้ว */
+  .badge-delivered       { background: #2a9d8f; }   /* เขียว - ถึงแล้ว */
+  .chat-btn {
+    background: var(--burgundy);
+    color: var(--ivory);
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 0.85rem;
+  }
+  #emptyMsg { text-align: center; margin-top: 30px; color: #999; }
+</style>
+</head>
+<body>
+
+<h1>ອໍເດີຂອງຂ້ອຍ</h1>
+
+<div id="loginBox">
+  <input type="tel" id="phoneInput" placeholder="ເບີໂທລະສັບ">
+  <input type="password" id="pinInput" placeholder="ລະຫັດ PIN">
+  <button onclick="doLogin()">ເຂົ້າສູ່ລະບົບ</button>
+  <div id="loginError"></div>
+</div>
+
+<div id="ordersSection">
+  <table>
+    <thead>
+      <tr>
+        <th>ວັນທີ່ສັ່ງ</th>
+        <th>ສິນຄ້າ</th>
+        <th>ລາຄາລວມ</th>
+        <th>ສະຖານະ</th>
+        <th>ເລກພັດສະດຸ</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="ordersTableBody"></tbody>
+  </table>
+  <div id="emptyMsg" style="display:none;">ຍັງບໍ່ມີອໍເດີ</div>
+</div>
+
+<script>
+const statusLabels = {
+  awaiting_review: 'ລໍຖ້າກວດສະລິບ',
+  confirmed: 'ຢືນຢັນແລ້ວ',
+  shipped: 'ຈັດສົ່ງແລ້ວ',
+  delivered: 'ຮອດແລ້ວ'
+};
+
+async function checkLoginAndLoad() {
+  try {
+    const res = await fetch('/api/customer/orders', { credentials: 'include' });
+    if (res.status === 401) {
+      showLogin();
+      return;
+    }
+    const data = await res.json();
+    if (data.success) {
+      showOrders(data.orders);
+    } else {
+      showLogin();
+    }
+  } catch (err) {
+    console.error(err);
+    showLogin();
+  }
+}
+
+function showLogin() {
+  document.getElementById('loginBox').style.display = 'block';
+  document.getElementById('ordersSection').style.display = 'none';
+}
+
+function showOrders(orders) {
+  document.getElementById('loginBox').style.display = 'none';
+  document.getElementById('ordersSection').style.display = 'block';
+
+  const tbody = document.getElementById('ordersTableBody');
+  const emptyMsg = document.getElementById('emptyMsg');
+  tbody.innerHTML = '';
+
+  if (!orders || orders.length === 0) {
+    emptyMsg.style.display = 'block';
+    return;
+  }
+  emptyMsg.style.display = 'none';
+
+  orders.forEach(order => {
+    const total = (order.price * order.quantity).toLocaleString();
+    const dateStr = new Date(order.created_at).toLocaleDateString('lo-LA');
+    const statusKey = order.order_status || 'awaiting_review';
+    const statusText = statusLabels[statusKey] || statusKey;
+
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${dateStr}</td>
+      <td>${order.product_name || '-'}</td>
+      <td>${total} ກີບ</td>
+      <td><span class="badge badge-${statusKey}">${statusText}</span></td>
+      <td>${order.bill_number || '-'}</td>
+      <td><a class="chat-btn" href="/menu/chat.html?orderId=${order.id}">ແຊັດ</a></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function doLogin() {
+  const phone = document.getElementById('phoneInput').value.trim();
+  const pin = document.getElementById('pinInput').value.trim();
+  const errBox = document.getElementById('loginError');
+  errBox.textContent = '';
+
+  if (!phone || !pin) {
+    errBox.textContent = 'ກະລຸນາປ້ອນເບີໂທ ແລະ PIN';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/customer-auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ phone, pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      checkLoginAndLoad();
+    } else {
+      errBox.textContent = data.error || data.message || 'ເຂົ້າສູ່ລະບົບບໍ່ສເລັດ';
+    }
+  } catch (err) {
+    errBox.textContent = 'ເກີດຂໍ້ຜິດພາດ, ລອງໃໝ່ພາຍຫຼັງ';
+  }
+}
+
+checkLoginAndLoad();
+</script>
+
+</body>
+</html>

@@ -56,12 +56,16 @@
       <h2>ສະແກນຈ່າຍເງິນ</h2>
       <img id="payment-qr-img" src="" alt="QR ຮັບເງິນ" class="payment-qr">
       <p id="qr-missing-msg" class="hidden">ຮ້ານຍັງບໍ່ໄດ້ຕັ້ງ QR ຮັບເງິນ ກະລຸນາຕິດຕໍ່ຮ້ານ</p>
+      <div class="pay-amount-box">
+        <span>ຍອດທີ່ຕ້ອງໂອນ</span>
+        <span id="pay-amount">0 ກີບ</span>
+      </div>
       <label class="upload-label">ອັບໂຫລດຮູບສະລິບໂອນເງິນ</label>
       <input type="file" id="slip-file" accept="image/*" onchange="previewSlip()">
       <img id="slip-preview" class="hidden">
       <div class="btn-row">
         <button class="back-btn" onclick="goToStep(2)">ກັບຄືນ</button>
-        <button class="next-btn" onclick="validateStep3()">ຕໍ່ໄປ</button>
+        <button class="next-btn" id="step3-next-btn" onclick="validateStep3()">ຕໍ່ໄປ</button>
       </div>
     </div>
 

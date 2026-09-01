@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+<meta charset="UTF-8">
+<title>ແຊັດລູກຄ້າ</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .chat-layout { display: flex; height: calc(100vh - 120px); border: 1px solid #444; }
+  #customerList {
+    width: 280px;
+    border-right: 1px solid #444;
+    overflow-y: auto;
+    background: #1e1e1e;
+  }
+  .customer-item {
+    padding: 12px;
+    border-bottom: 1px solid #333;
+    cursor: pointer;
+    position: relative;
+  }
+  .customer-item:hover, .customer-item.active { background: #2a2a2a; }
+  .customer-item .cname { font-weight: bold; }
+  .customer-item .clast { font-size: 0.8rem; color: #999; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .unread-badge {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: #e63946;
+    color: #fff;
+    border-radius: 50%;
+    min-width: 18px;
+    height: 18px;
+    font-size: 0.7rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+  }
+  #chatPane { flex: 1; display: flex; flex-direction: column; }
+  #chatHeader { padding: 12px; border-bottom: 1px solid #444; font-weight: bold; }
+  #adminChatBox { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .abubble { max-width: 70%; padding: 10px 14px; border-radius: 14px; font-size: 0.9rem; }
+  .abubble.customer { align-self: flex-start; background: #333; color: #fff; }
+  .abubble.admin { align-self: flex-end; background: #C9A227; color: #1a1a1a; }
+  .abubble img { max-width: 100%; border-radius: 8px; margin-top: 4px; cursor: pointer; }
+  .abubble-time { font-size: 0.65rem; opacity: 0.6; margin-top: 4px; text-align: right; }
+  #adminInputBar { display: flex; gap: 8px; padding: 10px; border-top: 1px solid #444; }
+  #adminTextInput { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #555; background: #333; color: #fff; }
+  #adminInputBar button, #adminInputBar label {
+    background: #C9A227; color: #1a1a1a; border: none; border-radius: 6px;
+    padding: 0 16px; cursor: pointer; display: flex; align-items: center; font-weight: bold;
+  }
+  #adminImageInput { display: none; }
+  #emptyState { padding: 20px; color: #999; text-align: center; }
+</style>
+</head>
+<body>
+
+<script src="/admin/auth-guard.js"></script>
+<header>
+  <h1>ແຊັດລູກຄ້າ</h1>
+  <nav>
+    <a href="/admin/index.html">ສິນຄ້າ</a>
+    <a href="/admin/orders.html">ຄຳສັ່ງຊື້</a>
+    <a href="/admin/qrcode.html">QR Code</a>
+    <a href="/admin/chat.html" class="active">ແຊັດ</a>
+  </nav>
+</header>
+
+<main>
+  <div class="chat-layout">
+    <div id="customerList"></div>
+    <div id="chatPane">
+      <div id="chatHeader">ເລືອກລູກຄ້າເພື່ອເລີ່ມແຊັດ</div>
+      <div id="adminChatBox"><div id="emptyState">ຍັງບໍ່ໄດ້ເລືອກລູກຄ້າ</div></div>
+      <div id="adminInputBar" style="display:none;">
+        <label for="adminImageInput">📷</label>
+        <input type="file" id="adminImageInput" accept="image/*">
+        <input type="text" id="adminTextInput" placeholder="ພິມຂໍ້ຄວາມ...">
+        <button onclick="sendAdminText()">ສົ່ງ</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<audio id="notifySound" src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoAAAAAAAA=" preload="auto"></audio>
+
+<script>
+let currentCustomerId = null;
+let lastListJson = '';
+let lastMsgCount = 0;
+
+async function loadCustomerList() {
+  try {
+    const res = await fetch('/api/messages/list', { credentials: 'include' });
+    const data = await res.json();
+    renderCustomerList(data.customers || []);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function renderCustomerList(customers) {
+  const json = JSON.stringify(customers);
+  const hasNewUnread = customers.some(c => c.unread_count > 0) && json !== lastListJson && lastListJson !== '';
+  if (json === lastListJson) return;
+  lastListJson = json;
+
+  if (hasNewUnread) {
+    document.getElementById('notifySound').play().catch(() => {});
+  }
+
+  const list = document.getElementById('customerList');
+  list.innerHTML = '';
+
+  if (customers.length === 0) {
+    list.innerHTML = '<div style="padding:14px;color:#999;">ຍັງບໍ່ມີແຊັດ</div>';
+    return;
+  }
+
+  customers.forEach(c => {
+    const item = document.createElement('div');
+    item.className = 'customer-item' + (c.id === currentCustomerId ? ' active' : '');
+    item.onclick = () => openCustomerChat(c.id, c.name || c.phone);
+    item.innerHTML = `
+      <div class="cname">${c.name || c.phone}</div>
+      <div class="clast">${c.last_message || '(ຮູບພາບ)'}</div>
+      ${c.unread_count > 0 ? `<div class="unread-badge">${c.unread_count}</div>` : ''}
+    `;
+    list.appendChild(item);
+  });
+}
+
+async function openCustomerChat(customerId, label) {
+  currentCustomerId = customerId;
+  lastMsgCount = 0;
+  document.getElementById('chatHeader').textContent = label;
+  document.getElementById('adminInputBar').style.display = 'flex';
+  await loadAdminMessages();
+  loadCustomerList(); // refresh badges immediately
+}
+
+async function loadAdminMessages() {
+  if (!currentCustomerId) return;
+  try {
+    const res = await fetch(`/api/messages/customer/${currentCustomerId}`, { credentials: 'include' });
+    const data = await res.json();
+    renderAdminMessages(data.messages || []);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function renderAdminMessages(messages) {
+  if (messages.length === lastMsgCount) return;
+  lastMsgCount = messages.length;
+
+  const box = document.getElementById('adminChatBox');
+  box.innerHTML = '';
+
+  messages.forEach(msg => {
+    const bubble = document.createElement('div');
+    bubble.className = 'abubble ' + (msg.sender === 'admin' ? 'admin' : 'customer');
+    let html = '';
+    if (msg.message_text) html += `<div>${escapeHtml(msg.message_text)}</div>`;
+    if (msg.image_url) html += `<img src="${msg.image_url}" onclick="window.open('${msg.image_url}','_blank')">`;
+    const time = new Date(msg.created_at).toLocaleTimeString('lo-LA', { hour: '2-digit', minute: '2-digit' });
+    html += `<div class="abubble-time">${time}</div>`;
+    bubble.innerHTML = html;
+    box.appendChild(bubble);
+  });
+
+  box.scrollTop = box.scrollHeight;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+async function sendAdminText() {
+  if (!currentCustomerId) return;
+  const input = document.getElementById('adminTextInput');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+
+  try {
+    const res = await fetch(`/api/messages/customer/${currentCustomerId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ message_text: text })
+    });
+    const data = await res.json();
+    if (data.success) {
+      lastMsgCount = 0;
+      loadAdminMessages();
+    } else {
+      alert(data.error || 'ສົ່ງບໍ່ສຳເລັດ');
+    }
+  } catch (err) {
+    alert('ເກີດຂໍ້ຜິດພາດ');
+  }
+}
+
+document.getElementById('adminImageInput').addEventListener('change', async (e) => {
+  if (!currentCustomerId) return;
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('image', file);
+
+  try {
+    const res = await fetch(`/api/messages/customer/${currentCustomerId}/upload`, {
+      method: 'POST',
+      credentials: 'include',
+      body: formData
+    });
+    const data = await res.json();
+    if (data.success) {
+      lastMsgCount = 0;
+      loadAdminMessages();
+    } else {
+      alert(data.error || 'ອັບໂຫລດບໍ່ສຳເລັດ');
+    }
+  } catch (err) {
+    alert('ເກີດຂໍ້ຜິດພາດ');
+  }
+  e.target.value = '';
+});
+
+document.getElementById('adminTextInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') sendAdminText();
+});
+
+loadCustomerList();
+setInterval(() => {
+  loadCustomerList();
+  if (currentCustomerId) loadAdminMessages();
+}, 5000);
+</script>
+
+</body>
+</html>

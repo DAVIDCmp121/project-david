@@ -166,3 +166,19 @@
 .hidden {
   display: none;
 }
+.pay-amount-box {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff8f0;
+  border: 2px solid #d4af37;
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin: 14px 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+.pay-amount-box span:last-child {
+  color: #b8380e;
+  font-size: 22px;
+}

@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ແຊັດກັບຮ້ານ - POLO SHOP</title>
+<style>
+  :root {
+    --gold: #C9A227;
+    --black: #1a1a1a;
+    --ivory: #FFFFF0;
+    --burgundy: #6d1a2f;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--black);
+    color: var(--ivory);
+    font-family: 'Noto Sans Lao', sans-serif;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+  header {
+    background: #242424;
+    border-bottom: 2px solid var(--gold);
+    padding: 14px;
+    text-align: center;
+  }
+  header h1 { margin: 0; font-size: 1.1rem; color: var(--gold); }
+  #chatBox {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .bubble {
+    max-width: 75%;
+    padding: 10px 14px;
+    border-radius: 14px;
+    font-size: 0.92rem;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+  .bubble.customer {
+    align-self: flex-end;
+    background: var(--gold);
+    color: var(--black);
+    border-bottom-right-radius: 2px;
+  }
+  .bubble.admin {
+    align-self: flex-start;
+    background: #333;
+    color: var(--ivory);
+    border-bottom-left-radius: 2px;
+  }
+  .bubble img {
+    max-width: 100%;
+    border-radius: 8px;
+    display: block;
+    margin-top: 4px;
+    cursor: pointer;
+  }
+  .bubble-time {
+    font-size: 0.65rem;
+    opacity: 0.6;
+    margin-top: 4px;
+    text-align: right;
+  }
+  #inputBar {
+    display: flex;
+    gap: 8px;
+    padding: 10px;
+    background: #242424;
+    border-top: 1px solid #333;
+  }
+  #textInput {
+    flex: 1;
+    padding: 10px 12px;
+    border-radius: 20px;
+    border: 1px solid #555;
+    background: #333;
+    color: var(--ivory);
+    font-size: 0.9rem;
+  }
+  #inputBar button, #inputBar label {
+    background: var(--gold);
+    color: var(--black);
+    border: none;
+    border-radius: 50%;
+    width: 42px;
+    height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.1rem;
+  }
+  #imageInput { display: none; }
+  #loginBox {
+    max-width: 340px;
+    margin: 60px auto;
+    background: #242424;
+    padding: 24px;
+    border-radius: 12px;
+    border: 1px solid var(--gold);
+  }
+  #loginBox input {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 12px;
+    border-radius: 6px;
+    border: 1px solid #555;
+    background: #333;
+    color: var(--ivory);
+  }
+  #loginBox button {
+    width: 100%;
+    padding: 10px;
+    background: var(--gold);
+    color: var(--black);
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  #loginError { color: #ff6b6b; text-align: center; margin-top: 8px; min-height: 20px; }
+</style>
+</head>
+<body>
+
+<div id="loginBox" style="display:none;">
+  <h2 style="text-align:center;color:var(--gold);font-size:1rem;">ເຂົ້າສູ່ລະບົບເພື່ອແຊັດ</h2>
+  <input type="tel" id="phoneInput" placeholder="ເບີໂທລະສັບ">
+  <input type="password" id="pinInput" placeholder="ລະຫັດ PIN">
+  <button onclick="doLogin()">ເຂົ້າສູ່ລະບົບ</button>
+  <div id="loginError"></div>
+</div>
+
+<div id="chatUI" style="display:none; height:100%; display:flex; flex-direction:column;">
+  <header><h1>ແຊັດກັບຮ້ານ POLO SHOP</h1></header>
+  <div id="chatBox"></div>
+  <div id="inputBar">
+    <label for="imageInput">📷</label>
+    <input type="file" id="imageInput" accept="image/*">
+    <input type="text" id="textInput" placeholder="ພິມຂໍ້ຄວາມ...">
+    <button onclick="sendText()">➤</button>
+  </div>
+</div>
+
+<script>
+let lastMessageCount = 0;
+let pollTimer = null;
+
+async function checkLoginAndStart() {
+  try {
+    const res = await fetch('/api/messages', { credentials: 'include' });
+    if (res.status === 401) {
+      showLogin();
+      return;
+    }
+    document.getElementById('loginBox').style.display = 'none';
+    document.getElementById('chatUI').style.display = 'flex';
+    loadMessages();
+    if (!pollTimer) pollTimer = setInterval(loadMessages, 5000);
+  } catch (err) {
+    showLogin();
+  }
+}
+
+function showLogin() {
+  document.getElementById('loginBox').style.display = 'block';
+  document.getElementById('chatUI').style.display = 'none';
+}
+
+async function doLogin() {
+  const phone = document.getElementById('phoneInput').value.trim();
+  const pin = document.getElementById('pinInput').value.trim();
+  const errBox = document.getElementById('loginError');
+  errBox.textContent = '';
+
+  if (!phone || !pin) {
+    errBox.textContent = 'ກະລຸນາປ້ອນເບີໂທ ແລະ PIN';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/customer-auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ phone, pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      checkLoginAndStart();
+    } else {
+      errBox.textContent = data.error || 'ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ';
+    }
+  } catch (err) {
+    errBox.textContent = 'ເກີດຂໍ້ຜິດພາດ, ລອງໃໝ່ພາຍຫຼັງ';
+  }
+}
+
+async function loadMessages() {
+  try {
+    const res = await fetch('/api/messages', { credentials: 'include' });
+    if (res.status === 401) {
+      clearInterval(pollTimer);
+      pollTimer = null;
+      showLogin();
+      return;
+    }
+    const data = await res.json();
+    renderMessages(data.messages || []);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function renderMessages(messages) {
+  // ຖ້າຈຳນວນຂໍ້ຄວາມບໍ່ປ່ຽນ ບໍ່ຕ້ອງ re-render (ກັນຈໍກະພບ)
+  if (messages.length === lastMessageCount) return;
+  lastMessageCount = messages.length;
+
+  const box = document.getElementById('chatBox');
+  box.innerHTML = '';
+
+  messages.forEach(msg => {
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble ' + (msg.sender === 'customer' ? 'customer' : 'admin');
+
+    let html = '';
+    if (msg.message_text) {
+      html += `<div>${escapeHtml(msg.message_text)}</div>`;
+    }
+    if (msg.image_url) {
+      html += `<img src="${msg.image_url}" onclick="window.open('${msg.image_url}','_blank')">`;
+    }
+    const time = new Date(msg.created_at).toLocaleTimeString('lo-LA', { hour: '2-digit', minute: '2-digit' });
+    html += `<div class="bubble-time">${time}</div>`;
+
+    bubble.innerHTML = html;
+    box.appendChild(bubble);
+  });
+
+  box.scrollTop = box.scrollHeight;
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+async function sendText() {
+  const input = document.getElementById('textInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  try {
+    const res = await fetch('/api/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ message_text: text })
+    });
+    const data = await res.json();
+    if (data.success) {
+      loadMessages();
+    } else {
+      alert(data.error || 'ສົ່ງຂໍ້ຄວາມບໍ່ສຳເລັດ');
+    }
+  } catch (err) {
+    alert('ເກີດຂໍ້ຜິດພາດ');
+  }
+}
+
+document.getElementById('imageInput').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('image', file);
+
+  try {
+    const res = await fetch('/api/messages/upload', {
+      method: 'POST',
+      credentials: 'include',
+      body: formData
+    });
+    const data = await res.json();
+    if (data.success) {
+      loadMessages();
+    } else {
+      alert(data.error || 'ອັບໂຫລດຮູບບໍ່ສຳເລດ');
+    }
+  } catch (err) {
+    alert('ເກີດຂໍ້ຜິດພາດ');
+  }
+  e.target.value = '';
+});
+
+document.getElementById('textInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') sendText();
+});
+
+checkLoginAndStart();
+</script>
+
+</body>
+</html>

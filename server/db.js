@@ -59,4 +59,41 @@ const adminColumns = db.prepare(`PRAGMA table_info(admins)`).all().map(c => c.na
 if (!adminColumns.includes('name')) {
   db.exec(`ALTER TABLE admins ADD COLUMN name TEXT`);
 }
+// ຕາຕະລາງລກຄາ (ສະໝກດວຍເບໂທ + PIN)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS customers (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    phone TEXT UNIQUE NOT NULL,
+    pin_hash TEXT NOT NULL,
+    name TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+// ຕາຕະລາງຂຄວາມແຊດ (ລະຫວາງລກຄ້າ ແລະ ແອດມນ)
+db.exec(`
+  CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    customer_id INTEGER NOT NULL,
+    sender TEXT NOT NULL CHECK (sender IN ('customer', 'admin')),
+    message_text TEXT,
+    image_url TEXT,
+    is_read INTEGER DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (customer_id) REFERENCES customers(id)
+  )
+`);
+
+// ເພມຖນໃໝໃສ orders (ຜກກບລກຄ້າ, ເລກບນ, ສະຖານະໃໝ່)
+const orderColumns2 = db.prepare(`PRAGMA table_info(orders)`).all().map(c => c.name);
+
+if (!orderColumns2.includes('customer_id')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN customer_id INTEGER REFERENCES customers(id)`);
+}
+if (!orderColumns2.includes('bill_number')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN bill_number TEXT`);
+}
+if (!orderColumns2.includes('order_status')) {
+  db.exec(`ALTER TABLE orders ADD COLUMN order_status TEXT DEFAULT 'awaiting_review'`);
+}
 module.exports = db;

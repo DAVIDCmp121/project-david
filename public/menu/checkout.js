@@ -19,7 +19,11 @@ function updateStep1() {
   document.getElementById('sum-name').textContent = currentProduct.name;
   document.getElementById('sum-price').textContent = currentProduct.price + ' ກີບ / ອັນ';
   document.getElementById('sum-qty').textContent = currentQty;
-  document.getElementById('sum-total').textContent = (currentProduct.price * currentQty) + ' ກີບ';
+  const total = currentProduct.price * currentQty;
+  document.getElementById('sum-total').textContent = total + ' ກີບ';
+
+  const payAmountEl = document.getElementById('pay-amount');
+  if (payAmountEl) payAmountEl.textContent = total + ' ກີບ';
 }
 
 function changeQty(delta) {
@@ -77,21 +81,52 @@ function previewSlip() {
   }
 }
 
-function validateStep3() {
+async function validateStep3() {
   const fileInput = document.getElementById('slip-file');
   if (!fileInput.files[0]) {
     alert('ກະລນາອັບໂຫລດຮູບສະລິບໂອນເງິນກ່ອນ');
     return;
   }
 
-  // ສະແດງຂມູນສະຫຼຸບໃນຂັ້ນ 4
-  document.getElementById('final-name').textContent = currentProduct.name;
-  document.getElementById('final-qty').textContent = currentQty;
-  document.getElementById('final-total').textContent = (currentProduct.price * currentQty) + ' ກີບ';
-  document.getElementById('final-phone').textContent = document.getElementById('customer-phone').value;
-  document.getElementById('final-address').textContent = document.getElementById('customer-address').value;
+  const nextBtn = document.getElementById('step3-next-btn');
+  if (nextBtn) {
+    nextBtn.disabled = true;
+    nextBtn.textContent = 'ກຳລັງກວດສອບ...';
+  }
 
-  goToStep(4);
+  try {
+    const formData = new FormData();
+    formData.append('slip', fileInput.files[0]);
+    formData.append('product_id', currentProduct.id);
+    formData.append('quantity', currentQty);
+
+    const res = await fetch('/api/orders/verify-slip', {
+      method: 'POST',
+      body: formData
+    });
+    const data = await res.json();
+
+    if (!data.valid) {
+      alert(data.reason || 'ຮູບທີ່ອັບໂຫລດບໍ່ຖືກຕ້ອງ ກະລຸນາກວດສອບແລ້ວລອງໃໝ່');
+      return;
+    }
+
+    // ສະແດງຂໍ້ມູນສະຫຼຸບໃນຂັ້ນ 4
+    document.getElementById('final-name').textContent = currentProduct.name;
+    document.getElementById('final-qty').textContent = currentQty;
+    document.getElementById('final-total').textContent = (currentProduct.price * currentQty) + ' ກີບ';
+    document.getElementById('final-phone').textContent = document.getElementById('customer-phone').value;
+    document.getElementById('final-address').textContent = document.getElementById('customer-address').value;
+
+    goToStep(4);
+  } catch (err) {
+    alert('ກວດສອບຮູບບໍ່ໄດ້ ກະລຸນາລອງໃໝ່');
+  } finally {
+    if (nextBtn) {
+      nextBtn.disabled = false;
+      nextBtn.textContent = 'ຕໍ່ໄປ';
+    }
+  }
 }
 
 async function submitOrder() {

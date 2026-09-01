@@ -3,6 +3,8 @@ const router = express.Router();
 const db = require('../db');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
+const Tesseract = require('tesseract.js');
 const requireAuth = require('../middleware/requireAuth');
 
 const storage = multer.diskStorage({
@@ -14,8 +16,88 @@ const storage = multer.diskStorage({
     cb(null, uniqueName);
   }
 });
-
 const upload = multer({ storage: storage });
+const uploadMemory = multer({ storage: multer.memoryStorage() });
+
+const SLIP_KEYWORDS = [
+  'ໂອນ', 'ສຳເລັດ', 'LAPNET', 'LAO QR', 'BCEL', 'ATM',
+  'TRANSFER', 'AMOUNT', 'ກີບ', 'KIP', 'SUCCESS'
+];
+
+// ດຶງທຸກຕົວເລກທີ່ໜ້າຈະແມ່ນຈຳນວນເງິນ (ເຊັ່ນ 459,000 ຫຼື 459000)
+function extractAmounts(text) {
+  const matches = text.match(/\d[\d,.\s]{2,}\d/g) || [];
+  return matches
+    .map(m => parseInt(m.replace(/[,.\s]/g, ''), 10))
+    .filter(n => !isNaN(n) && n >= 1000); // ຕັດຕົວເລກນ້ອຍໆທີ່ບໍ່ໜ້າແມ່ນຍອດເງິນອອກ
+}
+
+// ດຶງວັນທີ ຮູບແບບ dd/mm/yyyy ຫຼື dd-mm-yyyy
+function extractDates(text) {
+  const matches = text.match(/\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}/g) || [];
+  return matches;
+}
+
+function isSameDate(dateStr, now) {
+  const parts = dateStr.split(/[\/\-]/).map(p => parseInt(p, 10));
+  if (parts.length !== 3) return false;
+  let [d, m, y] = parts;
+  if (y < 100) y += 2000;
+  return d === now.getDate() && m === (now.getMonth() + 1) && y === now.getFullYear();
+}
+// ດຶງເລກທີ່ຣາຍການ/ເລກອ້າງອີງຈາກສະລິບ (ໃຊ້ກັນການໃຊ້ສະລິບຊ້ຳ)
+function extractBillNumber(text) {
+  const labeled = text.match(/(?:REF|REFERENCE|TRANS(?:ACTION)?|TXN|ID)[\s:.\-]*([A-Z0-9]{6,25})/);
+  if (labeled) return labeled[1];
+
+  const digitRuns = text.match(/\d{8,20}/g);
+  if (digitRuns && digitRuns.length > 0) {
+    return digitRuns.reduce((a, b) => (b.length > a.length ? b : a));
+  }
+
+  return null;
+}
+// ກວດສອບສະລິບ: ຕ້ອງມີຄຳທີ່ໜ້າແມ່ນສະລິບ + ຍອດເງິນຕ້ອງກົງກັບ expectedAmount
+async function checkSlip(buffer, expectedAmount) {
+  try {
+    const { data } = await Tesseract.recognize(buffer, 'eng');
+    const text = (data.text || '').toUpperCase();
+
+    if (text.trim().length < 5) {
+      return { valid: false, reason: 'ອ່ານຂໍ້ມູນຈາກຮູບບໍ່ໄດ້ ກະລຸນາອັບໂຫລດຮູບທີ່ຊັດເຈນກວ່ານີ້' };
+    }
+
+    const hasKeyword = SLIP_KEYWORDS.some(k => text.includes(k));
+    if (!hasKeyword) {
+      return { valid: false, reason: 'ຮູບທີ່ອັບໂຫລດບໍ່ແມ່ນສະລິບໂອນເງິນ' };
+    }
+
+    const amounts = extractAmounts(text);
+    const amountMatch = amounts.some(a => Math.abs(a - expectedAmount) <= 1); // ຍອມຮັບຄາດເຄື່ອນ 1 ກີບ (ຈາກການອ່ານ OCR)
+    if (!amountMatch) {
+      return {
+        valid: false,
+        reason: `ຍອດເງິນໃນສະລິບບໍ່ຕົງກັບຍອດທີ່ຕ້ອງຈ່າຍ (${expectedAmount} ກີບ) ກະລຸນາກວດສອບ`
+      };
+    }
+
+    const dates = extractDates(text);
+    if (dates.length > 0) {
+      const now = new Date();
+      const dateOk = dates.some(d => isSameDate(d, now));
+      if (!dateOk) {
+        return { valid: false, reason: 'ວັນທີ່ໃນສະລິບບໍ່ແມ່ນມື້ນີ້ ກະລຸນາໂອນເງິນແລ້ວອັບໂຫລດສະລິບໃໝ່' };
+      }
+    }
+    // ຖ້າອ່ານວັນທີ່ບໍ່ໄດ້ (dates.length === 0) ຈະບໍ່ບັງຄັບເຊັກ ເພາະ OCR ອາດອ່ານພາສາລາວ/ຮູບແບບອື່ນບໍ່ໄດ້
+
+    const billNumber = extractBillNumber(text);
+    return { valid: true, billNumber };
+  } catch (err) {
+    console.error('OCR error:', err);
+    return { valid: false, reason: 'ກວດສອບຮູບບໍ່ໄດ້ ກະລຸນາລອງໃໝ່' };
+  }
+}
 
 // ດຶງລາຍການອໍເດີທັງໝົດ (ແອັດມິນເທົ່ານັ້ນ)
 router.get('/', requireAuth, (req, res) => {
@@ -28,8 +110,36 @@ router.get('/', requireAuth, (req, res) => {
   res.json(orders);
 });
 
-// ລູກຄ້າສັ່ງຊື້ — ຮັບຂໍ້ມູນລູກຄ້າ + ຮູບສະລິບໄປພ້ອມ (ໃຊ້ FormData ບໍ່ໃຊ້ JSON ອີກຕໍ່ໄປ)
-router.post('/', upload.single('slip'), (req, res) => {
+// ✅ ກວດສອບສະລິບກ່ອນ (ໃຊ້ຕອນຈາກ step 3 ໄປ step 4) — ບໍ່ບັນທຶກຫຍັງລົງ DB/disk
+router.post('/verify-slip', uploadMemory.single('slip'), async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ valid: false, reason: 'ບໍ່ພົບຮູບ' });
+  }
+
+  const { product_id, quantity } = req.body;
+  const product = db.prepare('SELECT * FROM products WHERE id = ?').get(product_id);
+  if (!product) {
+    return res.status(404).json({ valid: false, reason: 'ບໍ່ພົບສິນຄ້ານີ້' });
+  }
+
+  const expectedAmount = product.price * parseInt(quantity, 10);
+  const result = await checkSlip(req.file.buffer, expectedAmount);
+  if (!result.valid) {
+    return res.json(result);
+  }
+
+  if (result.billNumber) {
+    const dup = db.prepare('SELECT id FROM orders WHERE bill_number = ?').get(result.billNumber);
+    if (dup) {
+      return res.json({ valid: false, reason: 'ສະລິບນີ້ຖືກໃຊ້ໄປແລ້ວ ກະລຸນາອັບໂຫລດສະລິບໃໝ່' });
+    }
+  }
+
+  res.json(result);
+});
+
+// ລູກຄ້າສັ່ງຊື້ — ຮັບຂໍ້ມູນລູກຄ້າ + ຮູບສະລິບໄປພ້ອມ
+router.post('/', upload.single('slip'), async (req, res) => {
   const { product_id, quantity, customer_phone, customer_address } = req.body;
 
   const product = db.prepare('SELECT * FROM products WHERE id = ?').get(product_id);
@@ -46,17 +156,35 @@ router.post('/', upload.single('slip'), (req, res) => {
     return res.status(400).json({ error: 'ກະລຸນາອັບໂຫລດຮູບສະລິບໂອນເງິນ' });
   }
 
+  const expectedAmount = product.price * parseInt(quantity, 10);
+  const filePath = path.join(__dirname, '../../public/uploads', req.file.filename);
+  const buffer = fs.readFileSync(filePath);
+  const result = await checkSlip(buffer, expectedAmount);
+
+  if (!result.valid) {
+    fs.unlinkSync(filePath);
+    return res.status(400).json({ error: result.reason || 'ສະລິບບໍ່ຖືກຕ້ອງ' });
+  }
+  
+  if (result.billNumber) {
+    const dup = db.prepare('SELECT id FROM orders WHERE bill_number = ?').get(result.billNumber);
+    if (dup) {
+      fs.unlinkSync(filePath);
+      return res.status(400).json({ error: 'ສະລິບນີ້ຖືກໃຊ້ໄປແລ້ວ ກະລຸນາອັບໂຫລດສະລິບໃໝ່' });
+    }
+  }
+
   const slipImage = '/uploads/' + req.file.filename;
 
   const stmt = db.prepare(`
-    INSERT INTO orders (product_id, quantity, customer_phone, customer_address, slip_image)
-    VALUES (?, ?, ?, ?, ?)
-  `);
-  const result = stmt.run(product_id, quantity, customer_phone, customer_address, slipImage);
+  INSERT INTO orders (product_id, quantity, customer_phone, customer_address, slip_image, bill_number)
+  VALUES (?, ?, ?, ?, ?, ?)
+`);
+const insertResult = stmt.run(product_id, quantity, customer_phone, customer_address, slipImage, result.billNumber || null);
 
   db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?').run(quantity, product_id);
 
-  res.json({ id: result.lastInsertRowid, message: 'ສັ່ງຊື້ສຳເລັດ' });
+  res.json({ id: insertResult.lastInsertRowid, message: 'ສັ່ງຊື້ສຳເລັດ' });
 });
 
 // ປ່ຽນສະຖານະອໍເດີ (ແອັດມິນເທົ່ານັ້ນ)

@@ -6,6 +6,9 @@ const productsRouter = require('./routes/products');
 const ordersRouter = require('./routes/orders');
 const qrcodeRouter = require('./routes/qrcode');
 const authRouter = require('./routes/auth');
+const customerAuthRouter = require('./routes/customerAuth');
+const customerOrdersRouter = require('./routes/customerOrders');
+const messagesRouter = require('./routes/messages');
 const requireAuth = require('./middleware/requireAuth');
 
 const app = express();
@@ -14,7 +17,6 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 app.use(cookieParser());
-const path = require('path');
 
 app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/admin/index.html'));
@@ -25,12 +27,14 @@ app.get('/menu', (req, res) => {
 });
 
 app.use(express.static(path.join(__dirname, '../public')));
-app.use(express.static(path.join(__dirname, '../public')));
 
 const settingsRouter = require('./routes/settings');
 // ...
 app.use('/api/settings', settingsRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/customer-auth', customerAuthRouter);
+app.use('/api/customer', customerOrdersRouter);
+app.use('/api/messages', messagesRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/qrcode', qrcodeRouter);
