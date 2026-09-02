@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 const Tesseract = require('tesseract.js');
 const requireAuth = require('../middleware/requireAuth');
+const sharp = require('sharp');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -21,15 +22,20 @@ const uploadMemory = multer({ storage: multer.memoryStorage() });
 
 const SLIP_KEYWORDS = [
   'ໂອນ', 'ສຳເລັດ', 'LAPNET', 'LAO QR', 'BCEL', 'ATM',
-  'TRANSFER', 'AMOUNT', 'ກີບ', 'KIP', 'SUCCESS'
+  'TRANSFER', 'AMOUNT', 'ກີບ', 'KIP', 'SUCCESS', 'LAK'
 ];
 
 // ດຶງທຸກຕົວເລກທີ່ໜ້າຈະແມ່ນຈຳນວນເງິນ (ເຊັ່ນ 459,000 ຫຼື 459000)
 function extractAmounts(text) {
   const matches = text.match(/\d[\d,.\s]{2,}\d/g) || [];
   return matches
-    .map(m => parseInt(m.replace(/[,.\s]/g, ''), 10))
-    .filter(n => !isNaN(n) && n >= 1000); // ຕັດຕົວເລກນ້ອຍໆທີ່ບໍ່ໜ້າແມ່ນຍອດເງິນອອກ
+    .map(m => {
+      // ຕັດເອົາທົດສະນິຍົມ 2 ໂຕເລກທ້າຍສຸດອອກກ່ອນ (ເຊັ່ນ 99,000.00 → 99,000)
+      // ຖ້າມີ . ຕາມດ້ວຍໂຕເລກ 1-2 ໂຕແລ້ວຈບ string ໃຫ້ຕັດສ່ວນນັ້ນອອກ
+      const withoutDecimal = m.replace(/\.\d{1,2}$/, '');
+      return parseInt(withoutDecimal.replace(/[,\s]/g, ''), 10);
+    })
+    .filter(n => !isNaN(n) && n >= 1000);
 }
 
 // ດຶງວັນທີ ຮູບແບບ dd/mm/yyyy ຫຼື dd-mm-yyyy
@@ -47,7 +53,7 @@ function isSameDate(dateStr, now) {
 }
 // ດຶງເລກທີ່ຣາຍການ/ເລກອ້າງອີງຈາກສະລິບ (ໃຊ້ກັນການໃຊ້ສະລິບຊ້ຳ)
 function extractBillNumber(text) {
-  const labeled = text.match(/(?:REF|REFERENCE|TRANS(?:ACTION)?|TXN|ID)[\s:.\-]*([A-Z0-9]{6,25})/);
+ const labeled = text.match(/\b(?:REF|REFERENCE|TRANS(?:ACTION)?|TXN|ID)\b[\s:.\-]*([A-Z0-9]{6,25})/);
   if (labeled) return labeled[1];
 
   const digitRuns = text.match(/\d{8,20}/g);
@@ -60,8 +66,14 @@ function extractBillNumber(text) {
 // ກວດສອບສະລິບ: ຕ້ອງມີຄຳທີ່ໜ້າແມ່ນສະລິບ + ຍອດເງິນຕ້ອງກົງກັບ expectedAmount
 async function checkSlip(buffer, expectedAmount) {
   try {
-    const { data } = await Tesseract.recognize(buffer, 'eng');
-    const text = (data.text || '').toUpperCase();
+   const processedBuffer = await sharp(buffer)
+  .grayscale()
+  .normalize()
+  .resize({ width: 1200, withoutEnlargement: false })
+  .toBuffer();
+const { data } = await Tesseract.recognize(processedBuffer, 'lao+eng');
+const text = (data.text || '').toUpperCase();
+console.log('=== OCR TEXT ===', text);
 
     if (text.trim().length < 5) {
       return { valid: false, reason: 'ອ່ານຂໍ້ມູນຈາກຮູບບໍ່ໄດ້ ກະລຸນາອັບໂຫລດຮູບທີ່ຊັດເຈນກວ່ານີ້' };
@@ -72,8 +84,9 @@ async function checkSlip(buffer, expectedAmount) {
       return { valid: false, reason: 'ຮູບທີ່ອັບໂຫລດບໍ່ແມ່ນສະລິບໂອນເງິນ' };
     }
 
-    const amounts = extractAmounts(text);
-    const amountMatch = amounts.some(a => Math.abs(a - expectedAmount) <= 1); // ຍອມຮັບຄາດເຄື່ອນ 1 ກີບ (ຈາກການອ່ານ OCR)
+   const amounts = extractAmounts(text);
+console.log('=== AMOUNTS FOUND ===', amounts, '| EXPECTED:', expectedAmount);
+const amountMatch = amounts.some(a => Math.abs(a - expectedAmount) <= 1); // ຍອມຮັບຄາດເຄື່ອນ 1 ກີບ (ຈາກການອ່ານ OCR)
     if (!amountMatch) {
       return {
         valid: false,

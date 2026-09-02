@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ເຂົ້າສູ່ລະບົບ - POLO SHOP</title>
+<style>
+  :root {
+    --gold: #C9A227;
+    --black: #1a1a1a;
+    --ivory: #FFFFF0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--black);
+    color: var(--ivory);
+    font-family: 'Noto Sans Lao', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .auth-modal {
+    background: #242424;
+    border: 1px solid var(--gold);
+    border-radius: 14px;
+    padding: 28px;
+    width: 340px;
+    max-width: 100%;
+  }
+  .auth-modal h1 {
+    text-align: center;
+    color: var(--gold);
+    font-size: 1.3rem;
+    margin: 0 0 4px;
+  }
+  .auth-modal p.sub {
+    text-align: center;
+    color: #999;
+    font-size: 0.8rem;
+    margin: 0 0 20px;
+  }
+  .auth-tabs {
+    display: flex;
+    margin-bottom: 18px;
+    border-bottom: 1px solid #333;
+  }
+  .auth-tab {
+    flex: 1;
+    background: none;
+    border: none;
+    color: #999;
+    padding: 10px;
+    cursor: pointer;
+    font-size: 0.95rem;
+  }
+  .auth-tab.active { color: var(--gold); border-bottom: 2px solid var(--gold); font-weight: bold; }
+  .auth-form input {
+    width: 100%;
+    padding: 11px;
+    margin-bottom: 12px;
+    border-radius: 6px;
+    border: 1px solid #555;
+    background: #333;
+    color: var(--ivory);
+    font-size: 0.9rem;
+  }
+  .auth-submit {
+    width: 100%;
+    padding: 11px;
+    background: var(--gold);
+    color: var(--black);
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 0.95rem;
+  }
+  .auth-error { color: #ff6b6b; text-align: center; margin-top: 10px; min-height: 18px; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+  <div class="auth-modal">
+    <h1>POLO SHOP</h1>
+    <p class="sub">ກະລຸນາເຂົ້າສູ່ລະບົບເພື່ອເຂົ້າໜ້າຮ້ານ</p>
+
+    <div class="auth-tabs">
+      <button id="tabLogin" class="auth-tab active" onclick="switchTab('login')">ເຂົ້າສູ່ລະບົບ</button>
+      <button id="tabRegister" class="auth-tab" onclick="switchTab('register')">ສະໝັກສະມາຊິກ</button>
+    </div>
+
+    <div id="loginForm" class="auth-form">
+      <input type="tel" id="loginPhone" placeholder="ເບີໂທລະສັບ">
+      <input type="password" id="loginPin" placeholder="ລະຫັດ PIN">
+      <button class="auth-submit" onclick="submitLogin()">ເຂົ້າສູ່ລະບົບ</button>
+    </div>
+
+    <div id="registerForm" class="auth-form" style="display:none;">
+      <input type="text" id="regName" placeholder="ຊື່ (ບໍ່ບັງຄັບ)">
+      <input type="tel" id="regPhone" placeholder="ເບີໂທລະສັບ">
+      <input type="password" id="regPin" placeholder="ຕັ້ງລະຫັດ PIN (4-6 ໂຕເລກ)">
+      <button class="auth-submit" onclick="submitRegister()">ສະໝັກສະມາຊິກ</button>
+    </div>
+
+    <div id="authError" class="auth-error"></div>
+  </div>
+
+<script>
+// ຖ້າ login ຢູ່ແລ້ວ ບໍ່ຕ້ອງເຫັນໜ້ານີ້ ໃຫ້ໄປໜ້າຮ້ານເລີຍ
+(async function checkAlreadyLoggedIn() {
+  try {
+    const res = await fetch('/api/customer-auth/me', { credentials: 'include' });
+    if (res.ok) {
+      window.location.href = 'index.html';
+    }
+  } catch (err) {}
+})();
+
+function switchTab(tab) {
+  const isLogin = tab === 'login';
+  document.getElementById('tabLogin').classList.toggle('active', isLogin);
+  document.getElementById('tabRegister').classList.toggle('active', !isLogin);
+  document.getElementById('loginForm').style.display = isLogin ? 'block' : 'none';
+  document.getElementById('registerForm').style.display = isLogin ? 'none' : 'block';
+  document.getElementById('authError').textContent = '';
+}
+
+async function submitLogin() {
+  const phone = document.getElementById('loginPhone').value.trim();
+  const pin = document.getElementById('loginPin').value.trim();
+  const errBox = document.getElementById('authError');
+  errBox.textContent = '';
+
+  if (!phone || !pin) {
+    errBox.textContent = 'ກະລຸນາປ້ອນເບີໂທ ແລະ PIN';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/customer-auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ phone, pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      window.location.href = 'index.html';
+    } else {
+      errBox.textContent = data.error || 'ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ';
+    }
+  } catch (err) {
+    errBox.textContent = 'ເກີດຂໍ້ຜິດພາດ, ລອງໃໝ່ພາຍຫຼັງ';
+  }
+}
+
+async function submitRegister() {
+  const name = document.getElementById('regName').value.trim();
+  const phone = document.getElementById('regPhone').value.trim();
+  const pin = document.getElementById('regPin').value.trim();
+  const errBox = document.getElementById('authError');
+  errBox.textContent = '';
+
+  if (!phone || !pin) {
+    errBox.textContent = 'ກະລຸນາປ້ອນເບີໂທ ແລະ PIN';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/customer-auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ phone, pin, name })
+    });
+    const data = await res.json();
+    if (data.success) {
+      window.location.href = 'index.html';
+    } else {
+      errBox.textContent = data.error || 'ສະໝັກສະມາຊິກບໍ່ສຳເລັດ';
+    }
+  } catch (err) {
+    errBox.textContent = 'ເກີດຂໍ້ຜິດພາດ, ລອງໃໝ່ພາຍຫຼັງ';
+  }
+}
+</script>
+
+</body>
+</html>

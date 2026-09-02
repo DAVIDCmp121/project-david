@@ -1,22 +1,80 @@
 <!DOCTYPE html>
 <html lang="lo">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>POLO SHOP</title>
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POLO SHOP</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  :root { --gold: #C9A227; --black: #1a1a1a; --ivory: #FFFFF0; }
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .header-title { text-align: left; }
+  .account-menu { position: relative; }
+  .account-btn {
+    background: var(--gold);
+    color: var(--black);
+    border: none;
+    padding: 8px 14px;
+    border-radius: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .account-dropdown {
+    position: absolute;
+    top: 110%;
+    right: 0;
+    background: #242424;
+    border: 1px solid var(--gold);
+    border-radius: 10px;
+    min-width: 190px;
+    padding: 8px 0;
+    z-index: 50;
+  }
+  .account-dropdown-name {
+    padding: 8px 14px;
+    color: var(--gold);
+    font-weight: bold;
+    border-bottom: 1px solid #333;
+    margin-bottom: 4px;
+  }
+  .account-dropdown a, .account-dropdown button {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 14px;
+    color: var(--ivory);
+    background: none;
+    border: none;
+    text-decoration: none;
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+  .account-dropdown a:hover, .account-dropdown button:hover { background: #333; }
+</style>
 </head>
 <body>
   <header>
-    <h1>POLO SHOP</h1>
-    <p>ເລືອກຊື້ເສື້ອຜ້າສະໄຕລ໌ທັນສະໄໝ ຄຸນນະພາບດີ</p>
+    <div class="header-top">
+      <div class="header-title">
+        <h1>POLO SHOP</h1>
+        <p>ເລືອກຊື້ເສື້ອຜ້າສະໄຕລ໌ທັນສະໄໝ ຄຸນະພາບດີ</p>
+      </div>
+      <div id="accountArea"></div>
+    </div>
   </header>
 
   <main id="product-list">
     <p>ກຳລັງໂຫລດ...</p>
   </main>
 
-
   <script src="script.js"></script>
+  <script src="account.js"></script>
 </body>
 </html>

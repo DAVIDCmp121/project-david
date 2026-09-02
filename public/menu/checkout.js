@@ -134,12 +134,17 @@ async function submitOrder() {
   confirmBtn.disabled = true;
   confirmBtn.textContent = 'ກລັງສົ່ງ...';
 
+  const phone = document.getElementById('customer-phone').value;
+  const address = document.getElementById('customer-address').value;
+  const total = currentProduct.price * currentQty;
+  const slipFile = document.getElementById('slip-file').files[0];
+
   const formData = new FormData();
   formData.append('product_id', currentProduct.id);
   formData.append('quantity', currentQty);
-  formData.append('customer_phone', document.getElementById('customer-phone').value);
-  formData.append('customer_address', document.getElementById('customer-address').value);
-  formData.append('slip', document.getElementById('slip-file').files[0]);
+  formData.append('customer_phone', phone);
+  formData.append('customer_address', address);
+  formData.append('slip', slipFile);
 
   try {
     const res = await fetch('/api/orders', {
@@ -151,11 +156,40 @@ async function submitOrder() {
 
     if (res.ok) {
       sessionStorage.removeItem('checkoutProduct');
-      window.location.href = 'thankyou.html';
+
+      // ສົ່ງລາຍລະອຽດອໍເດີ + ຮູບສະລິບ ເຂົ້າແຊັດຫາແອດມິນ
+      const orderMessage =
+        `ສັ່ງຊື້ໃໝ່:\n` +
+        `ສິນຄ້າ: ${currentProduct.name}\n` +
+        `ຈຳນວນ: ${currentQty}\n` +
+        `ລວມ: ${total} ກີບ\n` +
+        `ທີ່ຢູ່ຈັດສົ່ງ: ${address}`;
+
+      try {
+        await fetch('/api/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ message_text: orderMessage })
+        });
+
+        // ສົ່ງຮູບສະລິບຕາມໄປອີກຂໍ້ຄວາມໜຶ່ງ ໃຫ້ຮານກວດສອບ
+        const slipFormData = new FormData();
+        slipFormData.append('image', slipFile);
+        await fetch('/api/messages/upload', {
+          method: 'POST',
+          credentials: 'include',
+          body: slipFormData
+        });
+      } catch (msgErr) {
+        console.error('ສົ່ງຂໍ້ຄວາມ/ຮູບເຂົ້າແຊັດບໍ່ສຳເລັດ:', msgErr);
+      }
+
+      window.location.href = 'chat.html';
     } else {
       alert('ເກີດຂໍ້ຜິດພາດ: ' + data.error);
       confirmBtn.disabled = false;
-      confirmBtn.textContent = 'ຢືນຢັນການສັ່ງຊື້';
+      confirmBtn.textContent = 'ຢນຢັນການສັ່ງຊື້';
     }
   } catch (err) {
     alert('ເຊື່ອມຕໍ່ບໍ່ໄດ້ ກະລຸນາລອງໃໝ່');

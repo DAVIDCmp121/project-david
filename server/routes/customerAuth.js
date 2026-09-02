@@ -82,5 +82,15 @@ router.post('/logout', (req, res) => {
   res.clearCookie('customer_token');
   res.json({ success: true });
 });
+const requireCustomerAuth = require('../middleware/requireCustomerAuth');
+// ↑ เพิ่มบรรทัดนี้ไว้กับ require อื่นๆ ด้านบนไฟล์ (ใต้บรรทัด const JWT_SECRET = ...)
 
+// ດຶງຂໍ້ມູນລູກຄ້າທີ່ login ຢູ່ປັດຈຸບັນ (ໃຊ້ເຊັກສະຖານະຕອນໂຫລດໜ້າ)
+router.get('/me', requireCustomerAuth, (req, res) => {
+  const customer = db.prepare('SELECT id, phone, name FROM customers WHERE id = ?').get(req.customerId);
+  if (!customer) {
+    return res.status(404).json({ error: 'ບໍ່ພົບຂໍ້ມູນລູກຄ້າ' });
+  }
+  res.json({ customerId: customer.id, phone: customer.phone, name: customer.name });
+});
 module.exports = router;
