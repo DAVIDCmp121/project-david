@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+<meta charset="UTF-8">
+<title>ລາຍຊື່ລູກຄ້າ</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  :root { --gray-bg: #f4f6f8; --gray-border: #dfe3e8; --blue: #2563eb; }
+  .cust-wrap { max-width: 900px; margin: 20px auto; padding: 0 16px; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--gray-border); font-size: 0.9rem; }
+  th { background: var(--gray-bg); }
+  .reset-btn { background: var(--blue); color: #fff; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; }
+  #summary { color: #6b7280; margin-bottom: 12px; font-size: 0.9rem; }
+</style>
+</head>
+<body>
+
+<script src="/admin/auth-guard.js"></script>
+<header>
+  <h1>ລາຍຊື່ລູກຄ້າ</h1>
+  <nav>
+    <a href="/admin/index.html">ສິນຄ້າ</a>
+    <a href="/admin/orders.html">ຄຳສັ່ງຊື້</a>
+    <a href="/admin/qrcode.html">QR Code</a>
+    <a href="/admin/chat.html">ແຊັດ</a>
+    <a href="/admin/customers.html" class="active">ລູກຄ້າ</a>
+    <a href="/admin/staff.html" data-admin-only>ພະນັກງານ</a>
+  </nav>
+</header>
+
+<main class="cust-wrap">
+  <div id="summary"></div>
+  <table>
+    <thead>
+      <tr><th>ຊື່</th><th>ເບີໂທ</th><th>ຈຳນວນອໍເດີ</th><th>ສະໝັກເມື່ອ</th><th></th></tr>
+    </thead>
+    <tbody id="custTableBody"></tbody>
+  </table>
+</main>
+
+<script>
+async function loadCustomers() {
+  try {
+    const res = await fetch('/api/customers', { credentials: 'include' });
+    const data = await res.json();
+    renderCustomers(data.customers || []);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function renderCustomers(customers) {
+  document.getElementById('summary').textContent = `ລູກຄ້າສະໝັກແລ້ວທັງໝົດ: ${customers.length} ຄົນ`;
+
+  const tbody = document.getElementById('custTableBody');
+  tbody.innerHTML = '';
+  customers.forEach(c => {
+    const dateStr = new Date(c.created_at).toLocaleDateString('lo-LA');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(c.name || '-')}</td>
+      <td>${escapeHtml(c.phone)}</td>
+      <td>${c.order_count}</td>
+      <td>${dateStr}</td>
+      <td><button class="reset-btn" onclick="resetPin(${c.id}, '${escapeHtml(c.phone)}')">ຣີເຊັດ PIN</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function resetPin(id, phone) {
+  if (!confirm(`ຢືນຢັນຣີເຊັດ PIN ຂອງເບີ ${phone}?`)) return;
+  try {
+    const res = await fetch(`/api/customers/${id}/reset-pin`, { method: 'POST', credentials: 'include' });
+    const data = await res.json();
+    if (data.success) {
+      alert(`PIN ໃໝ່ຂອງລູກຄ້າ ${phone} ຄື: ${data.newPin}\n\nກະລຸນາບອກລູກຄ້າຜ່ານແຊັດ/ໂທລະສັບ`);
+    } else {
+      alert(data.error || 'ຣີເຊັດບໍ່ສຳເລັດ');
+    }
+  } catch (err) {
+    alert('ເກີດຂໍ້ຜິດພາດ');
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+loadCustomers();
+</script>
+
+</body>
+</html>

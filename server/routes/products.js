@@ -3,15 +3,15 @@ const router = express.Router();
 const db = require('../db');
 const multer = require('multer');
 const path = require('path');
-const requireAuth = require('../middleware/requireAuth');   // ➕ เพิ่มบรรทัดนี้
+const requireAuth = require('../middleware/requireAuth');
+const requireAdminRole = require('../middleware/requireAdminRole');   // ➕ เพิ่มบรรทัดนี้
 
-// ตั้งค่າ multer ให้เก็บไฟล์ที่ public/uploads
+// ตั้งค่า multer ให้เก็บไฟล์ที่ public/uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, path.join(__dirname, '../../public/uploads'));
   },
   filename: (req, file, cb) => {
-    // ตั้งชื่อไฟล์ใหม่ ป้องกันชื่อซ (ใช้เวลาปัจจุบัน + นามสกุลไฟล์เดิม)
     const uniqueName = Date.now() + path.extname(file.originalname);
     cb(null, uniqueName);
   }
@@ -19,14 +19,14 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-// ดึงสินค้าทั้งหมด
+// ดึงสินค้าทั้งหมด (ทุกคนดูได้ ไม่ต้อง login)
 router.get('/', (req, res) => {
   const products = db.prepare('SELECT * FROM products').all();
   res.json(products);
 });
 
-// เพิ่มสินค้าใหม่ (รับไฟล์รูปภาพด้วย)
-router.post('/', upload.single('image'), (req, res) => {
+// ເພີ່ມສິນຄ້າໃໝ່ — ต้อง login และตองเป็น role='admin' เท่านั้น
+router.post('/', requireAuth, requireAdminRole, upload.single('image'), (req, res) => {
   const { name, price, size, color, stock } = req.body;
   const image = req.file ? '/uploads/' + req.file.filename : '';
 
@@ -37,16 +37,14 @@ router.post('/', upload.single('image'), (req, res) => {
   res.json({ id: result.lastInsertRowid });
 });
 
-// ລົບສິນຄ້າ (ຕ້ອງ login ກ່ອນ) — ລົບອໍເດີເກົ່າທີ່ຜູກກັບສິນຄ້ານີ້ນຳ
-router.delete('/:id', requireAuth, (req, res) => {
+// ລົບສິນຄ້າ — ต้อง login และต้องเป็น role='admin' เท่านั้น (staff ทำไม่ได้)
+router.delete('/:id', requireAuth, requireAdminRole, (req, res) => {
   const productId = req.params.id;
 
-  // ລບອໍເດີທີ່ອ້າງອິງເຖິງສິນຄ້ານີ້ກ່ອນ (ບໍ່ຢາງນັ້ນຈະຕິດ FOREIGN KEY)
   db.prepare('DELETE FROM orders WHERE product_id = ?').run(productId);
-
-  // ຈາກນັ້ນຄ່ອຍລົບສິນຄ້າ
   db.prepare('DELETE FROM products WHERE id = ?').run(productId);
 
   res.json({ success: true });
 });
+
 module.exports = router;

@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+<meta charset="UTF-8">
+<title>ຈັດການພະນັກງານ</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  :root { --navy: #1e3a5f; --blue: #2563eb; --gray-bg: #f4f6f8; --gray-border: #dfe3e8; }
+  .staff-wrap { max-width: 700px; margin: 20px auto; padding: 0 16px; }
+  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  th, td { padding: 12px; text-align: left; border-bottom: 1px solid var(--gray-border); font-size: 0.9rem; }
+  th { background: var(--gray-bg); }
+  .role-badge { padding: 3px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; }
+  .role-admin { background: #fef3c7; color: #92400e; }
+  .role-staff { background: #dbeafe; color: #1e40af; }
+  .del-btn { background: #dc2626; color: #fff; border: none; padding: 5px 12px; border-radius: 6px; cursor: pointer; font-size: 0.8rem; }
+  .add-form { background: #fff; padding: 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+  .add-form input { width: 100%; padding: 9px; margin-bottom: 10px; border-radius: 6px; border: 1px solid var(--gray-border); box-sizing: border-box; }
+  .add-form button { background: var(--blue); color: #fff; border: none; padding: 9px 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+  #formError { color: #dc2626; font-size: 0.85rem; min-height: 18px; }
+</style>
+</head>
+<body>
+
+<script src="/admin/auth-guard.js"></script>
+<header>
+  <h1>ຈັດການພະນັກງານ</h1>
+  <nav>
+    <a href="/admin/index.html">ສິນຄ້າ</a>
+    <a href="/admin/orders.html">ຄຳສັ່ງຊື້</a>
+    <a href="/admin/qrcode.html">QR Code</a>
+    <a href="/admin/chat.html">ແຊັດ</a>
+    <a href="/admin/customers.html">ລູກຄ້າ</a>
+    <a href="/admin/staff.html" class="active">ພະນັກງານ</a>
+  </nav>
+</header>
+
+<main class="staff-wrap">
+  <div class="add-form">
+    <h3>ເພີ່ມພະນັກງານໃໝ່</h3>
+    <input type="text" id="newName" placeholder="ຊື່ພະນັກງານ">
+    <input type="text" id="newUsername" placeholder="ຊື່ຜູ້ໃຊ້ (ໃຊ້ login)">
+    <input type="password" id="newPassword" placeholder="ລະຫັດຜ່ານ">
+    <div id="formError"></div>
+    <button onclick="addStaff()">ເພີ່ມພະນັກງານ</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr><th>ຊື່</th><th>ຊື່ຜູ້ໃຊ້</th><th>ສິດ</th><th></th></tr>
+    </thead>
+    <tbody id="staffTableBody"></tbody>
+  </table>
+</main>
+
+<script>
+// ຖ້າບໍ່ແມ່ນ admin ໃຫ້ເດັ້ງອອກ (ໜ້ານີ້ສະເພາະ admin ເທົ່ານັ້ນ) — ລໍ auth-guard.js ໂຫລດແລ້ວກຳນົດ role ກ່ອນ
+function guardAdminOnly() {
+  if (typeof window.currentAdminRole === 'undefined') {
+    setTimeout(guardAdminOnly, 100);
+    return;
+  }
+  if (window.currentAdminRole !== 'admin') {
+    alert('ໜ້ານີ້ສະເພາະແອດມິນເທົ່ານັນ');
+    window.location.href = '/admin/index.html';
+    return;
+  }
+  loadStaffList();
+}
+guardAdminOnly();
+
+async function loadStaffList() {
+  try {
+    const res = await fetch('/api/staff', { credentials: 'include' });
+    const data = await res.json();
+    renderStaffList(data.staff || []);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function renderStaffList(staff) {
+  const tbody = document.getElementById('staffTableBody');
+  tbody.innerHTML = '';
+  staff.forEach(s => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${escapeHtml(s.name)}</td>
+      <td>${escapeHtml(s.username)}</td>
+      <td><span class="role-badge role-${s.role}">${s.role === 'admin' ? 'ແອດມິນ' : 'ພະນັກງານ'}</span></td>
+      <td>${s.role === 'staff' ? `<button class="del-btn" onclick="deleteStaff(${s.id}, '${escapeHtml(s.name)}')">ລຶບ</button>` : ''}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+async function addStaff() {
+  const name = document.getElementById('newName').value.trim();
+  const username = document.getElementById('newUsername').value.trim();
+  const password = document.getElementById('newPassword').value.trim();
+  const errBox = document.getElementById('formError');
+  errBox.textContent = '';
+
+  if (!name || !username || !password) {
+    errBox.textContent = 'ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບ';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/staff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ name, username, password })
+    });
+    const data = await res.json();
+    if (data.success) {
+      document.getElementById('newName').value = '';
+      document.getElementById('newUsername').value = '';
+      document.getElementById('newPassword').value = '';
+      loadStaffList();
+    } else {
+      errBox.textContent = data.error || 'ເພມພະນັກງານບໍ່ສຳເລັດ';
+    }
+  } catch (err) {
+    errBox.textContent = 'ເກີດຂໍ້ຜິດພາດ';
+  }
+}
+
+async function deleteStaff(id, name) {
+  if (!confirm(`ຢນຢັນລຶບພະນັກງານ "${name}" ອອກຈາກລະບົບ?`)) return;
+  try {
+    const res = await fetch(`/api/staff/${id}`, { method: 'DELETE', credentials: 'include' });
+    const data = await res.json();
+    if (data.success) {
+      loadStaffList();
+    } else {
+      alert(data.error || 'ລຶບບໍ່ສຳເລັດ');
+    }
+  } catch (err) {
+    alert('ເກີດຂໍ້ຜິດພາດ');
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+</script>
+
+</body>
+</html>

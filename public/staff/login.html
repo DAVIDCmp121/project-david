@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ເຂົ້າສູ່ລະບົບພະນັກງານ - POLO SHOP</title>
+<style>
+  :root {
+    --navy: #1e3a5f;
+    --blue: #2563eb;
+    --gray-bg: #f4f6f8;
+    --gray-border: #dfe3e8;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--gray-bg);
+    font-family: 'Noto Sans Lao', sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .login-box {
+    background: #fff;
+    border: 1px solid var(--gray-border);
+    border-radius: 12px;
+    padding: 28px;
+    width: 320px;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.08);
+  }
+  .login-box h1 { text-align: center; color: var(--navy); font-size: 1.2rem; margin: 0 0 4px; }
+  .login-box p.sub { text-align: center; color: #6b7280; font-size: 0.8rem; margin: 0 0 20px; }
+  .login-box input {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 12px;
+    border-radius: 6px;
+    border: 1px solid var(--gray-border);
+    background: var(--gray-bg);
+  }
+  .login-box button {
+    width: 100%;
+    padding: 10px;
+    background: var(--blue);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-weight: bold;
+    cursor: pointer;
+  }
+  #loginError { color: #dc2626; text-align: center; margin-top: 10px; min-height: 18px; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<div class="login-box">
+  <h1>ພະນັກງານ POLO SHOP</h1>
+  <p class="sub">ເຂົ້າສູ່ລະບົບເພື່ອຈັດການອໍເດີ ແລະ ແຊັດລູກຄ້າ</p>
+  <input type="text" id="staffUsername" placeholder="ຊື່ຜູ້ໃຊ້">
+  <input type="password" id="staffPassword" placeholder="ລະຫັດຜ່ານ">
+  <button onclick="doStaffLogin()">ເຂົ້າສູ່ລະບົບ</button>
+  <div id="loginError"></div>
+</div>
+
+<script>
+async function doStaffLogin() {
+  const username = document.getElementById('staffUsername').value.trim();
+  const password = document.getElementById('staffPassword').value.trim();
+  const errBox = document.getElementById('loginError');
+  errBox.textContent = '';
+
+  if (!username || !password) {
+    errBox.textContent = 'ກະລຸນາປ້ອນຊື່ຜູ້ໃຊ້ ແລະ ລະຫັດຜ່ານ';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (data.success) {
+      window.location.href = '/admin/index.html';
+    } else {
+      errBox.textContent = data.error || 'ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ';
+    }
+  } catch (err) {
+    errBox.textContent = 'ເກີດຂໍ້ຜິດພາດ, ລອງໃໝ່ພາຍຫຼັງ';
+  }
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') doStaffLogin();
+});
+</script>
+
+</body>
+</html>

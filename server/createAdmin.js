@@ -13,8 +13,8 @@ if (!username || !password || !name) {
 const hashed = bcrypt.hashSync(password, 10);
 
 try {
-  const stmt = db.prepare(`INSERT INTO admins (username, password, name) VALUES (?, ?, ?)`);
-  const result = stmt.run(username, hashed, name);
+ const stmt = db.prepare(`INSERT INTO admins (username, password, name, role) VALUES (?, ?, ?, 'admin')`);
+const result = stmt.run(username, hashed, name);
   console.log(`ເພີ່ມ admin "${name}" (${username}) ສຳເລັດ, id: ${result.lastInsertRowid}`);
 } catch (err) {
   console.error('ລົ້ມເຫລວ:', err.message);

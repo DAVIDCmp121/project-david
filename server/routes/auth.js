@@ -15,18 +15,18 @@ router.post('/login', (req, res) => {
   const match = bcrypt.compareSync(password, admin.password);
   if (!match) return res.status(401).json({ error: 'ຊື່ຜູ້ໃຊ້ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ' });
 
-  const token = jwt.sign(
-    { id: admin.id, username: admin.username, name: admin.name },
-    JWT_SECRET,
-    { expiresIn: '8h' }
-  );
+ const token = jwt.sign(
+  { id: admin.id, username: admin.username, name: admin.name, role: admin.role || 'admin' },
+  JWT_SECRET,
+  { expiresIn: '8h' }
+);
 
   res.cookie('token', token, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production'
   });
-  res.json({ success: true, name: admin.name });
+ res.json({ success: true, name: admin.name, role: admin.role || 'admin' });
 });
 
 router.post('/logout', (req, res) => {
@@ -39,7 +39,7 @@ router.get('/me', (req, res) => {
   if (!token) return res.status(401).json({ error: 'ยังไม่ได้ login' });
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
-    res.json({ id: decoded.id, username: decoded.username, name: decoded.name });
+res.json({ id: decoded.id, username: decoded.username, name: decoded.name, role: decoded.role || 'admin' });
   } catch {
     res.status(401).json({ error: 'session หมดอายุ' });
   }

@@ -90,6 +90,7 @@
   .badge-confirmed       { background: #e9c46a; color: #222; } /* เหลือง - ยืนยันแล้ว */
   .badge-shipped         { background: #457b9d; }   /* ฟ้า - จัดสงแล้ว */
   .badge-delivered       { background: #2a9d8f; }   /* เขียว - ถึงแล้ว */
+  .badge-cancelled       { background: #6b7280; }   /* ເທົາ - ยกเลิกแล้ว */
   .chat-btn {
     background: var(--burgundy);
     color: var(--ivory);
@@ -99,6 +100,16 @@
     cursor: pointer;
     text-decoration: none;
     font-size: 0.85rem;
+  }
+  .cancel-btn {
+    background: #dc2626;
+    color: #fff;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    margin-left: 6px;
   }
   #emptyMsg { text-align: center; margin-top: 30px; color: #999; }
 </style>
@@ -133,12 +144,12 @@
 
 <script>
 const statusLabels = {
-  awaiting_review: 'ລໍຖ້າກວດສະລິບ',
+  awaiting_review: 'ລຖ້າກວດສະລິບ',
   confirmed: 'ຢືນຢັນແລ້ວ',
   shipped: 'ຈັດສົ່ງແລ້ວ',
-  delivered: 'ຮອດແລ້ວ'
+  delivered: 'ຮອດແລ້ວ',
+  cancelled: 'ຍົກເລີກແລ້ວ'
 };
-
 async function checkLoginAndLoad() {
   try {
     const res = await fetch('/api/customer/orders', { credentials: 'include' });
@@ -184,13 +195,20 @@ function showOrders(orders) {
     const statusText = statusLabels[statusKey] || statusKey;
 
     const tr = document.createElement('tr');
+    const cancelBtn = statusKey === 'awaiting_review'
+      ? `<button class="cancel-btn" onclick="cancelOrder(${order.id})">ຍົກເລີກ</button>`
+      : '';
+
     tr.innerHTML = `
       <td>${dateStr}</td>
       <td>${order.product_name || '-'}</td>
       <td>${total} ກີບ</td>
       <td><span class="badge badge-${statusKey}">${statusText}</span></td>
       <td>${order.bill_number || '-'}</td>
-      <td><a class="chat-btn" href="/menu/chat.html?orderId=${order.id}">ແຊັດ</a></td>
+      <td>
+        <a class="chat-btn" href="/menu/chat.html?orderId=${order.id}">ແຊັດ</a>
+        ${cancelBtn}
+      </td>
     `;
     tbody.appendChild(tr);
   });
@@ -224,7 +242,23 @@ async function doLogin() {
     errBox.textContent = 'ເກີດຂໍ້ຜິດພາດ, ລອງໃໝ່ພາຍຫຼັງ';
   }
 }
-
+async function cancelOrder(orderId) {
+  if (!confirm('ຢືນຢັນຍົກເລີກອໍເດນີ້?')) return;
+  try {
+    const res = await fetch(`/api/orders/${orderId}/cancel`, {
+      method: 'POST',
+      credentials: 'include'
+    });
+    const data = await res.json();
+    if (data.success) {
+      checkLoginAndLoad();
+    } else {
+      alert(data.error || 'ຍົກເລີກບໍ່ສຳເລັດ');
+    }
+  } catch (err) {
+    alert('ເກີດຂໍ້ຜິດພາດ');
+  }
+}
 checkLoginAndLoad();
 </script>
 

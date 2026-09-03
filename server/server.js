@@ -8,6 +8,8 @@ const qrcodeRouter = require('./routes/qrcode');
 const authRouter = require('./routes/auth');
 const customerAuthRouter = require('./routes/customerAuth');
 const customerOrdersRouter = require('./routes/customerOrders');
+const staffRouter = require('./routes/staff');
+const customersRouter = require('./routes/customers');
 const messagesRouter = require('./routes/messages');
 const requireAuth = require('./middleware/requireAuth');
 
@@ -38,12 +40,13 @@ app.use('/api/messages', messagesRouter);
 app.use('/api/products', productsRouter);
 app.use('/api/orders', ordersRouter);
 app.use('/api/qrcode', qrcodeRouter);
-
+app.use('/api/customers', customersRouter);
+app.use('/api/staff', staffRouter);
 // ປອງກັນ API ຂອງແອດມິນ ຕ້ອງ login ກ່ອນ (ຍົກເວັ້ນ GET ທີ່ໜ້າ menu ຕ້ອງໃຊ້)
 
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Server ກຳລັງເຮັດວຽກຢູ່' });
+  res.json({ status: 'ok', message: 'Server ກຳລງເຮັດວຽກຢູ່' });
 });
 
 app.listen(PORT, () => {

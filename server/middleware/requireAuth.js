@@ -8,10 +8,11 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'ກະລຸນາເຂົ້າສູ່ລະບົບກ່ອນ' });
   }
 
-  try {
-    jwt.verify(token, JWT_SECRET);
-    next(); // ຜ່ານ ໃຫ້ໄປຕ
-  } catch (err) {
+ try {
+  const decoded = jwt.verify(token, JWT_SECRET);
+  req.admin = decoded; // ftedeleted ຝາກຂໍ້ມູນຄົນ login ໄວ້ໃຫ້ route ຕໍ່ໄປໃຊ້ (ລວມທັງ role)
+  next(); // ຜ່ານ ໃຫ້ໄປຕໍ່
+} catch (err) {
     res.status(401).json({ error: 'Session ໝົດອາຍ ກະລຸນາເຂົ້າສູ່ລະບົບໃໝ່' });
   }
 }
