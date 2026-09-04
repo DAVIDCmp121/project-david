@@ -1,5 +1,6 @@
 let currentProduct = null;
 let currentQty = 1;
+let currentPhone = '';
 
 window.onload = () => {
   const saved = sessionStorage.getItem('checkoutProduct');
@@ -43,12 +44,114 @@ function goToStep(stepNumber) {
   document.getElementById('step-indicator-' + stepNumber).classList.add('active');
 }
 
-function validateStep2() {
+// ✅ ຂັ້ນ 2ກ: ເຊັກເບີໂທວ່າເກົ່າ/ໃໝ່
+async function checkPhone() {
   const phone = document.getElementById('customer-phone').value.trim();
-  const address = document.getElementById('customer-address').value.trim();
+  const errBox = document.getElementById('phone-check-error');
+  errBox.textContent = '';
 
-  if (!phone || !address) {
-    alert('ກະລຸນາໃສ່ເບີໂທ ແລະ ທີ່ຢູ່ໃຫ້ຄົບ');
+  if (!phone) {
+    errBox.textContent = 'ກະລຸນາໃສ່ເບີໂທ';
+    return;
+  }
+  currentPhone = phone;
+
+  try {
+    const res = await fetch('/api/customer-auth/check-phone', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone })
+    });
+    const data = await res.json();
+
+    document.getElementById('phone-check-section').classList.add('hidden');
+    if (data.exists) {
+      document.getElementById('login-section').classList.remove('hidden');
+    } else {
+      document.getElementById('register-section').classList.remove('hidden');
+    }
+  } catch (err) {
+    errBox.textContent = 'ເຊື່ອມຕໍ່ບໍ່ໄດ້ ກະລຸນາລອງໃໝ່';
+  }
+}
+
+// ✅ ຂັ້ນ 2ຂ: ລູກຄ້າເກົ່າ login ດ້ວຍ PIN ເດີມ
+async function submitLoginStep() {
+  const pin = document.getElementById('login-pin').value.trim();
+  const errBox = document.getElementById('login-error');
+  errBox.textContent = '';
+
+  if (!pin) {
+    errBox.textContent = 'ກະລຸນາໃສ່ PIN';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/customer-auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ phone: currentPhone, pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      onAuthSuccess();
+    } else {
+      errBox.textContent = data.error || 'PIN ບໍ່ຖືກຕ້ອງ';
+    }
+  } catch (err) {
+    errBox.textContent = 'ເກີດຂໍ້ຜິດພາດ, ລອງໃໝ່ພາຍຫຼັງ';
+  }
+}
+
+// ✅ ຂັ້ນ 2ຄ: ລູກຄ້າໃໝ່ ຕັ້ງ PIN + ວັນເກີດ ແລ້ວສະໝັກ
+async function submitRegisterStep() {
+  const name = document.getElementById('reg-name').value.trim();
+  const pin = document.getElementById('reg-pin').value.trim();
+  const pinConfirm = document.getElementById('reg-pin-confirm').value.trim();
+  const birth_date = document.getElementById('reg-birthdate').value.trim();
+  const errBox = document.getElementById('register-error');
+  errBox.textContent = '';
+
+  if (!pin || !pinConfirm || !birth_date) {
+    errBox.textContent = 'ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບ';
+    return;
+  }
+  if (pin !== pinConfirm) {
+    errBox.textContent = 'PIN ແລະ ຢືນຢັນ PIN ບໍ່ຕົງກັນ';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/customer-auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ phone: currentPhone, pin, name, birth_date })
+    });
+    const data = await res.json();
+    if (data.success) {
+      onAuthSuccess();
+    } else {
+      errBox.textContent = data.error || 'ສະໝັກສະມາຊິກບໍ່ສຳເລັດ';
+    }
+  } catch (err) {
+    errBox.textContent = 'ເກີດຂໍ້ຜິດພາດ, ລອງໃໝ່ພາຍຫຼັງ';
+  }
+}
+
+// ✅ ພໍ login/ສະໝັກສຳເລັດ (ໄດ້ cookie ແລ້ວ) → ໂຊວ໌ຊ່ອງທີ່ຢູ່
+function onAuthSuccess() {
+  document.getElementById('login-section').classList.add('hidden');
+  document.getElementById('register-section').classList.add('hidden');
+  document.getElementById('logged-in-phone').textContent = currentPhone;
+  document.getElementById('address-section').classList.remove('hidden');
+}
+
+function validateStep2() {
+  const address = document.getElementById('customer-address').value.trim();
+  if (!address) {
+    alert('ກະລຸນາໃສ່ທີ່ຢູ່ຈັດສົ່ງ');
     return;
   }
   goToStep(3);
@@ -111,11 +214,10 @@ async function validateStep3() {
       return;
     }
 
-    // ສະແດງຂໍ້ມູນສະຫຼຸບໃນຂັ້ນ 4
     document.getElementById('final-name').textContent = currentProduct.name;
     document.getElementById('final-qty').textContent = currentQty;
     document.getElementById('final-total').textContent = (currentProduct.price * currentQty) + ' ກີບ';
-    document.getElementById('final-phone').textContent = document.getElementById('customer-phone').value;
+    document.getElementById('final-phone').textContent = currentPhone;
     document.getElementById('final-address').textContent = document.getElementById('customer-address').value;
 
     goToStep(4);
@@ -134,7 +236,6 @@ async function submitOrder() {
   confirmBtn.disabled = true;
   confirmBtn.textContent = 'ກລັງສົ່ງ...';
 
-  const phone = document.getElementById('customer-phone').value;
   const address = document.getElementById('customer-address').value;
   const total = currentProduct.price * currentQty;
   const slipFile = document.getElementById('slip-file').files[0];
@@ -142,13 +243,15 @@ async function submitOrder() {
   const formData = new FormData();
   formData.append('product_id', currentProduct.id);
   formData.append('quantity', currentQty);
-  formData.append('customer_phone', phone);
+  formData.append('customer_phone', currentPhone);
   formData.append('customer_address', address);
   formData.append('slip', slipFile);
 
   try {
+    // ✅ ເພີ່ມ credentials: 'include' ເພື່ອສົ່ງ cookie ລູກຄ້າ (ຈຳເປັນເພາະ orders.js ບັງຄັບ login ແລ້ວ)
     const res = await fetch('/api/orders', {
       method: 'POST',
+      credentials: 'include',
       body: formData
     });
 
@@ -157,7 +260,6 @@ async function submitOrder() {
     if (res.ok) {
       sessionStorage.removeItem('checkoutProduct');
 
-      // ສົ່ງລາຍລະອຽດອໍເດີ + ຮູບສະລິບ ເຂົ້າແຊັດຫາແອດມິນ
       const orderMessage =
         `ສັ່ງຊື້ໃໝ່:\n` +
         `ສິນຄ້າ: ${currentProduct.name}\n` +
@@ -173,7 +275,6 @@ async function submitOrder() {
           body: JSON.stringify({ message_text: orderMessage })
         });
 
-        // ສົ່ງຮູບສະລິບຕາມໄປອີກຂໍ້ຄວາມໜຶ່ງ ໃຫ້ຮານກວດສອບ
         const slipFormData = new FormData();
         slipFormData.append('image', slipFile);
         await fetch('/api/messages/upload', {

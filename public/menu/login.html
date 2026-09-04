@@ -79,8 +79,8 @@
     font-size: 0.95rem;
   }
   .auth-error { color: #ff6b6b; text-align: center; margin-top: 10px; min-height: 18px; font-size: 0.85rem; }
+  .auth-success { color: #6bcf7f; text-align: center; margin-top: 10px; min-height: 18px; font-size: 0.85rem; }
 
-  /* ➕ ปุ่ม/ลิงก์ลืม PIN */
   .forgot-link {
     text-align: center;
     margin-top: 4px;
@@ -90,7 +90,6 @@
     cursor: pointer;
   }
 
-  /* ➕ Modal ลืม PIN */
   .modal-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
@@ -111,7 +110,7 @@
     text-align: center;
   }
   .modal-box h2 { color: var(--gold); margin: 0 0 12px; font-size: 1.1rem; }
-  .modal-box p { font-size: 0.9rem; line-height: 1.5; margin: 8px 0; }
+  .modal-box p { font-size: 0.85rem; line-height: 1.5; margin: 8px 0; color: #ccc; }
   .modal-close {
     position: absolute;
     top: 10px;
@@ -121,6 +120,17 @@
     color: var(--ivory);
     font-size: 1.1rem;
     cursor: pointer;
+  }
+  .modal-box input {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    border: 1px solid #555;
+    background: #333;
+    color: var(--ivory);
+    font-size: 0.85rem;
+    box-sizing: border-box;
   }
 </style>
 </head>
@@ -146,19 +156,27 @@
       <input type="text" id="regName" placeholder="ຊື່ (ບໍ່ບັງຄັບ)">
       <input type="tel" id="regPhone" placeholder="ເບີໂທລະສັບ">
       <input type="password" id="regPin" placeholder="ຕັ້ງລະຫັດ PIN (4-6 ໂຕເລກ)">
+      <!-- ➕ ຊ່ອງວັນເດືອນປີເກີດ -->
+      <input type="text" id="regBirthDate" placeholder="ວັນເດືອນປີເກີດ (ໃຊ້ຢືນຢັນຕົວຕົນ)">
       <button class="auth-submit" onclick="submitRegister()">ສະໝັກສະມາຊິກ</button>
     </div>
 
     <div id="authError" class="auth-error"></div>
   </div>
 
-  <!-- ➕ Modal ลืม PIN -->
+  <!-- ➕ Modal ลืม PIN แบบใหม่ - ลูกค้ารีเซ็ตเองได้เลย -->
   <div id="forgotPinModal" class="modal-overlay" style="display:none;">
     <div class="modal-box">
       <button class="modal-close" onclick="closeForgotPin()">✕</button>
-      <h2>ລືມລະຫັດ PIN?</h2>
-      <p>ກະລຸນາຕິດຕໍ່ຮ້ານໂດຍກົງ ເພື່ອໃຫ້ພະນັກງານຊ່ວຍລີເຊັດ PIN ໃໝ່ໃຫ້ທ່ານ</p>
-      <p>📞 ໂທ: <strong>ໃສ່ເບີໂທຮ້ານທີ່ນີ້</strong></p>
+      <h2>ຣີເຊັດລະຫັດ PIN</h2>
+      <p>ກະລຸນາປ້ອນເບີໂທ ແລະ ວັນເດືອນປີເກີດທີ່ໃຊ້ຕອນສະໝັກ ເພື່ອຕັ້ງ PIN ໃໝ່</p>
+      <input type="tel" id="fpPhone" placeholder="ເບີໂທລະສັບ">
+      <input type="text" id="fpBirthDate" placeholder="ວັນເດືອນປີເກີດ">
+      <input type="password" id="fpNewPin" placeholder="ຕັ້ງ PIN ໃໝ່ (4-6 ໂຕເລກ)">
+      <input type="password" id="fpNewPinConfirm" placeholder="ຢືນຢັນ PIN ໃໝ່">
+      <button class="auth-submit" onclick="submitForgotPin()">ຕັ້ງ PIN ໃໝ່</button>
+      <div id="fpError" class="auth-error"></div>
+      <div id="fpSuccess" class="auth-success"></div>
     </div>
   </div>
 
@@ -181,9 +199,10 @@ function switchTab(tab) {
   document.getElementById('authError').textContent = '';
 }
 
-// ➕ ฟังก์ชันเปิด/ปิด modal ลืม PIN
 function openForgotPin() {
   document.getElementById('forgotPinModal').style.display = 'flex';
+  document.getElementById('fpError').textContent = '';
+  document.getElementById('fpSuccess').textContent = '';
 }
 function closeForgotPin() {
   document.getElementById('forgotPinModal').style.display = 'none';
@@ -225,11 +244,12 @@ async function submitRegister() {
   const name = document.getElementById('regName').value.trim();
   const phone = document.getElementById('regPhone').value.trim();
   const pin = document.getElementById('regPin').value.trim();
+  const birth_date = document.getElementById('regBirthDate').value.trim();
   const errBox = document.getElementById('authError');
   errBox.textContent = '';
 
-  if (!phone || !pin) {
-    errBox.textContent = 'ກະລນາປ້ອນເບີໂທ ແລະ PIN';
+  if (!phone || !pin || !birth_date) {
+    errBox.textContent = 'ກະລຸນາປ້ອນເບີໂທ, PIN ແລະ ວັນເດືອນປີເກີດ';
     return;
   }
 
@@ -238,7 +258,7 @@ async function submitRegister() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
-      body: JSON.stringify({ phone, pin, name })
+      body: JSON.stringify({ phone, pin, name, birth_date })
     });
     const data = await res.json();
     if (data.success) {
@@ -247,7 +267,48 @@ async function submitRegister() {
       errBox.textContent = data.error || 'ສະໝັກສະມາຊິກບໍ່ສຳເລັດ';
     }
   } catch (err) {
-    errBox.textContent = 'ເກີດຂໍ້ຜິດພາດ, ລອງໃໝ່ພາຍຫງ';
+    errBox.textContent = 'ເກີດຂໍ້ຜິດພາດ, ລອງໃໝ່ພາຍຫຼັງ';
+  }
+}
+
+// ➕ ຟັງກ໌ຊັນລືມ PIN ແບບໃໝ່ — ຢືນຢັນເອງດ້ວຍເບີໂທ+ວັນເກີດ ບໍ່ຕ້ອງພົວພັນຮ້ານ
+async function submitForgotPin() {
+  const phone = document.getElementById('fpPhone').value.trim();
+  const birth_date = document.getElementById('fpBirthDate').value.trim();
+  const new_pin = document.getElementById('fpNewPin').value.trim();
+  const new_pin_confirm = document.getElementById('fpNewPinConfirm').value.trim();
+  const errBox = document.getElementById('fpError');
+  const successBox = document.getElementById('fpSuccess');
+  errBox.textContent = '';
+  successBox.textContent = '';
+
+  if (!phone || !birth_date || !new_pin || !new_pin_confirm) {
+    errBox.textContent = 'ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບ';
+    return;
+  }
+  if (new_pin !== new_pin_confirm) {
+    errBox.textContent = 'PIN ໃໝ່ ແລະ ຢືນຢັນ PIN ບໍ່ຕົງກັນ';
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/customer-auth/forgot-pin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone, birth_date, new_pin })
+    });
+    const data = await res.json();
+    if (data.success) {
+      successBox.textContent = data.message || 'ຕັ້ງ PIN ໃໝ່ສຳເລັດ';
+      setTimeout(() => {
+        closeForgotPin();
+        document.getElementById('loginPhone').value = phone;
+      }, 1500);
+    } else {
+      errBox.textContent = data.error || 'ຣີເຊັດ PIN ບໍ່ສຳເລັດ';
+    }
+  } catch (err) {
+    errBox.textContent = 'ເກີດຂໍ້ຜິດພາດ, ລອງໃໝ່ພາຍຫຼັງ';
   }
 }
 </script>

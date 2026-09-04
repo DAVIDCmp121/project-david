@@ -26,6 +26,8 @@ const SLIP_KEYWORDS = [
   'TRANSFER', 'AMOUNT', 'ກີບ', 'KIP', 'SUCCESS', 'LAK'
 ];
 
+const VALID_STATUSES = ['awaiting_review', 'confirmed', 'shipped', 'delivered'];
+
 function extractAmounts(text) {
   const matches = text.match(/\d[\d,.\s]{2,}\d/g) || [];
   return matches
@@ -70,7 +72,6 @@ async function checkSlip(buffer, expectedAmount) {
       .toBuffer();
     const { data } = await Tesseract.recognize(processedBuffer, 'lao+eng');
     const text = (data.text || '').toUpperCase();
-    console.log('=== OCR TEXT ===', text);
 
     if (text.trim().length < 5) {
       return { valid: false, reason: 'ອ່ານຂໍ້ມູນຈາກຮູບບໍ່ໄດ້ ກະລຸນາອັບໂຫລດຮູບທີ່ຊັດເຈນກວ່ານີ້' };
@@ -82,7 +83,6 @@ async function checkSlip(buffer, expectedAmount) {
     }
 
     const amounts = extractAmounts(text);
-    console.log('=== AMOUNTS FOUND ===', amounts, '| EXPECTED:', expectedAmount);
     const amountMatch = amounts.some(a => Math.abs(a - expectedAmount) <= 1);
     if (!amountMatch) {
       return {
@@ -146,7 +146,7 @@ router.post('/verify-slip', uploadMemory.single('slip'), async (req, res) => {
   res.json(result);
 });
 
-// ✅ ລູກຄ້າສັ່ງຊື້ — ຕ້ອງ login ກ່ອນ (requireCustomerAuth) ເພື່ອຜູກ customer_id ກັບອໍເດີ
+// ລູກຄ້າສັ່ງຊື້ — ຕ້ອງ login ກ່ອນ
 router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) => {
   const { product_id, quantity, customer_phone, customer_address } = req.body;
 
@@ -184,7 +184,6 @@ router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) =>
 
   const slipImage = '/uploads/' + req.file.filename;
 
-  // ➕ ເພີ່ມ customer_id (ຈາກ requireCustomerAuth) ແລະ order_status ຕັ້ງຕົ້ນ
   const stmt = db.prepare(`
     INSERT INTO orders (product_id, quantity, customer_phone, customer_address, slip_image, bill_number, customer_id, order_status)
     VALUES (?, ?, ?, ?, ?, ?, ?, 'awaiting_review')
@@ -199,12 +198,27 @@ router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) =>
   res.json({ id: insertResult.lastInsertRowid, message: 'ສັ່ງຊື້ສຳເລັດ' });
 });
 
+// ✅ ອັບເດດສະຖານະອໍເດີ (ແອັດມິນ/ພະນັກງານ) — ໃຊ້ order_status ອັນດຽວກັບຝ່າຍລູກຄ້າ ຫ້າມຕັ້ງ 'cancelled' ຜ່ານທາງນີ້
 router.put('/:id', requireAuth, (req, res) => {
-  const { status } = req.body;
-  db.prepare('UPDATE orders SET status = ? WHERE id = ?').run(status, req.params.id);
+  const { order_status } = req.body;
+
+  if (!VALID_STATUSES.includes(order_status)) {
+    return res.status(400).json({ error: 'ສະຖານະບໍ່ຖືກຕ້ອງ' });
+  }
+
+  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id);
+  if (!order) {
+    return res.status(404).json({ error: 'ບໍ່ພົບອໍເດີນີ້' });
+  }
+  if (order.order_status === 'cancelled') {
+    return res.status(400).json({ error: 'ອໍເດີນີ້ຖືກຍົກເລີກໄປແລ້ວ ບໍ່ສາມາດປ່ຽນສະຖານະໄດ້' });
+  }
+
+  db.prepare('UPDATE orders SET order_status = ? WHERE id = ?').run(order_status, req.params.id);
   res.json({ success: true });
 });
 
+// ລູກຄ້າຍົກເລີກອໍເດີເອງ — ໄດ້ສະເພາະຕອນຍັງ "ລໍຖ້າກວດສະລິບ" ເທົ່ານັ້ນ
 router.post('/:id/cancel', requireCustomerAuth, (req, res) => {
   const { id } = req.params;
   const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
@@ -221,7 +235,25 @@ router.post('/:id/cancel', requireCustomerAuth, (req, res) => {
     });
   }
 
-  db.prepare(`UPDATE orders SET order_status = 'cancelled' WHERE id = ?`).run(id);
+  db.prepare(`UPDATE orders SET order_status = 'cancelled', cancelled_by = 'customer' WHERE id = ?`).run(id);
+  db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(order.quantity, order.product_id);
+
+  res.json({ success: true });
+});
+
+// ✅ ແອັດມິນ/ພະນັກງານຍົກເລີກອໍເດີແທນລູກຄ້າ — ຍົກເລີກໄດ້ທຸກສະຖານະ ຍົກເວັ້ນທີ່ຍົກເລີກໄປແລ້ວ
+router.post('/:id/admin-cancel', requireAuth, (req, res) => {
+  const { id } = req.params;
+  const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(id);
+
+  if (!order) {
+    return res.status(404).json({ error: 'ບໍ່ພົບອໍເດີນີ້' });
+  }
+  if (order.order_status === 'cancelled') {
+    return res.status(400).json({ error: 'ອໍເດີນີ້ຖືກຍົກເລີກໄປແລ້ວ' });
+  }
+
+  db.prepare(`UPDATE orders SET order_status = 'cancelled', cancelled_by = 'staff' WHERE id = ?`).run(id);
   db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(order.quantity, order.product_id);
 
   res.json({ success: true });

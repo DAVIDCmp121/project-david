@@ -40,14 +40,44 @@
       <button class="next-btn" onclick="goToStep(2)">ຕໍ່ໄປ</button>
     </div>
 
-    <!-- ຂັ້ນ 2: ຂໍ້ມູນລູກຄ້າ -->
+    <!-- ຂັ້ນ 2: ຂໍ້ມູນລູກຄ້າ (ນຳ login/ສະໝັກເຂົ້າມາໃນນີ້) -->
     <div class="step-panel hidden" id="step-2">
-      <h2>ຂໍ້ມູນຈັດສົ່ງ</h2>
-      <input type="tel" id="customer-phone" placeholder="ເບີໂທຕິດຕໍ່">
-      <textarea id="customer-address" placeholder="ທີ່ຢູ່ຈັດສົ່ງ"></textarea>
-      <div class="btn-row">
-        <button class="back-btn" onclick="goToStep(1)">ກັບຄືນ</button>
-        <button class="next-btn" onclick="validateStep2()">ຕໍ່ໄປ</button>
+      <h2>ຂໍ້ມູນລູກຄ້າ</h2>
+
+      <!-- 2ກ: ໃສ່ເບີໂທ ເພື່ອເຊັກວ່າເກົ່າ/ໃໝ່ -->
+      <div id="phone-check-section">
+        <input type="tel" id="customer-phone" placeholder="ເບີໂທຕິດຕໍ່">
+        <button class="next-btn" onclick="checkPhone()">ກວດສອບເບີໂທ</button>
+        <div id="phone-check-error" class="field-error"></div>
+      </div>
+
+      <!-- 2ຂ: ລູກຄ້າເກົ່າ → ໃສ່ PIN ເດີມ -->
+      <div id="login-section" class="hidden">
+        <p>ຍິນດີຕ້ອນຮັບກັບມາ ກະລຸນາໃສ່ PIN</p>
+        <input type="password" id="login-pin" placeholder="ລະຫັດ PIN">
+        <button class="next-btn" onclick="submitLoginStep()">ເຂົ້າສູ່ລະບົບ</button>
+        <div id="login-error" class="field-error"></div>
+      </div>
+
+      <!-- 2ຄ: ລູກຄ້າໃໝ່ → ຕັ້ງ PIN + ວັນເກີດ -->
+      <div id="register-section" class="hidden">
+        <p>ຍັງບໍ່ເຄີຍສະໝັກ ກະລຸນາຕັ້ງບັນຊີໃໝ່</p>
+        <input type="text" id="reg-name" placeholder="ຊື່ (ບໍ່ບັງຄັບ)">
+        <input type="password" id="reg-pin" placeholder="ຕັ້ງລະຫັດ PIN (4-6 ໂຕເລກ)">
+        <input type="password" id="reg-pin-confirm" placeholder="ຢືນຢັນ PIN">
+        <input type="text" id="reg-birthdate" placeholder="ວັນເດືອນປີເກີດ (ໃຊ້ຢືນຢັນຕົວຕົນ)">
+        <button class="next-btn" onclick="submitRegisterStep()">ສະໝັກສະມາຊິກ</button>
+        <div id="register-error" class="field-error"></div>
+      </div>
+
+      <!-- 2ງ: ເຂົ້າສູ່ລະບົບ/ສະໝັກສຳເລັດແລ້ວ → ໃສ່ທີ່ຢູ່ -->
+      <div id="address-section" class="hidden">
+        <p>ເຂົ້າສູ່ລະບົບແລ້ວ: <b id="logged-in-phone"></b></p>
+        <textarea id="customer-address" placeholder="ທີ່ຢູ່ຈັດສົ່ງ"></textarea>
+        <div class="btn-row">
+          <button class="back-btn" onclick="goToStep(1)">ກັບຄືນ</button>
+          <button class="next-btn" onclick="validateStep2()">ຕໍ່ໄປ</button>
+        </div>
       </div>
     </div>
 
