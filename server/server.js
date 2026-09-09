@@ -20,18 +20,14 @@ app.use(cors());
 app.use(express.json());
 app.use(cookieParser());
 
-app.get('/admin', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/admin/index.html'));
-});
+// ✅ ຮູບພາບທີ່ອັບໂຫລດ (ສິນຄ້າ, ສະລິບ, ຮູບແຊັດ) ຍັງເກັບໄວ້ໃນ public/uploads ຄືເດີມ
+app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 
-app.get('/menu', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/menu/index.html'));
-});
-
-app.use(express.static(path.join(__dirname, '../public')));
+// ✅ Serve ໄຟລ໌ React ທີ່ Build ແລ້ວ (ແທນ /admin ແລະ /menu HTML ເກົ່າ)
+app.use(express.static(path.join(__dirname, '../polo-shop-react/dist')));
 
 const settingsRouter = require('./routes/settings');
-// ...
+// ... 
 app.use('/api/settings', settingsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/customer-auth', customerAuthRouter);
@@ -48,7 +44,15 @@ app.use('/api/staff', staffRouter);
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server ກຳລງເຮັດວຽກຢູ່' });
 });
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: 'Server ກຳລັງເຮັດວຽກຢູ່' });
+});
 
+// ✅ SPA fallback — ທຸກເສັ້ນທາງທີ່ບໍ່ແມ່ນ /api ໃຫ້ສົ່ງ index.html ຂອງ React ໄປແທນ
+// ຕ້ອງຢູ່ຫຼັງສຸດ (ຫຼັງທຸກ /api routes) ບໍ່ຢ່າງນັ້ນຈະໄປທັບ API
+app.get(/^(?!\/api).*/, (req, res) => {
+  res.sendFile(path.join(__dirname, '../polo-shop-react/dist/index.html'));
+});
 app.listen(PORT, () => {
   console.log(`Server ຣັນຢູທີ່ http://localhost:${PORT}`);
 });

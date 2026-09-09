@@ -1,62 +1,56 @@
 import { useEffect, useState } from 'react';
-import { apiPost } from '../../api.js';
 
-// ⚠️ ໝາຍເຫດ: ໄຟລ໌ public/admin/customers.html ຕົ້ນສະບັບ ບໍ່ເຄີຍຖືກສົ່ງມາໃຫ້ເບິ່ງທັງໝົດ
-// Component ນີ້ສ້າງຂຶ້ນຕາມຄຸນສົມບັດທີ່ໄດ້ອະທິບາຍໄວ້ (ລາຍຊື່ລູກຄ້າ+ຈຳນວນອໍເດີ, ປຸ່ມຣີເຊັດ PIN)
-// ຊື່ endpoint (/api/customers, POST /api/customers/:id/reset-pin) ເປັນການສົມມຸດ — ກະລຸນາກວດສອບ
+// ➕ ນຳມາຈາກ public/admin/customers.html ຕົ້ນສະບັບ (ໄຟລ໌ຈິງ — ໄດ້ຮັບແລ້ວ)
 
 export default function AdminCustomers() {
   const [customers, setCustomers] = useState([]);
-  const [newPinFor, setNewPinFor] = useState(null);
 
-  async function load() {
+  async function loadCustomers() {
     const res = await fetch('/api/customers', { credentials: 'include' });
     const data = await res.json();
     setCustomers(data.customers || []);
   }
 
   useEffect(() => {
-    load();
+    loadCustomers();
   }, []);
 
-  async function resetPin(id, label) {
-    if (!window.confirm(`ຢືນຢັນຣີເຊັດ PIN ຂອງ "${label}"?`)) return;
-    const { data } = await apiPost(`/api/customers/${id}/reset-pin`, {});
-    if (data.success) {
-      setNewPinFor({ id, pin: data.newPin || data.new_pin });
-    } else {
-      alert(data.error || 'ຣີເຊັດ PIN ບໍ່ສຳເລັດ');
+  async function resetPin(id, phone) {
+    if (!window.confirm(`ຢືນຢັນຣີເຊັດ PIN ຂອງເບີ ${phone}?`)) return;
+    try {
+      const res = await fetch(`/api/customers/${id}/reset-pin`, { method: 'POST', credentials: 'include' });
+      const data = await res.json();
+      if (data.success) {
+        alert(`PIN ໃໝ່ຂອງລູກຄ້າ ${phone} ຄື: ${data.newPin}\n\nກະລຸນາບອກລູກຄ້າຜ່ານແຊັດ/ໂທລະສັບ`);
+      } else {
+        alert(data.error || 'ຣີເຊັດບໍ່ສຳເລັດ');
+      }
+    } catch (err) {
+      alert('ເກີດຂໍ້ຜິດພາດ');
     }
   }
 
   return (
     <div className="admin-card">
-      <h2>ລາຍຊື່ລູກຄ້າ</h2>
-      {customers.length === 0 && <p>ຍັງບໍ່ມີລູກຄ້າ</p>}
-      {customers.length > 0 && (
-        <table className="admin-table">
-          <thead>
-            <tr><th>ຊື່</th><th>ເບີໂທ</th><th>ຈຳນວນອໍເດີ</th><th></th></tr>
-          </thead>
-          <tbody>
-            {customers.map((c) => (
-              <tr key={c.id}>
-                <td>{c.name || '-'}</td>
-                <td>{c.phone}</td>
-                <td>{c.order_count ?? 0}</td>
-                <td>
-                  <button className="primary" onClick={() => resetPin(c.id, c.name || c.phone)}>ຣີເຊັດ PIN</button>
-                  {newPinFor?.id === c.id && (
-                    <div style={{ marginTop: 6, fontSize: '0.8rem', color: '#2563eb' }}>
-                      PIN ໃໝ່: <b>{newPinFor.pin}</b>
-                    </div>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+      <div style={{ color: '#6b7280', marginBottom: 12, fontSize: '0.9rem' }}>
+        ລູກຄ້າສະໝັກແລ້ວທັງໝົດ: {customers.length} ຄົນ
+      </div>
+      <table className="admin-table">
+        <thead>
+          <tr><th>ຊື່</th><th>ເບີໂທ</th><th>ຈຳນວນອໍເດີ</th><th>ສະໝັກເມື່ອ</th><th></th></tr>
+        </thead>
+        <tbody>
+          {customers.map((c) => (
+            <tr key={c.id}>
+              <td>{c.name || '-'}</td>
+              <td>{c.phone}</td>
+              <td>{c.order_count}</td>
+              <td>{new Date(c.created_at).toLocaleDateString('lo-LA')}</td>
+              <td><button className="primary" onClick={() => resetPin(c.id, c.phone)}>ຣີເຊັດ PIN</button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

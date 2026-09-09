@@ -229,8 +229,6 @@ button { font-family: inherit; cursor: pointer; }
 .final-summary p { border-bottom: 1px solid #333; padding-bottom: 6px; }
 
 /* --- customer orders --- */
-.orders-table { width: 100%; border-collapse: collapse; background: #242424; border-radius: 10px; overflow: hidden; }
-.orders-table th, .orders-table td { padding: 12px; text-align: center; border-bottom: 1px solid #333; font-size: 0.9rem; }
 .orders-table th { background: var(--gold); color: var(--black); }
 .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; color: #fff; white-space: nowrap; }
 .badge-awaiting_review { background: #e63946; }
@@ -386,6 +384,24 @@ button { font-family: inherit; cursor: pointer; }
   border: 1px solid var(--gray-border); box-sizing: border-box;
 }
 .plain-login-box button {
+  width: 100%; padding: 10px; background: var(--blue); color: #fff;
+  border: none; border-radius: 6px; font-weight: bold;
+}
+.admin-login-shell {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  background: var(--gray-bg);
+}
+.admin-login-box {
+  background: #fff; padding: 32px; border-radius: 12px; width: 320px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.08); text-align: center;
+}
+.admin-login-box .lock-icon { font-size: 2rem; margin-bottom: 8px; }
+.admin-login-box h1 { color: var(--navy); margin-top: 0; font-size: 1.2rem; }
+.admin-login-box input {
+  width: 100%; padding: 10px; margin-bottom: 12px; border-radius: 6px;
+  border: 1px solid var(--gray-border); box-sizing: border-box;
+}
+.admin-login-box button {
   width: 100%; padding: 10px; background: var(--blue); color: #fff;
   border: none; border-radius: 6px; font-weight: bold;
 }
