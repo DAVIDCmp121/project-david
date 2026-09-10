@@ -5,7 +5,7 @@ const db = require('../db');
 const router = express.Router();
 
 const JWT_SECRET = require('../jwtSecret');
-const { checkLocked, recordFailure, clearAttempts } = require('../utils/rateLimiter'); // ➕
+const { checkLocked, recordFailure, clearAttempts } = require('../utils/ratelimiter');
 
 // ✅ ເຂົ້າສູ່ລະບົບແອດມິນ/ພະນັກງານ — ເພີ່ມການກັນເດລະຫັດຜ່ານຊ້ຳໆ
 router.post('/login', (req, res) => {
@@ -40,10 +40,10 @@ router.post('/login', (req, res) => {
   );
 
   res.cookie('token', token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production'
-  });
+  httpOnly: true,
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  secure: process.env.NODE_ENV === 'production'
+});
   res.json({ success: true, name: admin.name, role: admin.role || 'admin' });
 });
 
