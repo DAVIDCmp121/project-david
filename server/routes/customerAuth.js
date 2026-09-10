@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const db = require('../db');
 const JWT_SECRET = require('../jwtSecret');
 const requireCustomerAuth = require('../middleware/requireCustomerAuth');
-const { checkLocked, recordFailure, clearAttempts } = require('../utils/rateLimiter'); // ➕
+const { checkLocked, recordFailure, clearAttempts } = require('../utils/ratelimiter'); // ➕
 
 router.post('/check-phone', (req, res) => {
   const { phone } = req.body;
