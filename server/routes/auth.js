@@ -7,7 +7,14 @@ const router = express.Router();
 const JWT_SECRET = require('../jwtSecret');
 const { checkLocked, recordFailure, clearAttempts } = require('../utils/ratelimiter');
 
-// ✅ ເຂົ້າສູ່ລະບົບແອດມິນ/ພະນັກງານ — ເພີ່ມການກັນເດລະຫັດຜ່ານຊ້ຳໆ
+// ✅ ตัวเลือก cookie กลาง ใช้ร่วมกันทุกจุดที่ตง/ลบ cookie
+const COOKIE_OPTIONS = {
+  httpOnly: true,
+  sameSite: 'none',
+  secure: true
+};
+
+// ✅ ເຂາສລະບບແອດມນ/ພະນັກງານ — ເພີມການກນເດລະຫັດຜ່ານຊ້ຳໆ
 router.post('/login', (req, res) => {
   const { username, password } = req.body;
 
@@ -15,20 +22,20 @@ router.post('/login', (req, res) => {
   const lockStatus = checkLocked(lockKey);
   if (lockStatus.locked) {
     return res.status(429).json({
-      error: `ພະຍາຍາມຫຼາຍເກີນໄປ ກະລຸນາລອງໃໝ່ໃນ ${lockStatus.secondsLeft} ວິນາທີ`
+      error: `ພະຍາຍາມຫຼາຍເກີນໄປ ກະລນາລອງໃໝ່ໃນ ${lockStatus.secondsLeft} ວິນາທີ`
     });
   }
 
   const admin = db.prepare(`SELECT * FROM admins WHERE username = ?`).get(username);
   if (!admin) {
     recordFailure(lockKey);
-    return res.status(401).json({ error: 'ຊື່ຜູ້ໃຊ້ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ' });
+    return res.status(401).json({ error: 'ຊື່ຜູໃຊ ຫ ລະຫັດຜ່ານບຖືກຕອງ' });
   }
 
   const match = bcrypt.compareSync(password, admin.password);
   if (!match) {
     recordFailure(lockKey);
-    return res.status(401).json({ error: 'ຊື່ຜູ້ໃຊ້ ຫຼື ລະຫັດຜ່ານບໍ່ຖືກຕ້ອງ' });
+    return res.status(401).json({ error: 'ຊືຜູໃຊ ຫຼ ລະຫັດຜ່ານບຖືກຕອງ' });
   }
 
   clearAttempts(lockKey);
@@ -39,22 +46,18 @@ router.post('/login', (req, res) => {
     { expiresIn: '8h' }
   );
 
-  res.cookie('token', token, {
-  httpOnly: true,
-  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-  secure: process.env.NODE_ENV === 'production'
-});
+  res.cookie('token', token, COOKIE_OPTIONS);
   res.json({ success: true, name: admin.name, role: admin.role || 'admin' });
 });
 
 router.post('/logout', (req, res) => {
-  res.clearCookie('token');
+  res.clearCookie('token', COOKIE_OPTIONS);
   res.json({ success: true });
 });
 
 router.get('/me', (req, res) => {
   const token = req.cookies.token;
-  if (!token) return res.status(401).json({ error: 'ยังไม่ได้ login' });
+  if (!token) return res.status(401).json({ error: 'ยงไม่ได้ login' });
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     res.json({ id: decoded.id, username: decoded.username, name: decoded.name, role: decoded.role || 'admin' });
