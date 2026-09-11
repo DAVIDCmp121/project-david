@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomerHeader from '../../components/CustomerHeader.jsx';
+import { API_BASE } from '../../api';
 
 // ➕ ນຳຈາກ public/menu/script.js (loadProducts + openCheckout) ມາເຮັດເປັນ React component
 
@@ -42,7 +43,7 @@ export default function ProductList() {
           <div className="product-grid">
             {products.map((p) => (
               <div className="product-card" key={p.id}>
-                {p.image && <img src={p.image} className="product-img" alt={p.name} />}
+                {p.image && <img src={`${API_BASE}${p.image}`} className="product-img" alt={p.name} />}
                 <h3>{p.name}</h3>
                 <p>ໄຊສ໌: {p.size} | ສີ: {p.color}</p>
                 <p>ເຫຼືອ: {p.stock} ອັນ</p>
