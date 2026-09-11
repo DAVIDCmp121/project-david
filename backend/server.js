@@ -35,7 +35,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 // ✅ ຮູບພາບທີ່ອັບໂຫລດ (ສິນຄ້າ, ສະລິບ, ຮູບແຊັດ) ຍັງເກັບໄວ້ໃນ public/uploads ຄືເດີມ
-app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
+app.use('/uploads', express.static(path.join(__dirname, './public/uploads')));
 
 // ✅ Serve ໄຟລ໌ React ທີ່ Build ແລ້ວ (ແທນ /admin ແລະ /menu HTML ເກົ່າ)
 app.use(express.static(path.join(__dirname, '../polo-shop-react/dist')));

@@ -4,9 +4,9 @@
   "description": "",
   "main": "script.js",
   "scripts": {
-    "start": "node server/server.js",
-    "dev": "nodemon server/server.js"
-  },
+  "start": "node backend/server.js",
+  "dev": "nodemon backend/server.js"
+},
   "repository": {
     "type": "git",
     "url": "git+https://github.com/DAVIDCmp121/project-david.git"
