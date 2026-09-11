@@ -38,7 +38,7 @@ app.use(cookieParser());
 app.use('/uploads', express.static(path.join(__dirname, './public/uploads')));
 
 // ✅ Serve ໄຟລ໌ React ທີ່ Build ແລ້ວ (ແທນ /admin ແລະ /menu HTML ເກົ່າ)
-app.use(express.static(path.join(__dirname, '../polo-shop-react/dist')));
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 const settingsRouter = require('./routes/settings');
 // ...        
@@ -65,7 +65,7 @@ app.get('/api/health', (req, res) => {
 // ✅ SPA fallback — ທຸກເສັ້ນທາງທີ່ບໍ່ແມ່ນ /api ໃຫ້ສົ່ງ index.html ຂອງ React ໄປແທນ
 // ຕ້ອງຢູ່ຫຼັງສຸດ (ຫຼັງທຸກ /api routes) ບໍ່ຢ່າງນັ້ນຈະໄປທັບ API
 app.get(/^(?!\/api).*/, (req, res) => {
-  res.sendFile(path.join(__dirname, '../polo-shop-react/dist/index.html'));
+ res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
 app.listen(PORT, () => {
   console.log(`Server ຣັນຢູທີ່ http://localhost:${PORT}`);
