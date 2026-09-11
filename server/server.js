@@ -16,7 +16,21 @@ const requireAuth = require('./middleware/requireAuth');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
+const allowedOrigins = [
+  'http://localhost:5173',              // Vite dev server
+  'https://polo-shop-4e1c0.web.app',    // Firebase Hosting (production)
+  'https://polo-shop-4e1c0.firebaseapp.com',
+];
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));  
 app.use(express.json());
 app.use(cookieParser());
 
@@ -27,7 +41,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../public/uploads')));
 app.use(express.static(path.join(__dirname, '../polo-shop-react/dist')));
 
 const settingsRouter = require('./routes/settings');
-// ... 
+// ...        
 app.use('/api/settings', settingsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/customer-auth', customerAuthRouter);
