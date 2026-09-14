@@ -1,21 +1,31 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomerHeader from '../../components/CustomerHeader.jsx';
-import { API_BASE } from '../../api';
-
-// ➕ ນຳຈາກ public/menu/script.js (loadProducts + openCheckout) ມາເຮັດເປັນ React component
+import { API_BASE, apiGet } from '../../api';
 
 export default function ProductList() {
   const [products, setProducts] = useState(null);
+  const [loadError, setLoadError] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    (async () => {
-      const res = await fetch('/api/products');
-      const data = await res.json();
-      setProducts(data);
-    })();
+    loadProducts();
   }, []);
+
+  async function loadProducts() {
+    setLoadError(false);
+    try {
+      const { ok, data } = await apiGet('/api/products');
+      if (ok && Array.isArray(data)) {
+        setProducts(data);
+      } else {
+        setLoadError(true);
+      }
+    } catch (err) {
+      console.error(err);
+      setLoadError(true);
+    }
+  }
 
   function openCheckout(product) {
     sessionStorage.setItem('checkoutProduct', JSON.stringify(product));
@@ -35,7 +45,15 @@ export default function ProductList() {
       </header>
 
       <main>
-        {products === null && <p style={{ padding: 20, color: '#ccc' }}>ກຳລັງໂຫລດ...</p>}
+        {products === null && !loadError && (
+          <p style={{ padding: 20, color: '#ccc' }}>ກຳລັງໂຫລດ...</p>
+        )}
+        {loadError && (
+          <div style={{ padding: 20, color: '#ccc' }}>
+            <p>ໂຫລດຂໍ້ມູນສິນຄ້າບໍ່ສຳເລັດ ກະລຸນາລອງໃໝ່</p>
+            <button onClick={loadProducts}>ລອງໃໝ່</button>
+          </div>
+        )}
         {products && products.length === 0 && (
           <p style={{ padding: 20, color: '#ccc' }}>ຍັງບໍ່ມີສິນຄ້າ</p>
         )}

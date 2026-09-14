@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiPost } from '../../api.js';
-
-// ➕ ນຳຈາກ public/menu/checkout.html + checkout.js (ເວີຊັນລ່າສຸດ ທີ່ມີ login/register ໃນຕົວ)
+import { API_BASE, apiGet, apiPost, apiUpload } from '../../api.js';
 
 const STEP_LABELS = ['ສິນຄ້າ', 'ຂໍ້ມູນ', 'ສະລິບ', 'ຢືນຢັນ'];
 
@@ -12,7 +10,6 @@ export default function Checkout() {
   const [qty, setQty] = useState(1);
   const [step, setStep] = useState(1);
 
-  // step 2 state
   const [phone, setPhone] = useState('');
   const [phoneChecked, setPhoneChecked] = useState(false);
   const [isExisting, setIsExisting] = useState(null);
@@ -30,7 +27,6 @@ export default function Checkout() {
   const [authDone, setAuthDone] = useState(false);
   const [address, setAddress] = useState('');
 
-  // step 3 state
   const [qrImage, setQrImage] = useState('');
   const [qrMissing, setQrMissing] = useState(false);
   const [slipFile, setSlipFile] = useState(null);
@@ -50,11 +46,14 @@ export default function Checkout() {
     setProduct(JSON.parse(saved));
 
     (async () => {
-      const res = await fetch('/api/settings/payment-qr');
-      const data = await res.json();
-      if (data.qrImage) {
-        setQrImage(data.qrImage);
-      } else {
+      try {
+        const { ok, data } = await apiGet('/api/settings/payment-qr');
+        if (ok && data.qrImage) {
+          setQrImage(data.qrImage);
+        } else {
+          setQrMissing(true);
+        }
+      } catch (err) {
         setQrMissing(true);
       }
     })();
@@ -142,8 +141,7 @@ export default function Checkout() {
       formData.append('product_id', product.id);
       formData.append('quantity', qty);
 
-      const res = await fetch('/api/orders/verify-slip', { method: 'POST', body: formData });
-      const data = await res.json();
+      const { data } = await apiUpload('/api/orders/verify-slip', formData);
 
       if (!data.valid) {
         alert(data.reason || 'ຮູບທີ່ອັບໂຫລດບໍ່ຖືກຕ້ອງ ກະລຸນາກວດສອບແລ້ວລອງໃໝ່');
@@ -167,10 +165,9 @@ export default function Checkout() {
       formData.append('customer_address', address);
       formData.append('slip', slipFile);
 
-      const res = await fetch('/api/orders', { method: 'POST', credentials: 'include', body: formData });
-      const data = await res.json();
+      const { ok, data } = await apiUpload('/api/orders', formData);
 
-      if (res.ok) {
+      if (ok) {
         sessionStorage.removeItem('checkoutProduct');
 
         const orderMessage =
@@ -184,7 +181,7 @@ export default function Checkout() {
           await apiPost('/api/messages', { message_text: orderMessage });
           const slipFormData = new FormData();
           slipFormData.append('image', slipFile);
-          await fetch('/api/messages/upload', { method: 'POST', credentials: 'include', body: slipFormData });
+          await apiUpload('/api/messages/upload', slipFormData);
         } catch (msgErr) {
           console.error('ສົ່ງຂໍ້ຄວາມ/ຮູບເຂົ້າແຊັດບໍ່ສຳເລັດ:', msgErr);
         }
@@ -215,7 +212,7 @@ export default function Checkout() {
           <div className="step-panel">
             <h2>ສິນຄ້າທີ່ເລືອກ</h2>
             <div className="summary-product">
-              {product.image && <img src={product.image} alt={product.name} />}
+              {product.image && <img src={`${API_BASE}${product.image}`} alt={product.name} />}
               <div>
                 <h3>{product.name}</h3>
                 <p>{product.price} ກີບ / ອັນ</p>

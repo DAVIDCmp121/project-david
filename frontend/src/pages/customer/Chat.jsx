@@ -1,8 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-
-// ➕ ນຳມາຈາກ public/menu/chat.html ຕົ້ນສະບັບ (ໄຟລ໌ຈິງ — ໄດ້ຮັບແລ້ວ)
-// ຈຸດສຳຄັນ: ໜ້ານີ້ໃຊ້ໂຕນສີຟ້າ/ເທົາ (ຄືກັບຝັ່ງແອດມິນ) ບໍ່ແມ່ນຄຳ/ດຳ
-// ແລະ ມີຟອມ login ຝັງຢູ່ໃນໜ້ານີ້ເລີຍ (ບໍ່ redirect ໄປ login.html ຄືໜ້າອື່ນ)
+import { apiGet, apiPost, apiUpload } from '../../api.js';
 
 export default function CustomerChat() {
   const [loggedIn, setLoggedIn] = useState(null);
@@ -19,14 +16,14 @@ export default function CustomerChat() {
 
   async function loadMessages() {
     try {
-      const res = await fetch('/api/messages', { credentials: 'include' });
-      if (res.status === 401) {
+      const { ok, status, data } = await apiGet('/api/messages');
+      if (status === 401) {
         clearInterval(pollTimerRef.current);
         pollTimerRef.current = null;
         setLoggedIn(false);
         return;
       }
-      const data = await res.json();
+      if (!ok) return;
       renderMessages(data.messages || []);
     } catch (err) {
       console.error(err);
@@ -49,8 +46,8 @@ export default function CustomerChat() {
 
   async function checkLoginAndStart() {
     try {
-      const res = await fetch('/api/messages', { credentials: 'include' });
-      if (res.status === 401) {
+      const { status } = await apiGet('/api/messages');
+      if (status === 401) {
         setLoggedIn(false);
         return;
       }
@@ -75,24 +72,18 @@ export default function CustomerChat() {
   async function doLogin() {
     setLoginError('');
     if (!phone || !pin) {
-      setLoginError('ກະລຸນາປ້ອນເບີໂທ ແລະ PIN');
+      setLoginError('ກະລຸນາປອນເບີໂທ ແລະ PIN');
       return;
     }
     try {
-      const res = await fetch('/api/customer-auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ phone, pin }),
-      });
-      const data = await res.json();
+      const { data } = await apiPost('/api/customer-auth/login', { phone, pin });
       if (data.success) {
         checkLoginAndStart();
       } else {
-        setLoginError(data.error || 'ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ');
+        setLoginError(data.error || 'ເຂົາສູ່ລະບົບບສຳເລດ');
       }
     } catch (err) {
-      setLoginError('ເກີດຂໍ້ຜິດພາດ, ລອງໃໝ່ພາຍຫຼັງ');
+      setLoginError('ເກີດຂຜິດພາດ, ລອງໃໝ່ພາຍຫຼັງ');
     }
   }
 
@@ -101,20 +92,14 @@ export default function CustomerChat() {
     if (!trimmed) return;
     setText('');
     try {
-      const res = await fetch('/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ message_text: trimmed }),
-      });
-      const data = await res.json();
+      const { data } = await apiPost('/api/messages', { message_text: trimmed });
       if (data.success) {
         loadMessages();
       } else {
-        alert(data.error || 'ສົ່ງຂໍ້ຄວາມບໍ່ສຳເລັດ');
+        alert(data.error || 'ສົງຂຄວາມບໍສຳເລດ');
       }
     } catch (err) {
-      alert('ເກີດຂໍ້ຜິດພາດ');
+      alert('ເກດຂຜດພາດ');
     }
   }
 
@@ -124,15 +109,14 @@ export default function CustomerChat() {
     const formData = new FormData();
     formData.append('image', file);
     try {
-      const res = await fetch('/api/messages/upload', { method: 'POST', credentials: 'include', body: formData });
-      const data = await res.json();
+      const { data } = await apiUpload('/api/messages/upload', formData);
       if (data.success) {
         loadMessages();
       } else {
-        alert(data.error || 'ອັບໂຫລດຮູບບໍ່ສຳເລັດ');
+        alert(data.error || 'ອັບໂຫລດຮູບບສຳເລັດ');
       }
     } catch (err) {
-      alert('ເກີດຂໍ້ຜິດພາດ');
+      alert('ເກີດຂຜິດພາດ');
     }
     e.target.value = '';
   }
