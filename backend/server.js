@@ -17,8 +17,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const allowedOrigins = [
-  'http://localhost:5173',              // Vite dev server
-  'https://polo-shop-4e1c0.web.app',    // Firebase Hosting (production)
+  'http://localhost:3000',                          // เขาผาน backend โดยตรง
+  'http://localhost:5173',                          // Vite dev server
+  'https://polo-shop-4e1c0.web.app',                 // Firebase Hosting (production)
   'https://polo-shop-4e1c0.firebaseapp.com',
 ];
 app.use(cors({

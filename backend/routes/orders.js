@@ -11,7 +11,7 @@ const sharp = require('sharp');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, path.join(__dirname, '../../public/uploads'));
+    cb(null, path.join(__dirname, '../public/uploads'));
   },
   filename: (req, file, cb) => {
     const uniqueName = 'slip_' + Date.now() + path.extname(file.originalname);
@@ -165,7 +165,7 @@ router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) =>
   }
 
   const expectedAmount = product.price * parseInt(quantity, 10);
-  const filePath = path.join(__dirname, '../../public/uploads', req.file.filename);
+  const filePath = path.join(__dirname, '../public/uploads', req.file.filename);
   const buffer = fs.readFileSync(filePath);
   const result = await checkSlip(buffer, expectedAmount);
 
