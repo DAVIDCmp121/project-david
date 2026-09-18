@@ -1,3 +1,10 @@
 const db = require('./db');
-db.prepare(`UPDATE admins SET name = ? WHERE username = ?`).run('DAVID ເຈົ້າຂອງຮ້ານ', 'admin');
-console.log('ອັບເດດຊື່ admin ສຳເລັດ');
+
+(async () => {
+  await db.query(
+    `UPDATE admins SET name = ? WHERE username = ?`,
+    ['DAVID เจ้าของร้าน', 'admin']
+  );
+  console.log('อัปเดตชื่อ admin สำเร็จ');
+  process.exit(0);
+})();

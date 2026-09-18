@@ -1,7 +1,5 @@
 import { useState } from 'react';
-
-// ➕ ນຳມາຈາກ public/admin/login.html ຕົ້ນສະບັບ (ໄຟລ໌ຈິງ — ໄດ້ຮັບແລ້ວ)
-// ພຶດຕິກຳຈິງ: ເຊັກແຄ່ res.ok (ບໍ່ແມ່ນ data.success), redirect ດ້ວຍ window.location ໂດຍກົງ
+import { apiPost } from '../../api.js';
 
 export default function AdminLogin() {
   const [username, setUsername] = useState('');
@@ -9,17 +7,18 @@ export default function AdminLogin() {
   const [error, setError] = useState('');
 
   async function login() {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
-    });
-    const data = await res.json();
+    setError('');
+    try {
+      const { ok, data } = await apiPost('/api/auth/login', { username, password });
 
-    if (res.ok) {
-      window.location.href = '/admin';
-    } else {
-      setError(data.error);
+      if (ok && data.success) {
+        window.location.href = '/admin';
+      } else {
+        setError(data.error || 'ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ');
+      }
+    } catch (err) {
+      console.error(err);
+      setError('ເຊື່ອມຕໍ່ບໍ່ໄດ້ ກະລຸນາລອງໃໝ່');
     }
   }
 

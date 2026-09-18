@@ -6,16 +6,21 @@ const password = process.argv[3];
 const name = process.argv[4];
 
 if (!username || !password || !name) {
-  console.log('ວິທີໃຊ້: node server/createAdmin.js <username> <password> "<ຊື່>"');
+  console.log('วิธใช้: node server/createAdmin.js <username> <password> "<ชื่อ>"');
   process.exit(1);
 }
 
-const hashed = bcrypt.hashSync(password, 10);
+(async () => {
+  const hashed = bcrypt.hashSync(password, 10);
 
-try {
- const stmt = db.prepare(`INSERT INTO admins (username, password, name, role) VALUES (?, ?, ?, 'admin')`);
-const result = stmt.run(username, hashed, name);
-  console.log(`ເພີ່ມ admin "${name}" (${username}) ສຳເລັດ, id: ${result.lastInsertRowid}`);
-} catch (err) {
-  console.error('ລົ້ມເຫລວ:', err.message);
-}
+  try {
+    const [result] = await db.query(
+      `INSERT INTO admins (username, password, name, role) VALUES (?, ?, ?, 'admin')`,
+      [username, hashed, name]
+    );
+    console.log(`เพิ่ม admin "${name}" (${username}) สำเร็จ, id: ${result.insertId}`);
+  } catch (err) {
+    console.error('เกิดข้อผิดพลาด:', err.message);
+  }
+  process.exit(0);
+})();

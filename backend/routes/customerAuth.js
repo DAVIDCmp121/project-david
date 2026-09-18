@@ -2,26 +2,29 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const db = require('../db');
+const { pool } = require('../db');
 const JWT_SECRET = require('../jwtSecret');
 const requireCustomerAuth = require('../middleware/requireCustomerAuth');
-const { checkLocked, recordFailure, clearAttempts } = require('../utils/ratelimiter'); // ➕
+const { checkLocked, recordFailure, clearAttempts } = require('../utils/ratelimiter');
 
-// ✅ ตัวเลือก cookie กลาง ใช้รวมกันทกจดที่ตง/ลบ cookie
+// sameSite:'none' + secure:true ใช้ได้เฉพาะตอนรันจริงผ่าน https เท่านั้น
+// ตอนเทสต local (http://localhost) ต้องใช้ sameSite:'lax' + secure:false ไมงัน browser จะไมยอมแนบ cookie ไปกบ request เลย
+const isProd = process.env.NODE_ENV === 'production';
+
 const COOKIE_OPTIONS = {
   httpOnly: true,
-  sameSite: 'none',
-  secure: true
+  sameSite: isProd ? 'none' : 'lax',
+  secure: isProd
 };
 
-router.post('/check-phone', (req, res) => {
+router.post('/check-phone', async (req, res) => {
   const { phone } = req.body;
   if (!phone) {
     return res.status(400).json({ error: 'ກະລນາປອນເບໂທ' });
   }
 
-  const customer = db.prepare('SELECT id FROM customers WHERE phone = ?').get(phone);
-  res.json({ exists: !!customer });
+  const [rows] = await pool.query('SELECT id FROM customers WHERE phone = ?', [phone]);
+  res.json({ exists: rows.length > 0 });
 });
 
 router.post('/register', async (req, res) => {
@@ -37,17 +40,18 @@ router.post('/register', async (req, res) => {
     return res.status(400).json({ error: 'ກະລຸນາປ້ອນວັນເດືອນປີເກີດ (ໃຊຢນຢນຕວຕນເວລາລມ PIN)' });
   }
 
-  const existing = db.prepare('SELECT id FROM customers WHERE phone = ?').get(phone);
-  if (existing) {
+  const [existingRows] = await pool.query('SELECT id FROM customers WHERE phone = ?', [phone]);
+  if (existingRows.length > 0) {
     return res.status(409).json({ error: 'ເບໂທນສະໝກແລວ ກະລນາເຂາສລະບບແທນ' });
   }
 
   const pinHash = await bcrypt.hash(pin, 10);
-  const result = db.prepare(
-    'INSERT INTO customers (phone, pin_hash, name, birth_date) VALUES (?, ?, ?, ?)'
-  ).run(phone, pinHash, name || null, birth_date);
+  const [result] = await pool.query(
+    'INSERT INTO customers (phone, pin_hash, name, birth_date) VALUES (?, ?, ?, ?)',
+    [phone, pinHash, name || null, birth_date]
+  );
 
-  const customerId = result.lastInsertRowid;
+  const customerId = result.insertId;
   const token = jwt.sign({ customerId }, JWT_SECRET, { expiresIn: '90d' });
 
   res.cookie('customer_token', token, {
@@ -58,7 +62,6 @@ router.post('/register', async (req, res) => {
   res.json({ success: true, customerId });
 });
 
-// ✅ ເຂົາສລະບບ — ເພມການກນເດາ PIN ຊໆ
 router.post('/login', async (req, res) => {
   const { phone, pin } = req.body;
 
@@ -74,7 +77,8 @@ router.post('/login', async (req, res) => {
     });
   }
 
-  const customer = db.prepare('SELECT * FROM customers WHERE phone = ?').get(phone);
+  const [rows] = await pool.query('SELECT * FROM customers WHERE phone = ?', [phone]);
+  const customer = rows[0];
   if (!customer) {
     recordFailure(lockKey);
     return res.status(404).json({ error: 'ບພບເບໂທນໃນລະບບ' });
@@ -98,7 +102,6 @@ router.post('/login', async (req, res) => {
   res.json({ success: true, customerId: customer.id });
 });
 
-// ✅ ລມ PIN — ເພມການກນເດວນເກດຊ້ໆ
 router.post('/forgot-pin', async (req, res) => {
   const { phone, birth_date, new_pin } = req.body;
 
@@ -117,7 +120,8 @@ router.post('/forgot-pin', async (req, res) => {
     });
   }
 
-  const customer = db.prepare('SELECT * FROM customers WHERE phone = ?').get(phone);
+  const [rows] = await pool.query('SELECT * FROM customers WHERE phone = ?', [phone]);
+  const customer = rows[0];
   if (!customer) {
     recordFailure(lockKey);
     return res.status(404).json({ error: 'ບພບເບໂທນໃນລະບບ' });
@@ -137,9 +141,9 @@ router.post('/forgot-pin', async (req, res) => {
   clearAttempts(lockKey);
 
   const newPinHash = await bcrypt.hash(new_pin, 10);
-  db.prepare('UPDATE customers SET pin_hash = ? WHERE id = ?').run(newPinHash, customer.id);
+  await pool.query('UPDATE customers SET pin_hash = ? WHERE id = ?', [newPinHash, customer.id]);
 
-  res.json({ success: true, message: 'ຕງ PIN ໃໝ່ສເລດ ກະລນາເຂົາສລະບບດວຍ PIN ໃໝ່' });
+  res.json({ success: true, message: 'ຕງ PIN ໃໝ່ສເລດ ກະລນາເຂາສລະບບດວຍ PIN ໃໝ່' });
 });
 
 router.post('/logout', (req, res) => {
@@ -147,8 +151,12 @@ router.post('/logout', (req, res) => {
   res.json({ success: true });
 });
 
-router.get('/me', requireCustomerAuth, (req, res) => {
-  const customer = db.prepare('SELECT id, phone, name FROM customers WHERE id = ?').get(req.customerId);
+router.get('/me', requireCustomerAuth, async (req, res) => {
+  const [rows] = await pool.query(
+    'SELECT id, phone, name FROM customers WHERE id = ?',
+    [req.customerId]
+  );
+  const customer = rows[0];
   if (!customer) {
     return res.status(404).json({ error: 'ບພບຂມນລກຄາ' });
   }

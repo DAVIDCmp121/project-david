@@ -1,14 +1,14 @@
 const express = require('express');
 const router = express.Router();
-const db = require('../db');
+const { pool } = require('../db');
 const requireCustomerAuth = require('../middleware/requireCustomerAuth');
 
 // GET /api/customer/orders - ดึงออเดอร์ทั้งหมดของลูกค้าที่ login อยู่
-router.get('/orders', requireCustomerAuth, (req, res) => {
+router.get('/orders', requireCustomerAuth, async (req, res) => {
   try {
-    const customerId = req.customerId; // ตรงกับที่ middleware set ไว้
+    const customerId = req.customerId;
 
-    const orders = db.prepare(`
+    const [orders] = await pool.query(`
       SELECT
         orders.id,
         orders.created_at,
@@ -21,7 +21,7 @@ router.get('/orders', requireCustomerAuth, (req, res) => {
       LEFT JOIN products ON products.id = orders.product_id
       WHERE orders.customer_id = ?
       ORDER BY orders.created_at DESC
-    `).all(customerId);
+    `, [customerId]);
 
     res.json({ success: true, orders });
   } catch (err) {

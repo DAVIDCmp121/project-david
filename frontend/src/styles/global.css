@@ -1,17 +1,25 @@
 /* ==========================================================
    POLO SHOP — Global Styles
-   ໝາຍເຫດ: ສີ ແລະ ໂຕນສີເອົາມາຈາກເວັບເກົ່າ (ຝັ່ງລູກຄ້າ = ຄຳ/ດຳ, ຝັ່ງແອດມິນ = ຟ້າ/ເທົາ)
-   ເພື່ອໃຫ້ໜ້າຕາຄົງເດີມ ຫຼັງຈາກຍ້າຍໄປໃຊ້ React
+   ໝາຍເຫດ: ສີ ແລະ ໂຕນສເອົາມາຈາກເວັບເກາ (ຝັງລກຄາ = ຄຳ/ຂາວ, ຝັ່ງແອດມນ = ຟ້າ/ເທົາ)
+   🔧 ແກ້ໄຂ: ປຽນຝັ່ງລກຄາ (/menu) ຈາກພືນດຳ ເປັນພນຂາວ (ຫົວໜາຂ)
    ========================================================== */
 
 :root {
-  /* ຝັ່ງລູກຄ້າ */
+  /* ຝັງລູກຄາ */
   --gold: #C9A227;
   --black: #1a1a1a;
   --ivory: #FFFFF0;
   --burgundy: #6d1a2f;
 
-  /* ຝັ່ງແອດມິນ */
+  /* ຝັງລູກຄາ — ໂຕນຂາວ (ໃໝ) */
+  --cust-bg: #FFFFFF;
+  --cust-card: #FAFAFA;
+  --cust-border: #E5E0D8;
+  --cust-text: #2B2620;
+  --cust-text-muted: #6b6357;
+  --cust-input-bg: #F5F5F3;
+
+  /* ຝັງແອດມິນ */
   --navy: #1e3a5f;
   --blue: #2563eb;
   --blue-light: #eff6ff;
@@ -35,17 +43,17 @@ button { font-family: inherit; cursor: pointer; }
 
 .hidden { display: none !important; }
 
-/* ---------- ຝັ່ງລູກຄ້າ: ໂຕນຄຳ/ດຳ ---------- */
+/* ---------- ຝັງລູກຄາ: ໂຕນຄ/ຂາວ ---------- */
 
 .customer-shell {
   min-height: 100vh;
-  background: var(--black);
-  color: var(--ivory);
+  background: var(--cust-bg);
+  color: var(--cust-text);
 }
 
 .customer-header {
   padding: 20px;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--cust-border);
 }
 .customer-header .header-top {
   display: flex;
@@ -55,12 +63,12 @@ button { font-family: inherit; cursor: pointer; }
   flex-wrap: wrap;
 }
 .customer-header h1 { color: var(--gold); margin: 0; }
-.customer-header p { color: #ccc; margin: 4px 0 0; }
+.customer-header p { color: var(--cust-text-muted); margin: 4px 0 0; }
 
 .account-menu { position: relative; }
 .account-btn {
   background: var(--gold);
-  color: var(--black);
+  color: #fff;
   border: none;
   padding: 8px 14px;
   border-radius: 20px;
@@ -72,18 +80,19 @@ button { font-family: inherit; cursor: pointer; }
   position: absolute;
   top: 110%;
   right: 0;
-  background: #242424;
+  background: #fff;
   border: 1px solid var(--gold);
   border-radius: 10px;
   min-width: 190px;
   padding: 8px 0;
   z-index: 50;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.08);
 }
 .account-dropdown-name {
   padding: 8px 14px;
   color: var(--gold);
   font-weight: bold;
-  border-bottom: 1px solid #333;
+  border-bottom: 1px solid var(--cust-border);
   margin-bottom: 4px;
 }
 .account-dropdown a, .account-dropdown button {
@@ -91,12 +100,12 @@ button { font-family: inherit; cursor: pointer; }
   width: 100%;
   text-align: left;
   padding: 8px 14px;
-  color: var(--ivory);
+  color: var(--cust-text);
   background: none;
   border: none;
   font-size: 0.85rem;
 }
-.account-dropdown a:hover, .account-dropdown button:hover { background: #333; }
+.account-dropdown a:hover, .account-dropdown button:hover { background: var(--cust-card); }
 
 .product-grid {
   display: grid;
@@ -105,8 +114,8 @@ button { font-family: inherit; cursor: pointer; }
   padding: 20px;
 }
 .product-card {
-  background: #242424;
-  border: 1px solid #333;
+  background: var(--cust-card);
+  border: 1px solid var(--cust-border);
   border-radius: 12px;
   padding: 14px;
 }
@@ -117,14 +126,14 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: 8px;
   margin-bottom: 8px;
 }
-.product-card h3 { color: var(--ivory); margin: 4px 0; }
-.product-card p { color: #ccc; font-size: 0.85rem; margin: 2px 0; }
+.product-card h3 { color: var(--cust-text); margin: 4px 0; }
+.product-card p { color: var(--cust-text-muted); font-size: 0.85rem; margin: 2px 0; }
 .product-card .price { color: var(--gold); font-weight: bold; font-size: 1rem; }
 .product-card button {
   width: 100%;
   margin-top: 10px;
   padding: 10px;
-  background: var(--black);
+  background: #fff;
   color: var(--gold);
   border: 1px solid var(--gold);
   border-radius: 8px;
@@ -136,7 +145,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 
 .auth-modal {
-  background: #242424;
+  background: var(--cust-card);
   border: 1px solid var(--gold);
   border-radius: 14px;
   padding: 28px;
@@ -145,101 +154,102 @@ button { font-family: inherit; cursor: pointer; }
   margin: 40px auto;
 }
 .auth-modal h1 { text-align: center; color: var(--gold); font-size: 1.3rem; margin: 0 0 4px; }
-.auth-modal p.sub { text-align: center; color: #999; font-size: 0.8rem; margin: 0 0 20px; }
-.auth-tabs { display: flex; margin-bottom: 18px; border-bottom: 1px solid #333; }
+.auth-modal p.sub { text-align: center; color: var(--cust-text-muted); font-size: 0.8rem; margin: 0 0 20px; }
+.auth-tabs { display: flex; margin-bottom: 18px; border-bottom: 1px solid var(--cust-border); }
 .auth-tab {
-  flex: 1; background: none; border: none; color: #999;
+  flex: 1; background: none; border: none; color: var(--cust-text-muted);
   padding: 10px; cursor: pointer; font-size: 0.95rem;
 }
 .auth-tab.active { color: var(--gold); border-bottom: 2px solid var(--gold); font-weight: bold; }
 .auth-form input {
   width: 100%; padding: 11px; margin-bottom: 12px; border-radius: 6px;
-  border: 1px solid #555; background: #333; color: var(--ivory); font-size: 0.9rem;
+  border: 1px solid var(--cust-border); background: var(--cust-input-bg); color: var(--cust-text); font-size: 0.9rem;
 }
 .auth-submit {
-  width: 100%; padding: 11px; background: var(--gold); color: var(--black);
+  width: 100%; padding: 11px; background: var(--gold); color: #fff;
   border: none; border-radius: 6px; font-weight: bold; font-size: 0.95rem;
 }
-.auth-error { color: #ff6b6b; text-align: center; margin-top: 10px; min-height: 18px; font-size: 0.85rem; }
-.auth-success { color: #6bcf7f; text-align: center; margin-top: 10px; min-height: 18px; font-size: 0.85rem; }
+.auth-error { color: #d9362b; text-align: center; margin-top: 10px; min-height: 18px; font-size: 0.85rem; }
+.auth-success { color: #2a9d5a; text-align: center; margin-top: 10px; min-height: 18px; font-size: 0.85rem; }
 .forgot-link {
   text-align: center; margin-top: 4px; font-size: 0.8rem;
   color: var(--gold); text-decoration: underline; cursor: pointer;
 }
 
 .modal-overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  position: fixed; inset: 0; background: rgba(0,0,0,0.4);
   display: flex; align-items: center; justify-content: center; z-index: 999;
 }
 .modal-box {
-  background: #242424; border: 1px solid var(--gold); border-radius: 14px;
+  background: #fff; border: 1px solid var(--gold); border-radius: 14px;
   padding: 24px; width: 300px; max-width: 90%; position: relative; text-align: center;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.12);
 }
 .modal-box h2 { color: var(--gold); margin: 0 0 12px; font-size: 1.1rem; }
-.modal-box p { font-size: 0.85rem; line-height: 1.5; margin: 8px 0; color: #ccc; }
+.modal-box p { font-size: 0.85rem; line-height: 1.5; margin: 8px 0; color: var(--cust-text-muted); }
 .modal-close {
   position: absolute; top: 10px; right: 12px; background: none; border: none;
-  color: var(--ivory); font-size: 1.1rem;
+  color: var(--cust-text); font-size: 1.1rem;
 }
 .modal-box input {
   width: 100%; padding: 10px; margin-bottom: 10px; border-radius: 6px;
-  border: 1px solid #555; background: #333; color: var(--ivory);
+  border: 1px solid var(--cust-border); background: var(--cust-input-bg); color: var(--cust-text);
   font-size: 0.85rem; box-sizing: border-box;
 }
-.field-error { color: #ff6b6b; font-size: 0.8rem; min-height: 16px; margin-bottom: 8px; }
+.field-error { color: #d9362b; font-size: 0.8rem; min-height: 16px; margin-bottom: 8px; }
 
 /* --- checkout --- */
-.checkout-page { max-width: 480px; margin: 0 auto; padding: 20px; color: var(--ivory); }
+.checkout-page { max-width: 480px; margin: 0 auto; padding: 20px; color: var(--cust-text); }
 .steps-bar { display: flex; justify-content: space-between; margin-bottom: 20px; }
-.steps-bar .step { font-size: 0.75rem; color: #777; padding-bottom: 6px; border-bottom: 3px solid transparent; }
+.steps-bar .step { font-size: 0.75rem; color: var(--cust-text-muted); padding-bottom: 6px; border-bottom: 3px solid transparent; }
 .steps-bar .step.active { color: var(--gold); border-color: var(--gold); font-weight: bold; }
 .step-panel h2 { color: var(--gold); }
-.summary-product { display: flex; gap: 12px; align-items: center; background: #242424; padding: 12px; border-radius: 10px; }
+.summary-product { display: flex; gap: 12px; align-items: center; background: var(--cust-card); padding: 12px; border-radius: 10px; }
 .summary-product img { width: 80px; height: 80px; object-fit: cover; border-radius: 8px; }
 .qty-control { display: flex; align-items: center; gap: 14px; justify-content: center; margin: 16px 0; }
 .qty-control button {
   width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--gold);
-  background: none; color: var(--gold); font-size: 1.1rem;
+  background: #fff; color: var(--gold); font-size: 1.1rem;
 }
 .checkout-total {
   display: flex; justify-content: space-between; padding: 12px 0;
-  border-top: 1px solid #333; margin-bottom: 16px; font-weight: bold;
+  border-top: 1px solid var(--cust-border); margin-bottom: 16px; font-weight: bold;
 }
 .next-btn, .confirm-btn {
-  width: 100%; padding: 12px; background: var(--gold); color: var(--black);
+  width: 100%; padding: 12px; background: var(--gold); color: #fff;
   border: none; border-radius: 8px; font-weight: bold; margin-top: 8px;
 }
 .back-btn {
-  width: 100%; padding: 12px; background: none; color: var(--ivory);
-  border: 1px solid #555; border-radius: 8px; margin-top: 8px; margin-right: 8px;
+  width: 100%; padding: 12px; background: #fff; color: var(--cust-text);
+  border: 1px solid var(--cust-border); border-radius: 8px; margin-top: 8px; margin-right: 8px;
 }
 .btn-row { display: flex; gap: 8px; }
 .btn-row .back-btn, .btn-row .next-btn, .btn-row .confirm-btn { margin-top: 8px; flex: 1; }
 .checkout-page textarea, .checkout-page input[type="tel"], .checkout-page input[type="password"], .checkout-page input[type="text"] {
   width: 100%; padding: 11px; margin-bottom: 12px; border-radius: 6px;
-  border: 1px solid #555; background: #333; color: var(--ivory); font-size: 0.9rem;
+  border: 1px solid var(--cust-border); background: var(--cust-input-bg); color: var(--cust-text); font-size: 0.9rem;
 }
 .payment-qr { max-width: 220px; display: block; margin: 0 auto 12px; border-radius: 8px; }
 .pay-amount-box {
-  display: flex; justify-content: space-between; background: #242424;
+  display: flex; justify-content: space-between; background: var(--cust-card);
   padding: 12px; border-radius: 8px; margin-bottom: 12px; font-weight: bold;
 }
-.upload-label { display: block; margin-bottom: 6px; color: #ccc; font-size: 0.85rem; }
+.upload-label { display: block; margin-bottom: 6px; color: var(--cust-text-muted); font-size: 0.85rem; }
 #slip-preview, .slip-preview { max-width: 100%; border-radius: 8px; margin-top: 10px; }
-.final-summary p { border-bottom: 1px solid #333; padding-bottom: 6px; }
+.final-summary p { border-bottom: 1px solid var(--cust-border); padding-bottom: 6px; }
 
 /* --- customer orders --- */
-.orders-table th { background: var(--gold); color: var(--black); }
+.orders-table th { background: var(--gold); color: #fff; }
 .badge { padding: 4px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: bold; color: #fff; white-space: nowrap; }
 .badge-awaiting_review { background: #e63946; }
 .badge-confirmed { background: #e9c46a; color: #222; }
 .badge-shipped { background: #457b9d; }
 .badge-delivered { background: #2a9d8f; }
 .badge-cancelled { background: #6b7280; }
-.chat-btn { background: var(--burgundy); color: var(--ivory); border: none; padding: 6px 14px; border-radius: 6px; font-size: 0.85rem; }
+.chat-btn { background: var(--burgundy); color: #fff; border: none; padding: 6px 14px; border-radius: 6px; font-size: 0.85rem; }
 .cancel-btn { background: #dc2626; color: #fff; border: none; padding: 6px 14px; border-radius: 6px; font-size: 0.85rem; margin-left: 6px; }
 
-/* --- customer chat (ໂຕນຟ້າ/ເທົາ ຄືກັນກັບຕົ້ນສະບັບ public/menu/chat.html — ບໍ່ແມ່ນຄຳ/ດຳ) --- */
+/* --- customer chat --- */
 .menuchat-shell {
   background: #fff; color: var(--text-dark); margin: 0 auto;
   display: flex; flex-direction: column; height: 100vh; max-width: 480px;
@@ -279,7 +289,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .menuchat-login-error { color: #dc2626; text-align: center; margin-top: 8px; min-height: 20px; }
 
-/* ---------- ຝັ່ງແອດມິນ: ໂຕນຟ້າ/ເທົາ ---------- */
+/* ---------- ຝັງແອດມນ: ໂຕນຟ້າ/ເທົາ ---------- */
 
 .admin-shell { background: var(--gray-bg); min-height: 100vh; }
 .admin-topbar {

@@ -1,15 +1,18 @@
-const db = require('./server/db');
+const db = require('./db');
 
-try {
-  db.prepare(`ALTER TABLE orders ADD COLUMN cancelled_by TEXT`).run();
-  console.log('✅ ເພີ່ມຄໍລຳ cancelled_by ສຳເລັດ');
-} catch (err) {
-  if (err.message.includes('duplicate column')) {
-    console.log('ℹ️ ຄໍລຳ cancelled_by ມີຢູ່ແລ້ວ');
-  } else {
-    console.error('❌ Error:', err.message);
+(async () => {
+  try {
+    await db.query(`ALTER TABLE orders ADD COLUMN cancelled_by TEXT`);
+    console.log('✅ เพิ่มคอลัมน์ cancelled_by สำเร็จ');
+  } catch (err) {
+    if (err.code === 'ER_DUP_FIELDNAME') {
+      console.log('ℹ️ คอลัมน์ cancelled_by มอยู่แล้ว');
+    } else {
+      console.error('❌ Error:', err.message);
+    }
   }
-}
 
-const columns = db.prepare(`PRAGMA table_info(orders)`).all();
-console.log(columns);
+  const [columns] = await db.query(`SHOW COLUMNS FROM orders`);
+  console.log(columns);
+  process.exit(0);
+})();
