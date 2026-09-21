@@ -21,6 +21,7 @@ const allowedOrigins = [
   'http://localhost:5173',                          // Vite dev server
   'https://polo-shop-4e1c0.web.app',                 // Firebase Hosting (production)
   'https://polo-shop-4e1c0.firebaseapp.com',
+  'http://localhost:8081', // Docker (nginx)
 ];
 app.use(cors({
   origin: function (origin, callback) {
