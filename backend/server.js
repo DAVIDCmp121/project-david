@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const path = require('path');
+const { initDb } = require('./db');
 const productsRouter = require('./routes/products');
 const ordersRouter = require('./routes/orders');
 const qrcodeRouter = require('./routes/qrcode');
@@ -35,10 +36,10 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-// ✅ ຮູບພາບທີ່ອັບໂຫລດ (ສິນຄ້າ, ສະລິບ, ຮູບແຊັດ) ຍັງເກັບໄວ້ໃນ public/uploads ຄືເດີມ
+// ✅ ຮບພາບທອບໂຫລດ (ສນຄ້າ, ສະລິບ, ຮູບແຊັດ) ຍັງເກບໄວໃນ public/uploads ຄືເດມ
 app.use('/uploads', express.static(path.join(__dirname, './public/uploads')));
 
-// ✅ Serve ໄຟລ໌ React ທີ່ Build ແລ້ວ (ແທນ /admin ແລະ /menu HTML ເກົ່າ)
+// ✅ Serve ໄຟລ React ທ Build ແລວ (ແທນ /admin ແລະ /menu HTML ເກົາ)
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 const settingsRouter = require('./routes/settings');
@@ -53,21 +54,27 @@ app.use('/api/orders', ordersRouter);
 app.use('/api/qrcode', qrcodeRouter);
 app.use('/api/customers', customersRouter);
 app.use('/api/staff', staffRouter);
-// ປອງກັນ API ຂອງແອດມິນ ຕ້ອງ login ກ່ອນ (ຍົກເວັ້ນ GET ທີ່ໜ້າ menu ຕ້ອງໃຊ້)
+// ປອງກນ API ຂອງແອດມນ ຕອງ login ກອນ (ຍົກເວນ GET ທໜາ menu ຕອງໃຊ)
 
 
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Server ກຳລງເຮັດວຽກຢູ່' });
+  res.json({ status: 'ok', message: 'Server ກລງເຮັດວຽກຢູ' });
 });
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Server ກຳລັງເຮັດວຽກຢູ່' });
+  res.json({ status: 'ok', message: 'Server ກລງເຮັດວຽກຢູ' });
 });
 
-// ✅ SPA fallback — ທຸກເສັ້ນທາງທີ່ບໍ່ແມ່ນ /api ໃຫ້ສົ່ງ index.html ຂອງ React ໄປແທນ
-// ຕ້ອງຢູ່ຫຼັງສຸດ (ຫຼັງທຸກ /api routes) ບໍ່ຢ່າງນັ້ນຈະໄປທັບ API
+// ✅ SPA fallback — ທກເສັນທາງທີ່ບແມ່ນ /api ໃຫສົງ index.html ຂອງ React ໄປແທນ
+// ຕອງຢູຫຼງສດ (ຫງທກ /api routes) ບຢ່າງນນຈະໄປທບ API
 app.get(/^(?!\/api).*/, (req, res) => {
  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
-app.listen(PORT, () => {
-  console.log(`Server ຣັນຢູທີ່ http://localhost:${PORT}`);
+
+initDb().then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server ຣັນຢູທ http://localhost:${PORT}`);
+  });
+}).catch((err) => {
+  console.error('❌ ສາງຕາຕະລາງບສເລດ:', err);
+  process.exit(1);
 });
