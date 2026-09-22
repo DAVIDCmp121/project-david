@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 
-// ➕ ນຳມາຈາກ public/admin/index.html + script.js ຕົ້ນສະບັບ (ໄຟລ໌ຈິງ — ໄດ້ຮັບແລ້ວ)
-// ພຶດຕິກຳຈິງ: ບໍ່ມີການເຊື່ອງປຸ່ມ/ຟອມສຳລັບພະນັກງານໃນໜ້ານີ້ເລີຍ (ອາໄສ backend ບລັອກ 403 ແທນ)
-// ຊື່ field ອັບໂຫລດ QR ແມ່ນ "qrImage" (ບໍ່ແມ່ນ "qr")
+// ➕ ນມາຈາກ public/admin/index.html + script.js ຕນສະບບ (ໄຟລຈງ — ໄດຮັບແລ້ວ)
+// ພຶດຕິກຈງ: ບມີການເຊອງປມ/ຟອມສລບພະນກງານໃນໜ້ານເລຍ (ອາໄສ backend ບລັອກ 403 ແທນ)
+// ຊື field ອັບໂຫລດ QR ແມ່ນ "qrImage" (ບແມນ "qr")
+
+const API_BASE = import.meta.env.VITE_API_URL || '';
 
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
@@ -11,7 +13,7 @@ export default function AdminProducts() {
 
   const [qrOpen, setQrOpen] = useState(false);
   const [qrImage, setQrImage] = useState('');
-  const [qrStatus, setQrStatus] = useState('ກຳລັງກວດສອບ...');
+  const [qrStatus, setQrStatus] = useState('ກລງກວດສອບ...');
   const qrFileRef = useRef(null);
 
   async function loadProducts() {
@@ -25,9 +27,9 @@ export default function AdminProducts() {
     const data = await res.json();
     if (data.qrImage) {
       setQrImage(data.qrImage);
-      setQrStatus('QR ປັດຈຸບັນ:');
+      setQrStatus('QR ປດຈບນ:');
     } else {
-      setQrStatus('ຍັງບໍ່ໄດ້ອັບໂຫລດ QR');
+      setQrStatus('ຍັງບໄດອບໂຫລດ QR');
     }
   }
 
@@ -38,7 +40,7 @@ export default function AdminProducts() {
 
   async function addProduct() {
     if (!form.name || !form.price) {
-      alert('ກະລຸນາໃສ່ຊື່ສິນຄ້າ ແລະ ລາຄາ');
+      alert('ກະລນາໃສ່ຊືສິນຄ້າ ແລະ ລາຄາ');
       return;
     }
     const formData = new FormData();
@@ -57,7 +59,7 @@ export default function AdminProducts() {
   }
 
   async function deleteProduct(id) {
-    if (!window.confirm('ຕ້ອງການລຶບສິນຄ້ານີ້ບໍ?')) return;
+    if (!window.confirm('ຕອງການລບສິນຄ້ານບ?')) return;
     await fetch(`/api/products/${id}`, { method: 'DELETE', credentials: 'include' });
     loadProducts();
   }
@@ -65,7 +67,7 @@ export default function AdminProducts() {
   async function uploadQr() {
     const file = qrFileRef.current?.files[0];
     if (!file) {
-      alert('ກະລຸນາເລືອກຮູບ QR ກ່ອນ');
+      alert('ກະລນາເລືອກຮູບ QR ກ່ອນ');
       return;
     }
     const formData = new FormData();
@@ -73,11 +75,11 @@ export default function AdminProducts() {
 
     const res = await fetch('/api/settings/payment-qr', { method: 'POST', credentials: 'include', body: formData });
     if (res.ok) {
-      alert('ອັບໂຫລດ QR ສຳເລັດ ✅');
+      alert('ອັບໂຫລດ QR ສຳເລດ ✅');
       qrFileRef.current.value = '';
       loadCurrentQr();
     } else {
-      alert('ອັບໂຫລດບໍ່ສຳເລັດ');
+      alert('ອບໂຫລດບສເລັດ');
     }
   }
 
@@ -108,7 +110,7 @@ export default function AdminProducts() {
             <tbody>
               {products.map((p) => (
                 <tr key={p.id}>
-                  <td>{p.image ? <img src={p.image} width={50} height={50} style={{ objectFit: 'cover', borderRadius: 6 }} alt="" /> : '-'}</td>
+                  <td>{p.image ? <img src={`${API_BASE}${p.image}`} width={50} height={50} style={{ objectFit: 'cover', borderRadius: 6 }} alt="" /> : '-'}</td>
                   <td>{p.name}</td>
                   <td>{p.price} ກີບ</td>
                   <td>{p.size}</td>
@@ -127,7 +129,7 @@ export default function AdminProducts() {
           <div className="modal-box" style={{ background: '#fff', color: '#1f2937' }}>
             <button className="modal-close" style={{ color: '#1f2937' }} onClick={() => setQrOpen(false)}>✕</button>
             <h2 style={{ color: 'var(--navy)' }}>ຮູບ QR ຊັບເງິນຮ້ານ</h2>
-            {qrImage && <img src={qrImage} alt="QR" style={{ width: '100%', borderRadius: 8, marginBottom: 10 }} />}
+            {qrImage && <img src={`${API_BASE}${qrImage}`} alt="QR" style={{ width: '100%', borderRadius: 8, marginBottom: 10 }} />}
             <p style={{ color: '#6b7280' }}>{qrStatus}</p>
             <input type="file" accept="image/*" ref={qrFileRef} />
             <button className="primary" style={{ marginTop: 10 }} onClick={uploadQr}>ອັບໂຫລດ QR</button>

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 // ➕ ນຳຈາກ public/admin/chat.html
-
+  
 export default function AdminChat() {
   const [customers, setCustomers] = useState([]);
   const [currentId, setCurrentId] = useState(null);
@@ -58,7 +58,7 @@ export default function AdminChat() {
     if (boxRef.current) boxRef.current.scrollTop = boxRef.current.scrollHeight;
   }, [messages]);
 
-  function openCustomerChat(id, label) {
+  function openCustomerChat(id, label) { 
     setCurrentId(id);
     setCurrentLabel(label);
     lastMsgCount.current = 0;
