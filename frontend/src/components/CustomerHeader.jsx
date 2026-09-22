@@ -2,8 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet, apiPost } from '../api.js';
 
-// ➕ ນມາຈາກ public/menu/account.js ຕນສະບບ (ໄຟລຈງ — ໄດຮບແລວ)
-// ພດຕກສຄນ: ຖາຍງບ login ຈະ redirect ໄປ login.html ທນທ (ບແມນແຄໂຊວປມ login)
+// ➕ ນມາຈາກ public/menu/account.js ຕົນສະບບ (ໄຟລຈິງ — ໄດຮັບແລວ)
+// ພດຕິກສຄັນ: ຖາຍງບ login ຈະ redirect ໄປ login.html ທນທ (ບແມນແຄໂຊວປມ login)
 
 export default function CustomerHeader() {
   const [customer, setCustomer] = useState(null);
@@ -37,6 +37,7 @@ export default function CustomerHeader() {
     try {
       await apiPost('/api/customer-auth/logout', {});
     } catch (err) {}
+    localStorage.removeItem('customer_token'); // ← เพิมบรรทัดนี้
     navigate('/menu/login');
   }
 

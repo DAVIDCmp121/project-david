@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE, apiGet, apiPost, apiUpload } from '../../api.js';
 
-const STEP_LABELS = ['ສິນຄ້າ', 'ຂໍ້ມູນ', 'ສະລິບ', 'ຢືນຢັນ'];
+const STEP_LABELS = ['ສິນຄ້າ', 'ຂມນ', 'ສະລບ', 'ຢນຢັນ'];
 
 export default function Checkout() {
   const navigate = useNavigate();
@@ -39,7 +39,7 @@ export default function Checkout() {
   useEffect(() => {
     const saved = sessionStorage.getItem('checkoutProduct');
     if (!saved) {
-      alert('ບໍ່ພົບຂໍ້ມູນສິນຄ້າ ກະລຸນາເລືອກສິນຄ້າໃໝ່');
+      alert('ບພບຂມນສິນຄາ ກະລຸນາເລືອກສນຄ້າໃໝ່');
       navigate('/menu');
       return;
     }
@@ -91,18 +91,18 @@ export default function Checkout() {
     if (data.success) {
       setAuthDone(true);
     } else {
-      setLoginError(data.error || 'PIN ບໍ່ຖືກຕ້ອງ');
+      setLoginError(data.error || 'PIN ບຖືກຕອງ');
     }
   }
 
   async function submitRegisterStep() {
     setRegError('');
     if (!regPin || !regPinConfirm || !regBirthDate) {
-      setRegError('ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບ');
+      setRegError('ກະລຸນາປອນຂມູນໃຫ້ຄບ');
       return;
     }
     if (regPin !== regPinConfirm) {
-      setRegError('PIN ແລະ ຢືນຢັນ PIN ບໍ່ຕົງກັນ');
+      setRegError('PIN ແລະ ຢືນຢັນ PIN ບຕົງກັນ');
       return;
     }
     const { data } = await apiPost('/api/customer-auth/register', {
@@ -111,13 +111,13 @@ export default function Checkout() {
     if (data.success) {
       setAuthDone(true);
     } else {
-      setRegError(data.error || 'ສະໝັກສະມາຊິກບໍ່ສຳເລັດ');
+      setRegError(data.error || 'ສະໝັກສະມາຊິກບສເລດ');
     }
   }
 
   function validateStep2() {
     if (!address.trim()) {
-      alert('ກະລຸນາໃສ່ທີ່ຢູ່ຈັດສົ່ງ');
+      alert('ກະລຸນາໃສ່ທຢູຈັດສງ');
       return;
     }
     setStep(3);
@@ -131,7 +131,7 @@ export default function Checkout() {
 
   async function validateStep3() {
     if (!slipFile) {
-      alert('ກະລນາອັບໂຫລດຮູບສະລິບໂອນເງິນກ່ອນ');
+      alert('ກະລນາອບໂຫລດຮູບສະລິບໂອນເງນກ່ອນ');
       return;
     }
     setVerifying(true);
@@ -144,12 +144,12 @@ export default function Checkout() {
       const { data } = await apiUpload('/api/orders/verify-slip', formData);
 
       if (!data.valid) {
-        alert(data.reason || 'ຮູບທີ່ອັບໂຫລດບໍ່ຖືກຕ້ອງ ກະລຸນາກວດສອບແລ້ວລອງໃໝ່');
+        alert(data.reason || 'ຮູບທອບໂຫລດບຖືກຕອງ ກະລຸນາກວດສອບແລ້ວລອງໃໝ່');
         return;
       }
       setStep(4);
     } catch (err) {
-      alert('ກວດສອບຮູບບໍ່ໄດ້ ກະລຸນາລອງໃໝ່');
+      alert('ກວດສອບຮູບບໄດ ກະລຸນາລອງໃໝ່');
     } finally {
       setVerifying(false);
     }
@@ -171,11 +171,11 @@ export default function Checkout() {
         sessionStorage.removeItem('checkoutProduct');
 
         const orderMessage =
-          `ສັ່ງຊື້ໃໝ່:\n` +
-          `ສິນຄ້າ: ${product.name}\n` +
+          `ສັ່ງຊືໃໝ່:\n` +
+          `ສິນຄາ: ${product.name}\n` +
           `ຈຳນວນ: ${qty}\n` +
-          `ລວມ: ${total} ກີບ\n` +
-          `ທີ່ຢູ່ຈັດສົ່ງ: ${address}`;
+          `ລວມ: ${total} ກບ\n` +
+          `ທຢູຈັດສງ: ${address}`;
 
         try {
           await apiPost('/api/messages', { message_text: orderMessage });
@@ -183,16 +183,16 @@ export default function Checkout() {
           slipFormData.append('image', slipFile);
           await apiUpload('/api/messages/upload', slipFormData);
         } catch (msgErr) {
-          console.error('ສົ່ງຂໍ້ຄວາມ/ຮູບເຂົ້າແຊັດບໍ່ສຳເລັດ:', msgErr);
+          console.error('ສງຂຄວາມ/ຮູບເຂາແຊັດບສເລັດ:', msgErr);
         }
 
         navigate('/menu/chat');
       } else {
-        alert('ເກີດຂໍ້ຜິດພາດ: ' + data.error);
+        alert('ເກດຂຜດພາດ: ' + data.error);
         setConfirming(false);
       }
     } catch (err) {
-      alert('ເຊື່ອມຕໍ່ບໍ່ໄດ້ ກະລຸນາລອງໃໝ່');
+      alert('ເຊອມຕໍບໄດ ກະລຸນາລອງໃໝ່');
       setConfirming(false);
     }
   }
@@ -281,7 +281,13 @@ export default function Checkout() {
         {step === 3 && (
           <div className="step-panel">
             <h2>ສະແກນຈ່າຍເງິນ</h2>
-            {qrImage && <img src={qrImage} alt="QR ຮັບເງິນ" className="payment-qr" />}
+            {qrImage && (
+              <img
+                src={`${API_BASE}${qrImage}`}
+                alt="..."
+                style={{ maxWidth: '280px', width: '100%', height: 'auto', display: 'block', margin: '0 auto' }}
+              />
+            )}
             {qrMissing && <p>ຮ້ານຍັງບໍ່ໄດ້ຕັ້ງ QR ຮັບເງິນ ກະລຸນາຕິດຕໍ່ຮ້ານ</p>}
             <div className="pay-amount-box">
               <span>ຍອດທີ່ຕ້ອງໂອນ</span>

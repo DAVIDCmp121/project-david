@@ -1,15 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiPost } from '../../api.js';
+import { apiGet, apiPost } from '../../api.js';
 
-// ➕ ນຳຈາກ public/menu/orders.html
+// ➕ ນຈາກ public/menu/orders.html
 
 const statusLabels = {
-  awaiting_review: 'ລໍຖ້າກວດສະລິບ',
-  confirmed: 'ຢືນຢັນແລ້ວ',
-  shipped: 'ຈັດສົ່ງແລ້ວ',
+  awaiting_review: 'ລຖາກວດສະລບ',
+  confirmed: 'ຢືນຢັນແລວ',
+  shipped: 'ຈັດສົງແລ້ວ',
   delivered: 'ຮອດແລ້ວ',
-  cancelled: 'ຍົກເລີກແລ້ວ',
+  cancelled: 'ຍົກເລີກແລວ',
 };
 
 export default function CustomerOrders() {
@@ -18,12 +18,11 @@ export default function CustomerOrders() {
   const navigate = useNavigate();
 
   async function load() {
-    const res = await fetch('/api/customer/orders', { credentials: 'include' });
-    if (res.status === 401) {
+    const { ok, status, data } = await apiGet('/api/customer/orders');
+    if (status === 401 || !ok) {
       setLoggedIn(false);
       return;
     }
-    const data = await res.json();
     if (data.success) {
       setOrders(data.orders);
     } else {
@@ -36,12 +35,12 @@ export default function CustomerOrders() {
   }, []);
 
   async function cancelOrder(orderId) {
-    if (!window.confirm('ຢືນຢັນຍົກເລີກອໍເດນີ້?')) return;
+    if (!window.confirm('ຢືນຢນຍົກເລກອເດນີ?')) return;
     const { data } = await apiPost(`/api/orders/${orderId}/cancel`, {});
     if (data.success) {
       load();
     } else {
-      alert(data.error || 'ຍົກເລີກບໍ່ສຳເລັດ');
+      alert(data.error || 'ຍົກເລີກບໍສເລັດ');
     }
   }
 

@@ -7,8 +7,8 @@ const JWT_SECRET = require('../jwtSecret');
 const requireCustomerAuth = require('../middleware/requireCustomerAuth');
 const { checkLocked, recordFailure, clearAttempts } = require('../utils/ratelimiter');
 
-// sameSite:'none' + secure:true ใช้ได้เฉพาะตอนรันจริงผ่าน https เท่านั้น
-// ตอนเทสต local (http://localhost) ต้องใช้ sameSite:'lax' + secure:false ไมงัน browser จะไมยอมแนบ cookie ไปกบ request เลย
+// sameSite:'none' + secure:true ใช้ได้เฉพาะตอนรนจริงผาน https เท่านน
+// ตอนเทสต local (http://localhost) ต้องใช้ sameSite:'lax' + secure:false ไมงน browser จะไมยอมแนบ cookie ไปกบ request เลย
 const isProd = process.env.NODE_ENV === 'production';
 
 const COOKIE_OPTIONS = {
@@ -59,7 +59,7 @@ router.post('/register', async (req, res) => {
     maxAge: 90 * 24 * 60 * 60 * 1000
   });
 
-  res.json({ success: true, customerId });
+  res.json({ success: true, customerId, token });
 });
 
 router.post('/login', async (req, res) => {
@@ -99,7 +99,7 @@ router.post('/login', async (req, res) => {
     maxAge: 90 * 24 * 60 * 60 * 1000
   });
 
-  res.json({ success: true, customerId: customer.id });
+  res.json({ success: true, customerId: customer.id, token });
 });
 
 router.post('/forgot-pin', async (req, res) => {

@@ -4,13 +4,21 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.jsx';
 import './styles/global.css';
 
-// สงทก fetch('/api/...') ไปที่ backend (Render) พร้อมสงคุกกี้ลอกอิน
+// ส่งทุก fetch('/api/...') ไปที่ backend (Render) พรอมสงคุกกี้ + token login
 const API_BASE = import.meta.env.VITE_API_URL || '';
 const originalFetch = window.fetch.bind(window);
 window.fetch = (input, init = {}) => {
   if (typeof input === 'string' && input.startsWith('/')) {
     input = API_BASE + input;
-    init = { credentials: 'include', ...init };
+    const token = localStorage.getItem('customer_token');
+    init = {
+      credentials: 'include',
+      ...init,
+      headers: {
+        ...(init.headers || {}),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    };
   }
   return originalFetch(input, init);
 };

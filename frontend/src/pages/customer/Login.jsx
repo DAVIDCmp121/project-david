@@ -40,6 +40,7 @@ export default function CustomerLogin() {
     }
     const { data } = await apiPost('/api/customer-auth/login', { phone: loginPhone, pin: loginPin });
     if (data.success) {
+      if (data.token) localStorage.setItem('customer_token', data.token); // ← เพิ่มบรรทัดนี้
       navigate('/menu');
     } else {
       setAuthError(data.error || 'ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ');
@@ -56,6 +57,7 @@ export default function CustomerLogin() {
       phone: regPhone, pin: regPin, name: regName, birth_date: regBirthDate,
     });
     if (data.success) {
+      if (data.token) localStorage.setItem('customer_token', data.token); // ← เพิ่มบรรทัดนี้
       navigate('/menu');
     } else {
       setAuthError(data.error || 'ສະໝັກສະມາຊິກບໍ່ສຳເລັດ');
