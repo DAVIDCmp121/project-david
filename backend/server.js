@@ -22,6 +22,7 @@ const allowedOrigins = [
   'http://localhost:5173',                          // Vite dev server
   'https://polo-shop-4e1c0.web.app',                 // Firebase Hosting (production)
   'https://polo-shop-4e1c0.firebaseapp.com',
+  'https://project-david.onrender.com',              // เรียก API ตรงจาก Render domain เอง
 ];
 app.use(cors({
   origin: function (origin, callback) {
