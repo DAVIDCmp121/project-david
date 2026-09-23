@@ -1,17 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 
-// ➕ ນຳມາຈາກ public/admin/index.html + script.js ຕົ້ນສະບັບ (ໄຟລ໌ຈິງ — ໄດ້ຮັບແລ້ວ)
-// ພຶດຕິກຳຈິງ: ບໍ່ມີການເຊື່ອງປຸ່ມ/ຟອມສຳລັບພະນັກງານໃນໜ້ານີ້ເລີຍ (ອາໄສ backend ບລັອກ 403 ແທນ)
-// ຊື່ field ອັບໂຫລດ QR ແມ່ນ "qrImage" (ບໍ່ແມ່ນ "qr")
+// ➕ ນຳມາຈາກ public/admin/index.html + script.js ຕົນສະບັບ (ໄຟລຈງ — ໄດຮັບແລວ)
+// ✅ ອບເດດ: ປມ "ເພມສິນຄ້າ" ຍາຍໄປຢແຖວດຽວກັບ "QR ຊັບເງິນ", ຟອມເພີມສິນຄາເຊອງໄວ້ຈນກວາຈະກົດ
 
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState({ name: '', price: '', size: '', color: '', stock: '' });
   const imageRef = useRef(null);
 
+  const [addOpen, setAddOpen] = useState(false);
+
   const [qrOpen, setQrOpen] = useState(false);
   const [qrImage, setQrImage] = useState('');
-  const [qrStatus, setQrStatus] = useState('ກຳລັງກວດສອບ...');
+  const [qrStatus, setQrStatus] = useState('ກຳລງກວດສອບ...');
   const qrFileRef = useRef(null);
 
   async function loadProducts() {
@@ -25,9 +26,9 @@ export default function AdminProducts() {
     const data = await res.json();
     if (data.qrImage) {
       setQrImage(data.qrImage);
-      setQrStatus('QR ປັດຈຸບັນ:');
+      setQrStatus('QR ປດຈບນ:');
     } else {
-      setQrStatus('ຍັງບໍ່ໄດ້ອັບໂຫລດ QR');
+      setQrStatus('ຍັງບໄດອບໂຫລດ QR');
     }
   }
 
@@ -38,7 +39,7 @@ export default function AdminProducts() {
 
   async function addProduct() {
     if (!form.name || !form.price) {
-      alert('ກະລຸນາໃສ່ຊື່ສິນຄ້າ ແລະ ລາຄາ');
+      alert('ກະລນາໃສຊືສິນຄ້າ ແລະ ລາຄາ');
       return;
     }
     const formData = new FormData();
@@ -53,11 +54,12 @@ export default function AdminProducts() {
 
     setForm({ name: '', price: '', size: '', color: '', stock: '' });
     if (imageRef.current) imageRef.current.value = '';
+    setAddOpen(false);
     loadProducts();
   }
 
   async function deleteProduct(id) {
-    if (!window.confirm('ຕ້ອງການລຶບສິນຄ້ານີ້ບໍ?')) return;
+    if (!window.confirm('ຕອງການລບສິນຄ້ານບ?')) return;
     await fetch(`/api/products/${id}`, { method: 'DELETE', credentials: 'include' });
     loadProducts();
   }
@@ -65,7 +67,7 @@ export default function AdminProducts() {
   async function uploadQr() {
     const file = qrFileRef.current?.files[0];
     if (!file) {
-      alert('ກະລຸນາເລືອກຮູບ QR ກ່ອນ');
+      alert('ກະລຸນາເລອກຮູບ QR ກອນ');
       return;
     }
     const formData = new FormData();
@@ -73,30 +75,35 @@ export default function AdminProducts() {
 
     const res = await fetch('/api/settings/payment-qr', { method: 'POST', credentials: 'include', body: formData });
     if (res.ok) {
-      alert('ອັບໂຫລດ QR ສຳເລັດ ✅');
+      alert('ອັບໂຫລດ QR ສຳເລດ ✅');
       qrFileRef.current.value = '';
       loadCurrentQr();
     } else {
-      alert('ອັບໂຫລດບໍ່ສຳເລັດ');
+      alert('ອັບໂຫລດບສເລດ');
     }
   }
 
   return (
     <div>
-      <div className="admin-card">
+      <div className="admin-card" style={{ display: 'flex', gap: 10 }}>
         <button className="primary" onClick={() => setQrOpen(true)}>⚙️ QR ຊັບເງິນ</button>
+        <button className="primary" onClick={() => setAddOpen((v) => !v)}>
+          {addOpen ? '✕ ປິດຟອມ' : '➕ ເພີ່ມສິນຄ້າ'}
+        </button>
       </div>
 
-      <div className="admin-card">
-        <h2>ເພີ່ມສິນຄ້າໃໝ່</h2>
-        <input placeholder="ຊື່ສິນຄ້າ" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-        <input placeholder="ລາຄາ" type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
-        <input placeholder="ໄຊສ໌" value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} />
-        <input placeholder="ສີ" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
-        <input placeholder="ຈຳນວນສະຕັອກ" type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
-        <input type="file" accept="image/*" ref={imageRef} />
-        <button className="primary" onClick={addProduct}>ເພີ່ມສິນຄ້າ</button>
-      </div>
+      {addOpen && (
+        <div className="admin-card">
+          <h2>ເພີ່ມສິນຄ້າໃໝ່</h2>
+          <input placeholder="ຊື່ສິນຄ້າ" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+          <input placeholder="ລາຄາ" type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+          <input placeholder="ໄຊສ໌" value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} />
+          <input placeholder="ສີ" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
+          <input placeholder="ຈຳນວນສະຕັອກ" type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
+          <input type="file" accept="image/*" ref={imageRef} />
+          <button className="primary" onClick={addProduct}>ເພີ່ມສິນຄ້າ</button>
+        </div>
+      )}
 
       <div className="admin-card">
         {products.length === 0 && <p>ຍັງບໍ່ມີສິນຄ້າ</p>}

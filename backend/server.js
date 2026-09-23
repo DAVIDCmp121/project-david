@@ -12,6 +12,7 @@ const customerOrdersRouter = require('./routes/customerOrders');
 const staffRouter = require('./routes/staff');
 const customersRouter = require('./routes/customers');
 const messagesRouter = require('./routes/messages');
+const cartRouter = require('./routes/cart');
 const requireAuth = require('./middleware/requireAuth');
 
 const app = express();
@@ -37,10 +38,10 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-// ✅ ຮບພາບທອບໂຫລດ (ສນຄ້າ, ສະລິບ, ຮູບແຊັດ) ຍັງເກບໄວໃນ public/uploads ຄືເດມ
+// ✅ ຮບພາບທອບໂຫລດ (ສນຄ້າ, ສະລບ, ຮູບແຊັດ) ຍັງເກບໄວໃນ public/uploads ຄືເດມ
 app.use('/uploads', express.static(path.join(__dirname, './public/uploads')));
 
-// ✅ Serve ໄຟລ React ທ Build ແລວ (ແທນ /admin ແລະ /menu HTML ເກົາ)
+// ✅ Serve ໄຟລ React ທ Build ແລວ (ແທນ /admin ແລະ /menu HTML ເກາ)
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
 const settingsRouter = require('./routes/settings');
@@ -55,6 +56,7 @@ app.use('/api/orders', ordersRouter);
 app.use('/api/qrcode', qrcodeRouter);
 app.use('/api/customers', customersRouter);
 app.use('/api/staff', staffRouter);
+app.use('/api/cart', cartRouter);
 // ປອງກນ API ຂອງແອດມນ ຕອງ login ກອນ (ຍົກເວນ GET ທໜາ menu ຕອງໃຊ)
 
 
@@ -65,8 +67,8 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server ກລງເຮັດວຽກຢູ' });
 });
 
-// ✅ SPA fallback — ທກເສັນທາງທີ່ບແມ່ນ /api ໃຫສົງ index.html ຂອງ React ໄປແທນ
-// ຕອງຢູຫຼງສດ (ຫງທກ /api routes) ບຢ່າງນນຈະໄປທບ API
+// ✅ SPA fallback — ທກເສັນທາງທບແມນ /api ໃຫສງ index.html ຂອງ React ໄປແທນ
+// ຕອງຢູຫງສດ (ຫງທກ /api routes) ບຢ່າງນນຈະໄປທບ API
 app.get(/^(?!\/api).*/, (req, res) => {
  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });

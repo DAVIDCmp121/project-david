@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import CustomerHeader from '../../components/CustomerHeader.jsx';
-import { API_BASE, apiGet } from '../../api';
+import BottomNav from '../../components/BottomNav.jsx';
+import { CartProvider, useCart } from '../../context/CartContext.jsx';
+import { API_BASE, apiGet, apiPost } from '../../api';
 
-export default function ProductList() {
+function ProductListInner() {
   const [products, setProducts] = useState(null);
   const [loadError, setLoadError] = useState(false);
+  const [busyId, setBusyId] = useState(null);
+  const [toast, setToast] = useState('');
   const navigate = useNavigate();
+  const { refreshCartCount } = useCart();
 
   useEffect(() => {
     loadProducts();
@@ -27,9 +32,43 @@ export default function ProductList() {
     }
   }
 
-  function openCheckout(product) {
-    sessionStorage.setItem('checkoutProduct', JSON.stringify(product));
-    navigate('/menu/checkout');
+  async function addToCart(product) {
+    setBusyId(product.id);
+    try {
+      const { ok, data } = await apiPost('/api/cart', { product_id: product.id, quantity: 1 });
+      if (ok) {
+        setToast('ເພີ່ມລົງກະຕ່າແລ້ວ');
+        refreshCartCount();
+        setTimeout(() => setToast(''), 1500);
+      } else {
+        setToast(data.error || 'ເພີ່ມລົງກະຕ່າບໍ່ສຳເລັດ');
+        setTimeout(() => setToast(''), 2000);
+      }
+    } catch (err) {
+      console.error(err);
+      setToast('ເພີ່ມລົງກະຕ່າບໍ່ສຳເລັດ');
+      setTimeout(() => setToast(''), 2000);
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function buyNow(product) {
+    setBusyId(product.id);
+    try {
+      const { ok, data } = await apiPost('/api/cart', { product_id: product.id, quantity: 1 });
+      if (!ok) {
+        setToast(data.error || 'ເພີ່ມສິນຄ້າບໍ່ສຳເລັດ');
+        setTimeout(() => setToast(''), 2000);
+        return;
+      }
+      refreshCartCount();
+      navigate('/menu/checkout');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setBusyId(null);
+    }
   }
 
   return (
@@ -44,7 +83,16 @@ export default function ProductList() {
         </div>
       </header>
 
-      <main>
+      {toast && (
+        <div style={{
+          position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)',
+          background: '#333', color: '#fff', padding: '8px 16px', borderRadius: 6, zIndex: 100
+        }}>
+          {toast}
+        </div>
+      )}
+
+      <main style={{ paddingBottom: 80 }}>
         {products === null && !loadError && (
           <p style={{ padding: 20, color: '#ccc' }}>ກຳລັງໂຫລດ...</p>
         )}
@@ -66,14 +114,45 @@ export default function ProductList() {
                 <p>ໄຊສ໌: {p.size} | ສີ: {p.color}</p>
                 <p>ເຫຼືອ: {p.stock} ອັນ</p>
                 <p className="price">{p.price} ກີບ</p>
-                <button disabled={p.stock <= 0} onClick={() => openCheckout(p)}>
-                  {p.stock <= 0 ? 'ສິນຄ້າໝົດ' : 'ຊື້ເລີຍ'}
-                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    disabled={p.stock <= 0 || busyId === p.id}
+                    onClick={() => buyNow(p)}
+                    style={{ flex: 1 }}
+                  >
+                    {p.stock <= 0 ? 'ສິນຄ້າໝົດ' : (busyId === p.id ? '...' : 'ຊື້ເລີຍ')}
+                  </button>
+                  <button
+                    disabled={p.stock <= 0 || busyId === p.id}
+                    onClick={() => addToCart(p)}
+                    title="ເພີ່ມລົງກະຕ່າ"
+                    style={{
+                      width: 42, height: 42, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      borderRadius: 6, border: '1px solid #666', background: 'none', cursor: 'pointer', flexShrink: 0
+                    }}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="9" cy="21" r="1" />
+                      <circle cx="20" cy="21" r="1" />
+                      <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </main>
+
+      <BottomNav />
     </div>
+  );
+}
+
+export default function ProductList() {
+  return (
+    <CartProvider>
+      <ProductListInner />
+    </CartProvider>
   );
 }

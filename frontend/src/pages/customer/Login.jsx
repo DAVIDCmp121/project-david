@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet, apiPost } from '../../api.js';
+import BottomNav from '../../components/BottomNav.jsx';
+import { CartProvider } from '../../context/CartContext.jsx';
 
-// ➕ ນຳຈາກ public/menu/login.html (ເວີຊັນລ່າສຸດ ທີ່ມີວັນເກີດ+ລືມ PIN ແບບ self-service)
+// ➕ ນຈາກ public/menu/login.html (ເວຊັນລາສຸດ ທມວນເກດ+ລມ PIN ແບບ self-service)
 
-export default function CustomerLogin() {
+function CustomerLoginInner() {
   const [tab, setTab] = useState('login');
   const [loginPhone, setLoginPhone] = useState('');
   const [loginPin, setLoginPin] = useState('');
@@ -35,21 +37,21 @@ export default function CustomerLogin() {
   async function submitLogin() {
     setAuthError('');
     if (!loginPhone || !loginPin) {
-      setAuthError('ກະລຸນາປ້ອນເບີໂທ ແລະ PIN');
+      setAuthError('ກະລນາປອນເບໂທ ແລະ PIN');
       return;
     }
     const { data } = await apiPost('/api/customer-auth/login', { phone: loginPhone, pin: loginPin });
     if (data.success) {
       navigate('/menu');
     } else {
-      setAuthError(data.error || 'ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ');
+      setAuthError(data.error || 'ເຂາສູລະບບບສເລັດ');
     }
   }
 
   async function submitRegister() {
     setAuthError('');
     if (!regPhone || !regPin || !regBirthDate) {
-      setAuthError('ກະລຸນາປ້ອນເບີໂທ, PIN ແລະ ວັນເດືອນປີເກີດ');
+      setAuthError('ກະລນາປອນເບໂທ, PIN ແລະ ວນເດອນປເກດ');
       return;
     }
     const { data } = await apiPost('/api/customer-auth/register', {
@@ -58,7 +60,7 @@ export default function CustomerLogin() {
     if (data.success) {
       navigate('/menu');
     } else {
-      setAuthError(data.error || 'ສະໝັກສະມາຊິກບໍ່ສຳເລັດ');
+      setAuthError(data.error || 'ສະໝກສະມາຊກບສເລດ');
     }
   }
 
@@ -66,11 +68,11 @@ export default function CustomerLogin() {
     setFpError('');
     setFpSuccess('');
     if (!fpPhone || !fpBirthDate || !fpNewPin || !fpNewPinConfirm) {
-      setFpError('ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບ');
+      setFpError('ກະລຸນາປອນຂມູນໃຫຄົບ');
       return;
     }
     if (fpNewPin !== fpNewPinConfirm) {
-      setFpError('PIN ໃໝ່ ແລະ ຢືນຢັນ PIN ບໍ່ຕົງກັນ');
+      setFpError('PIN ໃໝ ແລະ ຢນຢັນ PIN ບຕງກນ');
       return;
     }
     const res = await fetch('/api/customer-auth/forgot-pin', {
@@ -80,13 +82,13 @@ export default function CustomerLogin() {
     });
     const data = await res.json();
     if (data.success) {
-      setFpSuccess(data.message || 'ຕັ້ງ PIN ໃໝ່ສຳເລັດ');
+      setFpSuccess(data.message || 'ຕງ PIN ໃໝ່ສເລດ');
       setTimeout(() => {
         setForgotOpen(false);
         setLoginPhone(fpPhone);
       }, 1500);
     } else {
-      setFpError(data.error || 'ຣີເຊັດ PIN ບໍ່ສຳເລັດ');
+      setFpError(data.error || 'ຣີເຊດ PIN ບສເລດ');
     }
   }
 
@@ -143,6 +145,16 @@ export default function CustomerLogin() {
           </div>
         </div>
       )}
+
+      <BottomNav />
     </div>
+  );
+}
+
+export default function CustomerLogin() {
+  return (
+    <CartProvider>
+      <CustomerLoginInner />
+    </CartProvider>
   );
 }

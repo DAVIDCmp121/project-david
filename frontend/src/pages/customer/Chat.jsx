@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { apiGet, apiPost, apiUpload } from '../../api.js';
+import BottomNav from '../../components/BottomNav.jsx';
+import { CartProvider } from '../../context/CartContext.jsx';
 
-export default function CustomerChat() {
+function CustomerChatInner() {
   const [loggedIn, setLoggedIn] = useState(null);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
@@ -142,7 +144,7 @@ export default function CustomerChat() {
   }
 
   return (
-    <div className="menuchat-shell">
+    <div className="menuchat-shell" style={{ paddingBottom: 80 }}>
       <header className="menuchat-header"><h1>ແຊັດກັບຮ້ານ POLO SHOP</h1></header>
       <div className="menuchat-box" ref={boxRef}>
         {messages.map((msg) => {
@@ -172,6 +174,15 @@ export default function CustomerChat() {
         <button onClick={sendText}>➤</button>
       </div>
       <audio ref={soundRef} src="/menu/notify.wav" preload="auto" />
+      <BottomNav />
     </div>
+  );
+}
+
+export default function CustomerChat() {
+  return (
+    <CartProvider>
+      <CustomerChatInner />
+    </CartProvider>
   );
 }

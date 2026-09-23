@@ -36,9 +36,11 @@ services:
       - ./backend/.env
     environment:
       DB_HOST: mysql
+      DB_PORT: 3306
       DB_USER: root
       DB_PASSWORD: rootpassword123
       DB_NAME: polo_shop
+      DB_SSL: "false"
       PORT: 3000
     ports:
       - "3000:3000"

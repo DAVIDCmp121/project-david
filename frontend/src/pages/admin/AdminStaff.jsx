@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { apiDelete, apiPost } from '../../api.js';
 
 // ➕ ນຳຈາກ public/admin/staff.html
+// ✅ ອັບເດດ: ຟອມ "ເພີມພະນກງານໃໝ່" ເຊືອງໄວຈນກວາຈະກດປມ
 
 export default function AdminStaff() {
   const [role, setRole] = useState(null);
@@ -11,6 +12,7 @@ export default function AdminStaff() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [addOpen, setAddOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -20,7 +22,7 @@ export default function AdminStaff() {
       const r = data.role || 'admin';
       setRole(r);
       if (r !== 'admin') {
-        alert('ໜ້ານີ້ສະເພາະແອດມິນເທົ່ານັນ');
+        alert('ໜ້ານສະເພາະແອດມນເທານນ');
         navigate('/admin');
         return;
       }
@@ -38,25 +40,26 @@ export default function AdminStaff() {
   async function addStaff() {
     setError('');
     if (!name || !username || !password) {
-      setError('ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບ');
+      setError('ກະລນາປອນຂມູນໃຫຄົບ');
       return;
     }
     const { data } = await apiPost('/api/staff', { name, username, password });
     if (data.success) {
       setName(''); setUsername(''); setPassword('');
+      setAddOpen(false);
       loadStaffList();
     } else {
-      setError(data.error || 'ເພິ່ມພະນັກງານບໍ່ສຳເລັດ');
+      setError(data.error || 'ເພມພະນກງານບສເລດ');
     }
   }
 
   async function deleteStaffMember(id, memberName) {
-    if (!window.confirm(`ຢນຢັນລຶບພະນັກງານ "${memberName}" ອອກຈາກລະບົບ?`)) return;
+    if (!window.confirm(`ຢນຢັນລຶບພະນກງານ "${memberName}" ອອກຈາກລະບບ?`)) return;
     const { data } = await apiDelete(`/api/staff/${id}`);
     if (data.success) {
       loadStaffList();
     } else {
-      alert(data.error || 'ລຶບບໍ່ສຳເລັດ');
+      alert(data.error || 'ລບບສເລັດ');
     }
   }
 
@@ -65,13 +68,21 @@ export default function AdminStaff() {
   return (
     <div>
       <div className="admin-card">
-        <h3>ເພີ່ມພະນັກງານໃໝ່</h3>
-        <input placeholder="ຊື່ພະນັກງານ" value={name} onChange={(e) => setName(e.target.value)} />
-        <input placeholder="ຊື່ຜູ້ໃຊ້ (ໃຊ້ login)" value={username} onChange={(e) => setUsername(e.target.value)} />
-        <input placeholder="ລະຫັດຜ່ານ" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        <div style={{ color: '#dc2626', fontSize: '0.85rem', minHeight: 18 }}>{error}</div>
-        <button className="primary" onClick={addStaff}>ເພີ່ມພະນັກງານ</button>
+        <button className="primary" onClick={() => setAddOpen((v) => !v)}>
+          {addOpen ? '✕ ປິດຟອມ' : '➕ ເພີ່ມພະນັກງານ'}
+        </button>
       </div>
+
+      {addOpen && (
+        <div className="admin-card">
+          <h3>ເພີ່ມພະນັກງານໃໝ່</h3>
+          <input placeholder="ຊື່ພະນັກງານ" value={name} onChange={(e) => setName(e.target.value)} />
+          <input placeholder="ຊື່ຜູ້ໃຊ້ (ໃຊ້ login)" value={username} onChange={(e) => setUsername(e.target.value)} />
+          <input placeholder="ລະຫັດຜ່ານ" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <div style={{ color: '#dc2626', fontSize: '0.85rem', minHeight: 18 }}>{error}</div>
+          <button className="primary" onClick={addStaff}>ເພີ່ມພະນັກງານ</button>
+        </div>
+      )}
 
       <table className="admin-table">
         <thead>
