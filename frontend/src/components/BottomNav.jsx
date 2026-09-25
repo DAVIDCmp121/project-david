@@ -1,6 +1,6 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext.jsx';
-import { apiPost } from '../api.js';
+import { apiPost, clearToken } from '../api.js';
 
 export default function BottomNav() {
   const navigate = useNavigate();
@@ -11,6 +11,7 @@ export default function BottomNav() {
     try {
       await apiPost('/api/customer-auth/logout', {});
     } catch (err) {}
+    clearToken(); // ✅ ໃໝ່: ລ້າງ token ອອກຈາກ localStorage
     navigate('/menu/login');
   }
 

@@ -1,12 +1,15 @@
-// Middleware ກວດສອບວ່າລູກຄ້າ login ຢູ່ຫຼືບໍ (ໃຊ້ token ໃນ cookie)
+// Middleware ກວດສອບວ່າລູກຄ້າ login ຢູ່ບໍ (ໃຊ້ token ຈາກ Authorization header ຫຼື cookie)
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = require('../jwtSecret');
 
 function requireCustomerAuth(req, res, next) {
-  const token = req.cookies.customer_token;
+  const authHeader = req.headers.authorization;
+  const token = (authHeader && authHeader.startsWith('Bearer '))
+    ? authHeader.slice(7)
+    : (req.cookies ? req.cookies.customer_token : undefined);
 
   if (!token) {
-    return res.status(401).json({ error: 'ກະລຸນາເຂົ້າສລະບົບກ່ອນ' });
+    return res.status(401).json({ error: 'ກະລຸນາເຂົ້າສູ່ລະບົບກ່ອນ' });
   }
 
   try {

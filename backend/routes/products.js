@@ -61,5 +61,32 @@ router.delete('/:id', requireAuth, requireAdminRole, async (req, res) => {
     res.status(500).json({ error: 'ລບສິນຄ້າບສເລດ' });
   }
 });
+// ✅ ໃໝ່: ແກ້ໄຂສິນຄ້າ (ຊື່/ລາຄາ/ໄຊສ໌/ສີ/ສະຕັອກ/ຮູບ) — ต้อง login และต้องเป็น role='admin' เท่านั้น
+router.put('/:id', requireAuth, requireAdminRole, upload.single('image'), async (req, res) => {
+  try {
+    const { name, price, size, color, stock } = req.body;
+    const productId = req.params.id;
 
+    const fields = [];
+    const values = [];
+    if (name !== undefined) { fields.push('name = ?'); values.push(name); }
+    if (price !== undefined) { fields.push('price = ?'); values.push(price); }
+    if (size !== undefined) { fields.push('size = ?'); values.push(size); }
+    if (color !== undefined) { fields.push('color = ?'); values.push(color); }
+    if (stock !== undefined) { fields.push('stock = ?'); values.push(stock); }
+    if (req.file) { fields.push('image = ?'); values.push('/uploads/' + req.file.filename); }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ error: 'ບໍ່ມີຂໍ້ມູນທີ່ຈະອັບເດດ' });
+    }
+
+    values.push(productId);
+    await pool.query(`UPDATE products SET ${fields.join(', ')} WHERE id = ?`, values);
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'ອັບເດດສິນຄ້າບໍ່ສຳເລັດ' });
+  }
+});
 module.exports = router;

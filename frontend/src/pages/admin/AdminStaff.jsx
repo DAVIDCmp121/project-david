@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiDelete, apiPost } from '../../api.js';
-
-// ➕ ນຳຈາກ public/admin/staff.html
-// ✅ ອັບເດດ: ຟອມ "ເພີມພະນກງານໃໝ່" ເຊືອງໄວຈນກວາຈະກດປມ
+import { apiDelete, apiPost, getAuthHeader } from '../../api.js';
 
 export default function AdminStaff() {
   const [role, setRole] = useState(null);
@@ -17,12 +14,15 @@ export default function AdminStaff() {
 
   useEffect(() => {
     (async () => {
-      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      const res = await fetch('/api/auth/me', {
+        credentials: 'include',
+        headers: { ...getAuthHeader() }, // ✅ ໃໝ່
+      });
       const data = await res.json();
       const r = data.role || 'admin';
       setRole(r);
       if (r !== 'admin') {
-        alert('ໜ້ານສະເພາະແອດມນເທານນ');
+        alert('ໜ້ານີ້ສະເພາະແອດມິນເທົ່ານັນ');
         navigate('/admin');
         return;
       }
@@ -32,7 +32,10 @@ export default function AdminStaff() {
   }, []);
 
   async function loadStaffList() {
-    const res = await fetch('/api/staff', { credentials: 'include' });
+    const res = await fetch('/api/staff', {
+      credentials: 'include',
+      headers: { ...getAuthHeader() }, // ✅ ໃໝ່
+    });
     const data = await res.json();
     setStaff(data.staff || []);
   }
@@ -40,7 +43,7 @@ export default function AdminStaff() {
   async function addStaff() {
     setError('');
     if (!name || !username || !password) {
-      setError('ກະລນາປອນຂມູນໃຫຄົບ');
+      setError('ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບ');
       return;
     }
     const { data } = await apiPost('/api/staff', { name, username, password });
@@ -49,17 +52,17 @@ export default function AdminStaff() {
       setAddOpen(false);
       loadStaffList();
     } else {
-      setError(data.error || 'ເພມພະນກງານບສເລດ');
+      setError(data.error || 'ເພິ່ມພະນັກງານບໍ່ສຳເລັດ');
     }
   }
 
   async function deleteStaffMember(id, memberName) {
-    if (!window.confirm(`ຢນຢັນລຶບພະນກງານ "${memberName}" ອອກຈາກລະບບ?`)) return;
+    if (!window.confirm(`ຢນຢັນລຶບພະນັກງານ "${memberName}" ອອກຈາກລະບົບ?`)) return;
     const { data } = await apiDelete(`/api/staff/${id}`);
     if (data.success) {
       loadStaffList();
     } else {
-      alert(data.error || 'ລບບສເລັດ');
+      alert(data.error || 'ລຶບບໍ່ສຳເລັດ');
     }
   }
 

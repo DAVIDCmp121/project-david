@@ -1,20 +1,16 @@
 import { useEffect, useState } from 'react';
-import { apiPost, apiPut } from '../../api.js';
-
-// ➕ ນຳຈາກ public/admin/orders.html + orders.js (ເວຊນລາສດ ທມແທບ+ຕົວກອງ+dropdown)
-// ✅ ອບເດດແລວ: ຮອງຮບ order.items (array) ແທນ product_name/quantity/price ດຽວໆ
-// ✅ ອັບເດດໃໝ່: ເລກລດບ 1,2,3... ແທນ DB id (ນັບລວມທຸກອເດ ລວມທຍົກເລີກ) + ເສນຄັນລະຫວາງວນທີ
+import { apiPost, apiPut, getAuthHeader } from '../../api.js';
 
 const statusLabels = {
-  awaiting_review: 'ລຖາກວດສະລບ',
-  confirmed: 'ຢືນຢັນແລວ',
-  shipped: 'ຈດສງແລ້ວ',
+  awaiting_review: 'ລໍຖ້າກວດສະລິບ',
+  confirmed: 'ຢືນຢັນແລ້ວ',
+  shipped: 'ຈັດສົ່ງແລ້ວ',
   delivered: 'ຮອດແລ້ວ',
 };
 
 const cancelledByLabels = {
-  customer: { text: 'ລກຄາຍກເລກ', cls: 'by-customer' },
-  staff: { text: 'ພະນກງານຍົກເລີກ', cls: 'by-staff' },
+  customer: { text: 'ລູກຄ້າຍົກເລີກ', cls: 'by-customer' },
+  staff: { text: 'ພະນັກງານຍົກເລີກ', cls: 'by-staff' },
 };
 
 export default function AdminOrders() {
@@ -25,7 +21,10 @@ export default function AdminOrders() {
   const [filterDate, setFilterDate] = useState('');
 
   async function loadOrders() {
-    const res = await fetch('/api/orders', { credentials: 'include' });
+    const res = await fetch('/api/orders', {
+      credentials: 'include',
+      headers: { ...getAuthHeader() }, // ✅ ໃໝ່
+    });
     const data = await res.json();
     setAllOrders(data);
   }
@@ -34,7 +33,6 @@ export default function AdminOrders() {
     loadOrders();
   }, []);
 
-  // ✅ ໃໝ່: ສາງເລກລດບ 1,2,3... ຈາກອເດທງໝົດ (ນບລວມທຍົກເລີກ), ອງໃສວນທສາງອເດ (ເກາສດ = 1)
   const orderNumbers = {};
   [...allOrders]
     .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
@@ -58,15 +56,15 @@ export default function AdminOrders() {
 
   async function updateStatus(id, order_status) {
     const { data } = await apiPut(`/api/orders/${id}`, { order_status });
-    if (!data.success) alert(data.error || 'ປຽນສະຖານະບສເລດ');
+    if (!data.success) alert(data.error || 'ປ່ຽນສະຖານະບໍ່ສຳເລັດ');
     loadOrders();
   }
 
   async function adminCancelOrder(id) {
-    if (!window.confirm('ຢືນຢັນຍກເລີກອເດນີ້? ສະຕອກສນຄາຈະຄນກບຄນ')) return;
+    if (!window.confirm('ຢືນຢັນຍົກເລີກອໍເດີນີ້? ສະຕ໋ອກສິນຄ້າຈະຄືນກັບຄືນ')) return;
     const { data } = await apiPost(`/api/orders/${id}/admin-cancel`, {});
     if (!data.success) {
-      alert(data.error || 'ຍກເລີກບສເລັດ');
+      alert(data.error || 'ຍົກເລີກບໍ່ສຳເລັດ');
       return;
     }
     loadOrders();
@@ -78,7 +76,6 @@ export default function AdminOrders() {
     setFilterDate('');
   }
 
-  // ✅ ໃໝ: ແປງວນທເປນ string ສນໆ ໃຊ້ປຽບທຽບວາວນປຽນບ
   function dateKey(dateStr) {
     return new Date(dateStr).toLocaleDateString('lo-LA', { year: 'numeric', month: 'long', day: 'numeric' });
   }
@@ -110,7 +107,7 @@ export default function AdminOrders() {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>ລະຫັດ</th><th>ສິນຄ້າ</th><th>ເບີໂທ</th><th>ຈຳນວນ</th><th>ລາຄາລວມ</th><th>ສະຖານະ</th><th>ວັນທີ</th><th></th>
+                <th>ລະຫັດ</th><th>ສິນຄ້າ</th><th>ເບີໂທ</th><th>ຈຳນວນ</th><th>ລາຄາລວມ</th><th>ສະຖານະ</th><th>ເວລາ</th><th></th>
               </tr>
             </thead>
             <tbody>
@@ -165,7 +162,7 @@ export default function AdminOrders() {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>ລະຫັດ</th><th>ສິນຄ້າ</th><th>ເບີໂທ</th><th>ຈຳນວນ</th><th>ລາຄາລວມ</th><th>ວັນທີ</th><th>ຍົກເລີກໂດຍ</th>
+                <th>ລະຫັດ</th><th>ສິນຄ້າ</th><th>ເບີໂທ</th><th>ຈຳນວນ</th><th>ລາຄາລວມ</th><th>ເວລາ</th><th>ຍົກເລີກໂດຍ</th>
               </tr>
             </thead>
             <tbody>

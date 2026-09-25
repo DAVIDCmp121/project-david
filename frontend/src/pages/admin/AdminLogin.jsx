@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { apiPost } from '../../api.js';
+import { apiPost, saveToken } from '../../api.js';
 
 export default function AdminLogin() {
   const [username, setUsername] = useState('');
@@ -12,6 +12,7 @@ export default function AdminLogin() {
       const { ok, data } = await apiPost('/api/auth/login', { username, password });
 
       if (ok && data.success) {
+        saveToken(data.token); // ✅ ໃໝ່: ເກັບ token ໄວ້ໃນ localStorage
         window.location.href = '/admin';
       } else {
         setError(data.error || 'ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ');

@@ -422,3 +422,16 @@ button { font-family: inherit; cursor: pointer; }
 .qr-box { background: #fff; padding: 24px; border-radius: 20px; box-shadow: 0 12px 30px rgba(0,0,0,0.3); }
 .qr-box img { border-radius: 10px; display: block; }
 .qr-page p.url { margin-top: 18px; color: #ccc; font-size: 0.8rem; text-align: center; }
+/* ---------- Responsive: มอถือ ---------- */
+@media (max-width: 600px) {
+  .product-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+    padding: 12px;
+  }
+  .product-card { padding: 10px; }
+  .product-card h3 { font-size: 0.85rem; margin: 4px 0; }
+  .product-card p { font-size: 0.75rem; }
+  .product-card .price { font-size: 0.9rem; }
+  .product-card button { padding: 8px; font-size: 0.85rem; }
+}

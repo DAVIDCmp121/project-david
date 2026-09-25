@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { apiGet, apiPost, apiUpload } from '../../api.js';
+import { apiGet, apiPost, apiUpload, saveToken } from '../../api.js';
 import BottomNav from '../../components/BottomNav.jsx';
 import { CartProvider } from '../../context/CartContext.jsx';
 
@@ -74,18 +74,19 @@ function CustomerChatInner() {
   async function doLogin() {
     setLoginError('');
     if (!phone || !pin) {
-      setLoginError('ກະລຸນາປອນເບີໂທ ແລະ PIN');
+      setLoginError('ກະລນາປອນເບໂທ ແລະ PIN');
       return;
     }
     try {
       const { data } = await apiPost('/api/customer-auth/login', { phone, pin });
       if (data.success) {
+        saveToken(data.token); // ✅ ໃໝ່
         checkLoginAndStart();
       } else {
-        setLoginError(data.error || 'ເຂົາສູ່ລະບົບບສຳເລດ');
+        setLoginError(data.error || 'ເຂາສລະບບບສເລດ');
       }
     } catch (err) {
-      setLoginError('ເກີດຂຜິດພາດ, ລອງໃໝ່ພາຍຫຼັງ');
+      setLoginError('ເກດຂຜດພາດ, ລອງໃໝພາຍຫງ');
     }
   }
 
@@ -98,7 +99,7 @@ function CustomerChatInner() {
       if (data.success) {
         loadMessages();
       } else {
-        alert(data.error || 'ສົງຂຄວາມບໍສຳເລດ');
+        alert(data.error || 'ສົງຂຄວາມບສເລດ');
       }
     } catch (err) {
       alert('ເກດຂຜດພາດ');
@@ -115,7 +116,7 @@ function CustomerChatInner() {
       if (data.success) {
         loadMessages();
       } else {
-        alert(data.error || 'ອັບໂຫລດຮູບບສຳເລັດ');
+        alert(data.error || 'ອັບໂຫລດຮບບສເລດ');
       }
     } catch (err) {
       alert('ເກີດຂຜິດພາດ');

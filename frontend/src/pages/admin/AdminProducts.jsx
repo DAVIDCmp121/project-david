@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-
-// ➕ ນຳມາຈາກ public/admin/index.html + script.js ຕົນສະບັບ (ໄຟລຈງ — ໄດຮັບແລວ)
-// ✅ ອບເດດ: ປມ "ເພມສິນຄ້າ" ຍາຍໄປຢແຖວດຽວກັບ "QR ຊັບເງິນ", ຟອມເພີມສິນຄາເຊອງໄວ້ຈນກວາຈະກົດ
+import { getAuthHeader } from '../../api.js';
 
 export default function AdminProducts() {
   const [products, setProducts] = useState([]);
@@ -12,8 +10,12 @@ export default function AdminProducts() {
 
   const [qrOpen, setQrOpen] = useState(false);
   const [qrImage, setQrImage] = useState('');
-  const [qrStatus, setQrStatus] = useState('ກຳລງກວດສອບ...');
+  const [qrStatus, setQrStatus] = useState('ກຳລັງກວດສອບ...');
   const qrFileRef = useRef(null);
+
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({ name: '', price: '', size: '', color: '', stock: '' });
+  const editImageRef = useRef(null);
 
   async function loadProducts() {
     const res = await fetch('/api/products');
@@ -26,9 +28,9 @@ export default function AdminProducts() {
     const data = await res.json();
     if (data.qrImage) {
       setQrImage(data.qrImage);
-      setQrStatus('QR ປດຈບນ:');
+      setQrStatus('QR ປັດຈຸບັນ:');
     } else {
-      setQrStatus('ຍັງບໄດອບໂຫລດ QR');
+      setQrStatus('ຍັງບໍ່ໄດ້ອັບໂຫລດ QR');
     }
   }
 
@@ -39,7 +41,7 @@ export default function AdminProducts() {
 
   async function addProduct() {
     if (!form.name || !form.price) {
-      alert('ກະລນາໃສຊືສິນຄ້າ ແລະ ລາຄາ');
+      alert('ກະລຸນາໃສ່ຊື່ສິນຄ້າ ແລະ ລາຄາ');
       return;
     }
     const formData = new FormData();
@@ -50,7 +52,12 @@ export default function AdminProducts() {
     formData.append('stock', form.stock || 0);
     if (imageRef.current?.files[0]) formData.append('image', imageRef.current.files[0]);
 
-    await fetch('/api/products', { method: 'POST', credentials: 'include', body: formData });
+    await fetch('/api/products', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { ...getAuthHeader() }, // ✅ ໃໝ່
+      body: formData,
+    });
 
     setForm({ name: '', price: '', size: '', color: '', stock: '' });
     if (imageRef.current) imageRef.current.value = '';
@@ -59,27 +66,73 @@ export default function AdminProducts() {
   }
 
   async function deleteProduct(id) {
-    if (!window.confirm('ຕອງການລບສິນຄ້ານບ?')) return;
-    await fetch(`/api/products/${id}`, { method: 'DELETE', credentials: 'include' });
+    if (!window.confirm('ຕ້ອງການລຶບສິນຄ້ານີ້ບໍ?')) return;
+    await fetch(`/api/products/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: { ...getAuthHeader() }, // ✅ ໃໝ່
+    });
     loadProducts();
+  }
+
+  function startEdit(p) {
+    setEditingId(p.id);
+    setEditForm({ name: p.name, price: p.price, size: p.size, color: p.color, stock: p.stock });
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    if (editImageRef.current) editImageRef.current.value = '';
+  }
+
+  async function saveEdit(id) {
+    if (!editForm.name || !editForm.price) {
+      alert('ກະລຸນາໃສ່ຊື່ສິນຄ້າ ແລະ ລາຄາ');
+      return;
+    }
+    const formData = new FormData();
+    formData.append('name', editForm.name);
+    formData.append('price', editForm.price);
+    formData.append('size', editForm.size);
+    formData.append('color', editForm.color);
+    formData.append('stock', editForm.stock);
+    if (editImageRef.current?.files[0]) formData.append('image', editImageRef.current.files[0]);
+
+    const res = await fetch(`/api/products/${id}`, {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { ...getAuthHeader() }, // ✅ ໃໝ່
+      body: formData,
+    });
+    if (res.ok) {
+      setEditingId(null);
+      loadProducts();
+    } else {
+      alert('ອັບເດດສິນຄ້າບໍ່ສຳເລັດ');
+    }
   }
 
   async function uploadQr() {
     const file = qrFileRef.current?.files[0];
     if (!file) {
-      alert('ກະລຸນາເລອກຮູບ QR ກອນ');
+      alert('ກະລຸນາເລືອກຮູບ QR ກ່ອນ');
       return;
     }
     const formData = new FormData();
     formData.append('qrImage', file);
 
-    const res = await fetch('/api/settings/payment-qr', { method: 'POST', credentials: 'include', body: formData });
+    const res = await fetch('/api/settings/payment-qr', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { ...getAuthHeader() }, // ✅ ໃໝ່
+      body: formData,
+    });
     if (res.ok) {
-      alert('ອັບໂຫລດ QR ສຳເລດ ✅');
+      alert('ອັບໂຫລດ QR ສຳເລັດ ✅');
       qrFileRef.current.value = '';
       loadCurrentQr();
     } else {
-      alert('ອັບໂຫລດບສເລດ');
+      alert('ອັບໂຫລດບໍ່ສຳເລັດ');
     }
   }
 
@@ -113,17 +166,42 @@ export default function AdminProducts() {
               <tr><th>ຮູບ</th><th>ຊື່</th><th>ລາຄາ</th><th>ໄຊສ໌</th><th>ສີ</th><th>ສະຕັອກ</th><th></th></tr>
             </thead>
             <tbody>
-              {products.map((p) => (
-                <tr key={p.id}>
-                  <td>{p.image ? <img src={p.image} width={50} height={50} style={{ objectFit: 'cover', borderRadius: 6 }} alt="" /> : '-'}</td>
-                  <td>{p.name}</td>
-                  <td>{p.price} ກີບ</td>
-                  <td>{p.size}</td>
-                  <td>{p.color}</td>
-                  <td>{p.stock}</td>
-                  <td><button className="del-btn" onClick={() => deleteProduct(p.id)}>ລຶບ</button></td>
-                </tr>
-              ))}
+              {products.map((p) => {
+                const isEditing = editingId === p.id;
+                if (isEditing) {
+                  return (
+                    <tr key={p.id} style={{ background: '#fffbe6' }}>
+                      <td>
+                        {p.image && <img src={p.image} width={40} height={40} style={{ objectFit: 'cover', borderRadius: 6, marginBottom: 4 }} alt="" />}
+                        <input type="file" accept="image/*" ref={editImageRef} style={{ width: 100, fontSize: 11 }} />
+                      </td>
+                      <td><input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} style={{ width: 100 }} /></td>
+                      <td><input type="number" value={editForm.price} onChange={(e) => setEditForm({ ...editForm, price: e.target.value })} style={{ width: 80 }} /></td>
+                      <td><input value={editForm.size} onChange={(e) => setEditForm({ ...editForm, size: e.target.value })} style={{ width: 60 }} /></td>
+                      <td><input value={editForm.color} onChange={(e) => setEditForm({ ...editForm, color: e.target.value })} style={{ width: 60 }} /></td>
+                      <td><input type="number" value={editForm.stock} onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })} style={{ width: 60 }} /></td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <button className="primary" onClick={() => saveEdit(p.id)}>ບັນທຶກ</button>
+                        <button onClick={cancelEdit} style={{ marginLeft: 4 }}>ຍົກເລີກ</button>
+                      </td>
+                    </tr>
+                  );
+                }
+                return (
+                  <tr key={p.id}>
+                    <td>{p.image ? <img src={p.image} width={50} height={50} style={{ objectFit: 'cover', borderRadius: 6 }} alt="" /> : '-'}</td>
+                    <td>{p.name}</td>
+                    <td>{p.price} ກີບ</td>
+                    <td>{p.size}</td>
+                    <td>{p.color}</td>
+                    <td>{p.stock}</td>
+                    <td style={{ whiteSpace: 'nowrap' }}>
+                      <button onClick={() => startEdit(p)}>ແກ້ໄຂ</button>
+                      <button className="del-btn" onClick={() => deleteProduct(p.id)} style={{ marginLeft: 4 }}>ລຶບ</button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}

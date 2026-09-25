@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiGet, apiPost } from '../../api.js';
+import { apiGet, apiPost, saveToken } from '../../api.js';
 import BottomNav from '../../components/BottomNav.jsx';
 import { CartProvider } from '../../context/CartContext.jsx';
-
-// ➕ ນຈາກ public/menu/login.html (ເວຊັນລາສຸດ ທມວນເກດ+ລມ PIN ແບບ self-service)
 
 function CustomerLoginInner() {
   const [tab, setTab] = useState('login');
@@ -37,14 +35,15 @@ function CustomerLoginInner() {
   async function submitLogin() {
     setAuthError('');
     if (!loginPhone || !loginPin) {
-      setAuthError('ກະລນາປອນເບໂທ ແລະ PIN');
+      setAuthError('ກະລຸນາປອນເບໂທ ແລະ PIN');
       return;
     }
     const { data } = await apiPost('/api/customer-auth/login', { phone: loginPhone, pin: loginPin });
     if (data.success) {
+      saveToken(data.token); // ✅ ໃໝ
       navigate('/menu');
     } else {
-      setAuthError(data.error || 'ເຂາສູລະບບບສເລັດ');
+      setAuthError(data.error || 'ເຂາສູ່ລະບົບບສເລດ');
     }
   }
 
@@ -58,9 +57,10 @@ function CustomerLoginInner() {
       phone: regPhone, pin: regPin, name: regName, birth_date: regBirthDate,
     });
     if (data.success) {
+      saveToken(data.token); // ✅ ໃໝ່
       navigate('/menu');
     } else {
-      setAuthError(data.error || 'ສະໝກສະມາຊກບສເລດ');
+      setAuthError(data.error || 'ສະໝກສະມາຊິກບສເລດ');
     }
   }
 
@@ -68,11 +68,11 @@ function CustomerLoginInner() {
     setFpError('');
     setFpSuccess('');
     if (!fpPhone || !fpBirthDate || !fpNewPin || !fpNewPinConfirm) {
-      setFpError('ກະລຸນາປອນຂມູນໃຫຄົບ');
+      setFpError('ກະລນາປອນຂມນໃຫຄົບ');
       return;
     }
     if (fpNewPin !== fpNewPinConfirm) {
-      setFpError('PIN ໃໝ ແລະ ຢນຢັນ PIN ບຕງກນ');
+      setFpError('PIN ໃໝ ແລະ ຢນຢນ PIN ບຕງກັນ');
       return;
     }
     const res = await fetch('/api/customer-auth/forgot-pin', {
@@ -82,13 +82,13 @@ function CustomerLoginInner() {
     });
     const data = await res.json();
     if (data.success) {
-      setFpSuccess(data.message || 'ຕງ PIN ໃໝ່ສເລດ');
+      setFpSuccess(data.message || 'ຕງ PIN ໃໝສເລັດ');
       setTimeout(() => {
         setForgotOpen(false);
         setLoginPhone(fpPhone);
       }, 1500);
     } else {
-      setFpError(data.error || 'ຣີເຊດ PIN ບສເລດ');
+      setFpError(data.error || 'ຣເຊັດ PIN ບສເລດ');
     }
   }
 
@@ -131,7 +131,7 @@ function CustomerLoginInner() {
 
       {forgotOpen && (
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setForgotOpen(false); }}>
-          <div className="modal-box">
+          <div className="modal-box" style={{ background: '#fff', color: '#1f2937' }}>
             <button className="modal-close" onClick={() => setForgotOpen(false)}>✕</button>
             <h2>ຣີເຊັດລະຫັດ PIN</h2>
             <p>ກະລຸນາປ້ອນເບີໂທ ແລະ ວັນເດືອນປີເກີດທີ່ໃຊ້ຕອນສະໝັກ ເພື່ອຕັ້ງ PIN ໃໝ່</p>

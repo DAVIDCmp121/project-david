@@ -1,16 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiPost } from '../../api.js';
+import { apiPost, getAuthHeader } from '../../api.js';
 import BottomNav from '../../components/BottomNav.jsx';
 import { CartProvider } from '../../context/CartContext.jsx';
 
-// ➕ ນຈາກ public/menu/orders.html
-// ✅ ອັບເດດແລວ: ຮອງຮບ order.items (array) ແທນ product_name/quantity/price ດຽວໆ
-
 const statusLabels = {
-  awaiting_review: 'ລຖາກວດສະລິບ',
-  confirmed: 'ຢືນຢນແລວ',
-  shipped: 'ຈດສງແລວ',
+  awaiting_review: 'ລຖາກວດສະລບ',
+  confirmed: 'ຢືນຢັນແລວ',
+  shipped: 'ຈດສງແລ້ວ',
   delivered: 'ຮອດແລວ',
   cancelled: 'ຍກເລີກແລ້ວ',
 };
@@ -21,7 +18,10 @@ function CustomerOrdersInner() {
   const navigate = useNavigate();
 
   async function load() {
-    const res = await fetch('/api/customer/orders', { credentials: 'include' });
+    const res = await fetch('/api/customer/orders', {
+      credentials: 'include',
+      headers: { ...getAuthHeader() }, // ✅ ໃໝ່
+    });
     if (res.status === 401) {
       setLoggedIn(false);
       return;
@@ -39,12 +39,12 @@ function CustomerOrdersInner() {
   }, []);
 
   async function cancelOrder(orderId) {
-    if (!window.confirm('ຢນຢັນຍກເລກອເດນ?')) return;
+    if (!window.confirm('ຢນຢັນຍົກເລີກອເດນ?')) return;
     const { data } = await apiPost(`/api/orders/${orderId}/cancel`, {});
     if (data.success) {
       load();
     } else {
-      alert(data.error || 'ຍກເລີກບສເລດ');
+      alert(data.error || 'ຍົກເລກບສຳເລດ');
     }
   }
 
