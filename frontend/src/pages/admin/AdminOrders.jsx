@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react';
-import { apiPost, apiPut } from '../../api.js';
-
-// ➕ ນຳຈາກ public/admin/orders.html + orders.js (ເວີຊັນລ່າສຸດ ທີ່ມີແທັບ+ຕົວກອງ+dropdown)
+import { apiPost, apiPut, getAuthHeader } from '../../api.js';
 
 const statusLabels = {
   awaiting_review: 'ລໍຖ້າກວດສະລິບ',
@@ -23,7 +21,10 @@ export default function AdminOrders() {
   const [filterDate, setFilterDate] = useState('');
 
   async function loadOrders() {
-    const res = await fetch('/api/orders', { credentials: 'include' });
+    const res = await fetch('/api/orders', {
+      credentials: 'include',
+      headers: { ...getAuthHeader() }, // ✅ ໃໝ່
+    });
     const data = await res.json();
     setAllOrders(data);
   }
@@ -31,6 +32,13 @@ export default function AdminOrders() {
   useEffect(() => {
     loadOrders();
   }, []);
+
+  const orderNumbers = {};
+  [...allOrders]
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    .forEach((o, idx) => {
+      orderNumbers[o.id] = idx + 1;
+    });
 
   let filtered = allOrders;
   if (searchPhone) {
@@ -68,6 +76,10 @@ export default function AdminOrders() {
     setFilterDate('');
   }
 
+  function dateKey(dateStr) {
+    return new Date(dateStr).toLocaleDateString('lo-LA', { year: 'numeric', month: 'long', day: 'numeric' });
+  }
+
   const count = tab === 'inprogress' ? inProgress.length : cancelled.length;
 
   return (
@@ -95,31 +107,51 @@ export default function AdminOrders() {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>ລະຫັດ</th><th>ສິນຄ້າ</th><th>ເບີໂທ</th><th>ຈຳນວນ</th><th>ລາຄາລວມ</th><th>ສະຖານະ</th><th>ວັນທີ</th><th></th>
+                <th>ລະຫັດ</th><th>ສິນຄ້າ</th><th>ເບີໂທ</th><th>ຈຳນວນ</th><th>ລາຄາລວມ</th><th>ສະຖານະ</th><th>ເວລາ</th><th></th>
               </tr>
             </thead>
             <tbody>
-              {inProgress.map((o) => {
-                const status = o.order_status || 'awaiting_review';
-                return (
-                  <tr key={o.id}>
-                    <td>{o.id}</td>
-                    <td>{o.product_name}</td>
-                    <td>{o.customer_phone || '-'}</td>
-                    <td>{o.quantity}</td>
-                    <td>{o.price * o.quantity} ກີບ</td>
-                    <td>
-                      <select className="status-select" value={status} onChange={(e) => updateStatus(o.id, e.target.value)}>
-                        {Object.entries(statusLabels).map(([key, label]) => (
-                          <option key={key} value={key}>{label}</option>
+              {(() => {
+                let lastDate = null;
+                const rows = [];
+                inProgress.forEach((o) => {
+                  const currentDate = dateKey(o.created_at);
+                  if (currentDate !== lastDate) {
+                    rows.push(
+                      <tr key={`divider-${currentDate}`} className="order-date-divider">
+                        <td colSpan={8} style={{ background: '#f3f4f6', fontWeight: 'bold', padding: '6px 10px' }}>
+                          📅 {currentDate}
+                        </td>
+                      </tr>
+                    );
+                    lastDate = currentDate;
+                  }
+                  const status = o.order_status || 'awaiting_review';
+                  rows.push(
+                    <tr key={o.id}>
+                      <td>{orderNumbers[o.id]}</td>
+                      <td>
+                        {(o.items || []).map((it, i) => (
+                          <div key={i}>{it.product_name} ×{it.quantity}</div>
                         ))}
-                      </select>
-                    </td>
-                    <td>{new Date(o.created_at).toLocaleString('lo-LA')}</td>
-                    <td><button className="cancel-btn" onClick={() => adminCancelOrder(o.id)}>ຍົກເລີກ</button></td>
-                  </tr>
-                );
-              })}
+                      </td>
+                      <td>{o.customer_phone || '-'}</td>
+                      <td>{(o.items || []).reduce((s, it) => s + it.quantity, 0)}</td>
+                      <td>{o.total} ກີບ</td>
+                      <td>
+                        <select className="status-select" value={status} onChange={(e) => updateStatus(o.id, e.target.value)}>
+                          {Object.entries(statusLabels).map(([key, label]) => (
+                            <option key={key} value={key}>{label}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>{new Date(o.created_at).toLocaleTimeString('lo-LA', { hour: '2-digit', minute: '2-digit' })}</td>
+                      <td><button className="cancel-btn" onClick={() => adminCancelOrder(o.id)}>ຍົກເລີກ</button></td>
+                    </tr>
+                  );
+                });
+                return rows;
+              })()}
             </tbody>
           </table>
         )
@@ -130,24 +162,44 @@ export default function AdminOrders() {
           <table className="admin-table">
             <thead>
               <tr>
-                <th>ລະຫັດ</th><th>ສິນຄ້າ</th><th>ເບີໂທ</th><th>ຈຳນວນ</th><th>ລາຄາລວມ</th><th>ວັນທີ</th><th>ຍົກເລີກໂດຍ</th>
+                <th>ລະຫັດ</th><th>ສິນຄ້າ</th><th>ເບີໂທ</th><th>ຈຳນວນ</th><th>ລາຄາລວມ</th><th>ເວລາ</th><th>ຍົກເລີກໂດຍ</th>
               </tr>
             </thead>
             <tbody>
-              {cancelled.map((o) => {
-                const badge = cancelledByLabels[o.cancelled_by];
-                return (
-                  <tr key={o.id}>
-                    <td>{o.id}</td>
-                    <td>{o.product_name}</td>
-                    <td>{o.customer_phone || '-'}</td>
-                    <td>{o.quantity}</td>
-                    <td>{o.price * o.quantity} ກີບ</td>
-                    <td>{new Date(o.created_at).toLocaleString('lo-LA')}</td>
-                    <td>{badge ? <span className={`cancelled-by-badge ${badge.cls}`}>{badge.text}</span> : '-'}</td>
-                  </tr>
-                );
-              })}
+              {(() => {
+                let lastDate = null;
+                const rows = [];
+                cancelled.forEach((o) => {
+                  const currentDate = dateKey(o.created_at);
+                  if (currentDate !== lastDate) {
+                    rows.push(
+                      <tr key={`divider-${currentDate}`} className="order-date-divider">
+                        <td colSpan={7} style={{ background: '#f3f4f6', fontWeight: 'bold', padding: '6px 10px' }}>
+                          📅 {currentDate}
+                        </td>
+                      </tr>
+                    );
+                    lastDate = currentDate;
+                  }
+                  const badge = cancelledByLabels[o.cancelled_by];
+                  rows.push(
+                    <tr key={o.id}>
+                      <td>{orderNumbers[o.id]}</td>
+                      <td>
+                        {(o.items || []).map((it, i) => (
+                          <div key={i}>{it.product_name} ×{it.quantity}</div>
+                        ))}
+                      </td>
+                      <td>{o.customer_phone || '-'}</td>
+                      <td>{(o.items || []).reduce((s, it) => s + it.quantity, 0)}</td>
+                      <td>{o.total} ກີບ</td>
+                      <td>{new Date(o.created_at).toLocaleTimeString('lo-LA', { hour: '2-digit', minute: '2-digit' })}</td>
+                      <td>{badge ? <span className={`cancelled-by-badge ${badge.cls}`}>{badge.text}</span> : '-'}</td>
+                    </tr>
+                  );
+                });
+                return rows;
+              })()}
             </tbody>
           </table>
         )

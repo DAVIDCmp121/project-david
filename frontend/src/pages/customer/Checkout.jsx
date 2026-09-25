@@ -1,126 +1,75 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE, apiGet, apiPost, apiUpload } from '../../api.js';
 
-const STEP_LABELS = ['ສິນຄ້າ', 'ຂມນ', 'ສະລບ', 'ຢນຢັນ'];
+const STEP_LABELS = ['ກະຕ່າ ແລະ ທີ່ຢູ່', 'ຊຳລະເງິນ'];
 
 export default function Checkout() {
   const navigate = useNavigate();
-  const [product, setProduct] = useState(null);
-  const [qty, setQty] = useState(1);
-  const [step, setStep] = useState(1);
-
+  const [items, setItems] = useState(null);
+  const [loadError, setLoadError] = useState(false);
   const [phone, setPhone] = useState('');
-  const [phoneChecked, setPhoneChecked] = useState(false);
-  const [isExisting, setIsExisting] = useState(null);
-  const [phoneError, setPhoneError] = useState('');
-
-  const [loginPin, setLoginPin] = useState('');
-  const [loginError, setLoginError] = useState('');
-
-  const [regName, setRegName] = useState('');
-  const [regPin, setRegPin] = useState('');
-  const [regPinConfirm, setRegPinConfirm] = useState('');
-  const [regBirthDate, setRegBirthDate] = useState('');
-  const [regError, setRegError] = useState('');
-
-  const [authDone, setAuthDone] = useState(false);
   const [address, setAddress] = useState('');
+  const [step, setStep] = useState(1);
 
   const [qrImage, setQrImage] = useState('');
   const [qrMissing, setQrMissing] = useState(false);
   const [slipFile, setSlipFile] = useState(null);
   const [slipPreview, setSlipPreview] = useState('');
-  const [verifying, setVerifying] = useState(false);
-  const fileInputRef = useRef(null);
-
   const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
-    const saved = sessionStorage.getItem('checkoutProduct');
-    if (!saved) {
-      alert('ບພບຂມນສິນຄາ ກະລຸນາເລືອກສນຄ້າໃໝ່');
-      navigate('/menu');
-      return;
-    }
-    setProduct(JSON.parse(saved));
-
     (async () => {
-      try {
-        const { ok, data } = await apiGet('/api/settings/payment-qr');
-        if (ok && data.qrImage) {
-          setQrImage(data.qrImage);
-        } else {
-          setQrMissing(true);
+      const [cartRes, meRes, qrRes] = await Promise.all([
+        apiGet('/api/cart'),
+        apiGet('/api/customer-auth/me'),
+        apiGet('/api/settings/payment-qr'),
+      ]);
+
+      if (cartRes.ok && Array.isArray(cartRes.data.items)) {
+        if (cartRes.data.items.length === 0) {
+          alert('ກະຕ່າສິນຄ້າວ່າງເປົ່າ ກະລຸນາເລືອກສິນຄ້າກ່ອນ');
+          navigate('/menu');
+          return;
         }
-      } catch (err) {
+        setItems(cartRes.data.items);
+      } else {
+        setLoadError(true);
+      }
+
+      if (meRes.ok) setPhone(meRes.data.phone || '');
+
+      if (qrRes.ok && qrRes.data.qrImage) {
+        setQrImage(qrRes.data.qrImage);
+      } else {
         setQrMissing(true);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!product) return null;
-
-  const total = product.price * qty;
-
-  function changeQty(delta) {
-    const next = qty + delta;
-    if (next < 1 || next > product.stock) return;
-    setQty(next);
+  if (!items && !loadError) {
+    return <div className="customer-shell"><p style={{ padding: 20, color: '#ccc' }}>ກຳລັງໂຫລດ...</p></div>;
+  }
+  if (loadError) {
+    return (
+      <div className="customer-shell">
+        <div style={{ padding: 20, color: '#ccc' }}>
+          <p>ໂຫລດຂໍ້ມູນບໍ່ສຳເລັດ ກະລຸນາລອງໃໝ່</p>
+          <button onClick={() => navigate('/menu/cart')}>ກັບໄປກະຕ່າ</button>
+        </div>
+      </div>
+    );
   }
 
-  async function checkPhone() {
-    setPhoneError('');
-    if (!phone) {
-      setPhoneError('ກະລຸນາໃສ່ເບີໂທ');
-      return;
-    }
-    const { data } = await apiPost('/api/customer-auth/check-phone', { phone });
-    setIsExisting(!!data.exists);
-    setPhoneChecked(true);
-  }
+  const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
 
-  async function submitLoginStep() {
-    setLoginError('');
-    if (!loginPin) {
-      setLoginError('ກະລຸນາໃສ່ PIN');
-      return;
-    }
-    const { data } = await apiPost('/api/customer-auth/login', { phone, pin: loginPin });
-    if (data.success) {
-      setAuthDone(true);
-    } else {
-      setLoginError(data.error || 'PIN ບຖືກຕອງ');
-    }
-  }
-
-  async function submitRegisterStep() {
-    setRegError('');
-    if (!regPin || !regPinConfirm || !regBirthDate) {
-      setRegError('ກະລຸນາປອນຂມູນໃຫ້ຄບ');
-      return;
-    }
-    if (regPin !== regPinConfirm) {
-      setRegError('PIN ແລະ ຢືນຢັນ PIN ບຕົງກັນ');
-      return;
-    }
-    const { data } = await apiPost('/api/customer-auth/register', {
-      phone, pin: regPin, name: regName, birth_date: regBirthDate,
-    });
-    if (data.success) {
-      setAuthDone(true);
-    } else {
-      setRegError(data.error || 'ສະໝັກສະມາຊິກບສເລດ');
-    }
-  }
-
-  function validateStep2() {
+  function validateStep1() {
     if (!address.trim()) {
-      alert('ກະລຸນາໃສ່ທຢູຈັດສງ');
+      alert('ກະລຸນາໃສ່ທີ່ຢູ່ຈັດສົ່ງ');
       return;
     }
-    setStep(3);
+    setStep(2);
   }
 
   function onSlipChange(e) {
@@ -129,38 +78,14 @@ export default function Checkout() {
     if (file) setSlipPreview(URL.createObjectURL(file));
   }
 
-  async function validateStep3() {
+  async function submitOrder() {
     if (!slipFile) {
-      alert('ກະລນາອບໂຫລດຮູບສະລິບໂອນເງນກ່ອນ');
+      alert('ກະລຸນາອັບໂຫລດຮູບສະລິບໂອນເງິນກ່ອນ');
       return;
     }
-    setVerifying(true);
-    try {
-      const formData = new FormData();
-      formData.append('slip', slipFile);
-      formData.append('product_id', product.id);
-      formData.append('quantity', qty);
-
-      const { data } = await apiUpload('/api/orders/verify-slip', formData);
-
-      if (!data.valid) {
-        alert(data.reason || 'ຮູບທອບໂຫລດບຖືກຕອງ ກະລຸນາກວດສອບແລ້ວລອງໃໝ່');
-        return;
-      }
-      setStep(4);
-    } catch (err) {
-      alert('ກວດສອບຮູບບໄດ ກະລຸນາລອງໃໝ່');
-    } finally {
-      setVerifying(false);
-    }
-  }
-
-  async function submitOrder() {
     setConfirming(true);
     try {
       const formData = new FormData();
-      formData.append('product_id', product.id);
-      formData.append('quantity', qty);
       formData.append('customer_phone', phone);
       formData.append('customer_address', address);
       formData.append('slip', slipFile);
@@ -168,14 +93,9 @@ export default function Checkout() {
       const { ok, data } = await apiUpload('/api/orders', formData);
 
       if (ok) {
-        sessionStorage.removeItem('checkoutProduct');
-
+        const itemLines = items.map((i) => `- ${i.name} x${i.quantity} = ${i.price * i.quantity} ກີບ`).join('\n');
         const orderMessage =
-          `ສັ່ງຊືໃໝ່:\n` +
-          `ສິນຄາ: ${product.name}\n` +
-          `ຈຳນວນ: ${qty}\n` +
-          `ລວມ: ${total} ກບ\n` +
-          `ທຢູຈັດສງ: ${address}`;
+          `ສັ່ງຊື້ໃໝ່:\n${itemLines}\nລວມ: ${total} ກີບ\nທີ່ຢູ່ຈັດສົ່ງ: ${address}`;
 
         try {
           await apiPost('/api/messages', { message_text: orderMessage });
@@ -183,16 +103,16 @@ export default function Checkout() {
           slipFormData.append('image', slipFile);
           await apiUpload('/api/messages/upload', slipFormData);
         } catch (msgErr) {
-          console.error('ສງຂຄວາມ/ຮູບເຂາແຊັດບສເລັດ:', msgErr);
+          console.error('ສົ່ງຂໍ້ຄວາມ/ຮູບເຂົ້າແຊັດບໍ່ສຳເລັດ:', msgErr);
         }
 
         navigate('/menu/chat');
       } else {
-        alert('ເກດຂຜດພາດ: ' + data.error);
+        alert('ເກີດຂໍ້ຜິດພາດ: ' + (data.error || ''));
         setConfirming(false);
       }
     } catch (err) {
-      alert('ເຊອມຕໍບໄດ ກະລຸນາລອງໃໝ່');
+      alert('ເຊື່ອມຕໍ່ບໍ່ໄດ້ ກະລຸນາລອງໃໝ່');
       setConfirming(false);
     }
   }
@@ -210,113 +130,50 @@ export default function Checkout() {
 
         {step === 1 && (
           <div className="step-panel">
-            <h2>ສິນຄ້າທີ່ເລືອກ</h2>
-            <div className="summary-product">
-              {product.image && <img src={`${API_BASE}${product.image}`} alt={product.name} />}
-              <div>
-                <h3>{product.name}</h3>
-                <p>{product.price} ກີບ / ອັນ</p>
-              </div>
-            </div>
-            <div className="qty-control">
-              <span>ຈຳນວນ:</span>
-              <button onClick={() => changeQty(-1)}>−</button>
-              <span>{qty}</span>
-              <button onClick={() => changeQty(1)}>+</button>
+            <h2>ລາຍການສິນຄ້າ</h2>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+              {items.map((item) => (
+                <div key={item.id} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                  {item.image && (
+                    <img src={`${API_BASE}${item.image}`} alt={item.name} style={{ width: 50, height: 50, objectFit: 'cover', borderRadius: 6 }} />
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <div>{item.name}</div>
+                    <div style={{ color: '#999', fontSize: 13 }}>x{item.quantity}</div>
+                  </div>
+                  <div>{item.price * item.quantity} ກີບ</div>
+                </div>
+              ))}
             </div>
             <div className="checkout-total">
               <span>ລວມທັງໝົດ</span>
               <span>{total} ກີບ</span>
             </div>
-            <button className="next-btn" onClick={() => setStep(2)}>ຕໍ່ໄປ</button>
+
+            <p style={{ marginTop: 16 }}>ເບີໂທ: <b>{phone}</b></p>
+            <textarea placeholder="ທີ່ຢູ່ຈັດສົ່ງ" value={address} onChange={(e) => setAddress(e.target.value)} rows={3} />
+
+            <div className="btn-row">
+              <button className="back-btn" onClick={() => navigate('/menu/cart')}>ກັບຄືນ</button>
+              <button className="next-btn" onClick={validateStep1}>ຕໍ່ໄປ</button>
+            </div>
           </div>
         )}
 
         {step === 2 && (
           <div className="step-panel">
-            <h2>ຂໍ້ມູນລູກຄ້າ</h2>
-
-            {!phoneChecked && (
-              <div>
-                <input type="tel" placeholder="ເບີໂທຕິດຕໍ່" value={phone} onChange={(e) => setPhone(e.target.value)} />
-                <button className="next-btn" onClick={checkPhone}>ກວດສອບເບີໂທ</button>
-                <div className="field-error">{phoneError}</div>
-              </div>
-            )}
-
-            {phoneChecked && !authDone && isExisting && (
-              <div>
-                <p>ຍິນດີຕ້ອນຮັບກັບມາ ກະລຸນາໃສ່ PIN</p>
-                <input type="password" placeholder="ລະຫັດ PIN" value={loginPin} onChange={(e) => setLoginPin(e.target.value)} />
-                <button className="next-btn" onClick={submitLoginStep}>ເຂົ້າສູ່ລະບົບ</button>
-                <div className="field-error">{loginError}</div>
-              </div>
-            )}
-
-            {phoneChecked && !authDone && isExisting === false && (
-              <div>
-                <p>ຍັງບໍ່ເຄີຍສະໝັກ ກະລຸນາຕັ້ງບັນຊີໃໝ່</p>
-                <input type="text" placeholder="ຊື່ (ບໍ່ບັງຄັບ)" value={regName} onChange={(e) => setRegName(e.target.value)} />
-                <input type="password" placeholder="ຕັ້ງລະຫັດ PIN (4-6 ໂຕເລກ)" value={regPin} onChange={(e) => setRegPin(e.target.value)} />
-                <input type="password" placeholder="ຢືນຢັນ PIN" value={regPinConfirm} onChange={(e) => setRegPinConfirm(e.target.value)} />
-                <input type="text" placeholder="ວັນເດືອນປີເກີດ (ໃຊ້ຢືນຢັນຕົວຕົນ)" value={regBirthDate} onChange={(e) => setRegBirthDate(e.target.value)} />
-                <button className="next-btn" onClick={submitRegisterStep}>ສະໝັກສະມາຊິກ</button>
-                <div className="field-error">{regError}</div>
-              </div>
-            )}
-
-            {authDone && (
-              <div>
-                <p>ເຂົ້າສູ່ລະບົບແລ້ວ: <b>{phone}</b></p>
-                <textarea placeholder="ທີ່ຢູ່ຈັດສົ່ງ" value={address} onChange={(e) => setAddress(e.target.value)} rows={3} />
-                <div className="btn-row">
-                  <button className="back-btn" onClick={() => setStep(1)}>ກັບຄືນ</button>
-                  <button className="next-btn" onClick={validateStep2}>ຕໍ່ໄປ</button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="step-panel">
             <h2>ສະແກນຈ່າຍເງິນ</h2>
-            {qrImage && (
-              <img
-                src={`${API_BASE}${qrImage}`}
-                alt="..."
-                style={{ maxWidth: '280px', width: '100%', height: 'auto', display: 'block', margin: '0 auto' }}
-              />
-            )}
+            {qrImage && <img src={qrImage} alt="QR ຮັບເງິນ" className="payment-qr" />}
             {qrMissing && <p>ຮ້ານຍັງບໍ່ໄດ້ຕັ້ງ QR ຮັບເງິນ ກະລຸນາຕິດຕໍ່ຮ້ານ</p>}
             <div className="pay-amount-box">
               <span>ຍອດທີ່ຕ້ອງໂອນ</span>
               <span>{total} ກີບ</span>
             </div>
             <label className="upload-label">ອັບໂຫລດຮູບສະລິບໂອນເງິນ</label>
-            <input type="file" accept="image/*" ref={fileInputRef} onChange={onSlipChange} />
+            <input type="file" accept="image/*" onChange={onSlipChange} />
             {slipPreview && <img src={slipPreview} className="slip-preview" alt="slip preview" />}
             <div className="btn-row">
-              <button className="back-btn" onClick={() => setStep(2)}>ກັບຄືນ</button>
-              <button className="next-btn" onClick={validateStep3} disabled={verifying}>
-                {verifying ? 'ກຳລັງກວດສອບ...' : 'ຕໍ່ໄປ'}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === 4 && (
-          <div className="step-panel">
-            <h2>ກວດສອບຂໍ້ມູນກ່ອນຢືນຢັນ</h2>
-            <div className="final-summary">
-              <p><b>ສິນຄ້າ:</b> {product.name}</p>
-              <p><b>ຈຳນວນ:</b> {qty}</p>
-              <p><b>ລວມ:</b> {total} ກີບ</p>
-              <p><b>ເບີໂທ:</b> {phone}</p>
-              <p><b>ທີ່ຢູ່:</b> {address}</p>
-            </div>
-            <div className="btn-row">
-              <button className="back-btn" onClick={() => setStep(3)}>ກັບຄືນ</button>
+              <button className="back-btn" onClick={() => setStep(1)}>ກັບຄືນ</button>
               <button className="confirm-btn" onClick={submitOrder} disabled={confirming}>
                 {confirming ? 'ກຳລັງສົ່ງ...' : 'ຢືນຢັນການສັ່ງຊື້'}
               </button>

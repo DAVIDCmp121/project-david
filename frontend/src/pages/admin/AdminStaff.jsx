@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiDelete, apiPost } from '../../api.js';
-
-// ➕ ນຳຈາກ public/admin/staff.html
+import { apiDelete, apiPost, getAuthHeader } from '../../api.js';
 
 export default function AdminStaff() {
   const [role, setRole] = useState(null);
@@ -11,11 +9,15 @@ export default function AdminStaff() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [addOpen, setAddOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
     (async () => {
-      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      const res = await fetch('/api/auth/me', {
+        credentials: 'include',
+        headers: { ...getAuthHeader() }, // ✅ ໃໝ່
+      });
       const data = await res.json();
       const r = data.role || 'admin';
       setRole(r);
@@ -30,7 +32,10 @@ export default function AdminStaff() {
   }, []);
 
   async function loadStaffList() {
-    const res = await fetch('/api/staff', { credentials: 'include' });
+    const res = await fetch('/api/staff', {
+      credentials: 'include',
+      headers: { ...getAuthHeader() }, // ✅ ໃໝ່
+    });
     const data = await res.json();
     setStaff(data.staff || []);
   }
@@ -44,6 +49,7 @@ export default function AdminStaff() {
     const { data } = await apiPost('/api/staff', { name, username, password });
     if (data.success) {
       setName(''); setUsername(''); setPassword('');
+      setAddOpen(false);
       loadStaffList();
     } else {
       setError(data.error || 'ເພິ່ມພະນັກງານບໍ່ສຳເລັດ');
@@ -65,13 +71,21 @@ export default function AdminStaff() {
   return (
     <div>
       <div className="admin-card">
-        <h3>ເພີ່ມພະນັກງານໃໝ່</h3>
-        <input placeholder="ຊື່ພະນັກງານ" value={name} onChange={(e) => setName(e.target.value)} />
-        <input placeholder="ຊື່ຜູ້ໃຊ້ (ໃຊ້ login)" value={username} onChange={(e) => setUsername(e.target.value)} />
-        <input placeholder="ລະຫັດຜ່ານ" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
-        <div style={{ color: '#dc2626', fontSize: '0.85rem', minHeight: 18 }}>{error}</div>
-        <button className="primary" onClick={addStaff}>ເພີ່ມພະນັກງານ</button>
+        <button className="primary" onClick={() => setAddOpen((v) => !v)}>
+          {addOpen ? '✕ ປິດຟອມ' : '➕ ເພີ່ມພະນັກງານ'}
+        </button>
       </div>
+
+      {addOpen && (
+        <div className="admin-card">
+          <h3>ເພີ່ມພະນັກງານໃໝ່</h3>
+          <input placeholder="ຊື່ພະນັກງານ" value={name} onChange={(e) => setName(e.target.value)} />
+          <input placeholder="ຊື່ຜູ້ໃຊ້ (ໃຊ້ login)" value={username} onChange={(e) => setUsername(e.target.value)} />
+          <input placeholder="ລະຫັດຜ່ານ" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          <div style={{ color: '#dc2626', fontSize: '0.85rem', minHeight: 18 }}>{error}</div>
+          <button className="primary" onClick={addStaff}>ເພີ່ມພະນັກງານ</button>
+        </div>
+      )}
 
       <table className="admin-table">
         <thead>

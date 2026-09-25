@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiGet, apiPost } from '../../api.js';
+import { apiGet, apiPost, saveToken } from '../../api.js';
+import BottomNav from '../../components/BottomNav.jsx';
+import { CartProvider } from '../../context/CartContext.jsx';
 
-// ➕ ນຳຈາກ public/menu/login.html (ເວີຊັນລ່າສຸດ ທີ່ມີວັນເກີດ+ລືມ PIN ແບບ self-service)
-
-export default function CustomerLogin() {
+function CustomerLoginInner() {
   const [tab, setTab] = useState('login');
   const [loginPhone, setLoginPhone] = useState('');
   const [loginPin, setLoginPin] = useState('');
@@ -35,32 +35,32 @@ export default function CustomerLogin() {
   async function submitLogin() {
     setAuthError('');
     if (!loginPhone || !loginPin) {
-      setAuthError('ກະລຸນາປ້ອນເບີໂທ ແລະ PIN');
+      setAuthError('ກະລຸນາປອນເບໂທ ແລະ PIN');
       return;
     }
     const { data } = await apiPost('/api/customer-auth/login', { phone: loginPhone, pin: loginPin });
     if (data.success) {
-      if (data.token) localStorage.setItem('customer_token', data.token); // ← เพิ่มบรรทัดนี้
+      saveToken(data.token); // ✅ ໃໝ
       navigate('/menu');
     } else {
-      setAuthError(data.error || 'ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ');
+      setAuthError(data.error || 'ເຂາສູ່ລະບົບບສເລດ');
     }
   }
 
   async function submitRegister() {
     setAuthError('');
     if (!regPhone || !regPin || !regBirthDate) {
-      setAuthError('ກະລຸນາປ້ອນເບີໂທ, PIN ແລະ ວັນເດືອນປີເກີດ');
+      setAuthError('ກະລນາປອນເບໂທ, PIN ແລະ ວນເດອນປເກດ');
       return;
     }
     const { data } = await apiPost('/api/customer-auth/register', {
       phone: regPhone, pin: regPin, name: regName, birth_date: regBirthDate,
     });
     if (data.success) {
-      if (data.token) localStorage.setItem('customer_token', data.token); // ← เพิ่มบรรทัดนี้
+      saveToken(data.token); // ✅ ໃໝ່
       navigate('/menu');
     } else {
-      setAuthError(data.error || 'ສະໝັກສະມາຊິກບໍ່ສຳເລັດ');
+      setAuthError(data.error || 'ສະໝກສະມາຊິກບສເລດ');
     }
   }
 
@@ -68,11 +68,11 @@ export default function CustomerLogin() {
     setFpError('');
     setFpSuccess('');
     if (!fpPhone || !fpBirthDate || !fpNewPin || !fpNewPinConfirm) {
-      setFpError('ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບ');
+      setFpError('ກະລນາປອນຂມນໃຫຄົບ');
       return;
     }
     if (fpNewPin !== fpNewPinConfirm) {
-      setFpError('PIN ໃໝ່ ແລະ ຢືນຢັນ PIN ບໍ່ຕົງກັນ');
+      setFpError('PIN ໃໝ ແລະ ຢນຢນ PIN ບຕງກັນ');
       return;
     }
     const res = await fetch('/api/customer-auth/forgot-pin', {
@@ -82,13 +82,13 @@ export default function CustomerLogin() {
     });
     const data = await res.json();
     if (data.success) {
-      setFpSuccess(data.message || 'ຕັ້ງ PIN ໃໝ່ສຳເລັດ');
+      setFpSuccess(data.message || 'ຕງ PIN ໃໝສເລັດ');
       setTimeout(() => {
         setForgotOpen(false);
         setLoginPhone(fpPhone);
       }, 1500);
     } else {
-      setFpError(data.error || 'ຣີເຊັດ PIN ບໍ່ສຳເລັດ');
+      setFpError(data.error || 'ຣເຊັດ PIN ບສເລດ');
     }
   }
 
@@ -131,7 +131,7 @@ export default function CustomerLogin() {
 
       {forgotOpen && (
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setForgotOpen(false); }}>
-          <div className="modal-box">
+          <div className="modal-box" style={{ background: '#fff', color: '#1f2937' }}>
             <button className="modal-close" onClick={() => setForgotOpen(false)}>✕</button>
             <h2>ຣີເຊັດລະຫັດ PIN</h2>
             <p>ກະລຸນາປ້ອນເບີໂທ ແລະ ວັນເດືອນປີເກີດທີ່ໃຊ້ຕອນສະໝັກ ເພື່ອຕັ້ງ PIN ໃໝ່</p>
@@ -145,6 +145,16 @@ export default function CustomerLogin() {
           </div>
         </div>
       )}
+
+      <BottomNav />
     </div>
+  );
+}
+
+export default function CustomerLogin() {
+  return (
+    <CartProvider>
+      <CustomerLoginInner />
+    </CartProvider>
   );
 }

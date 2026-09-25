@@ -21,7 +21,6 @@
   "homepage": "https://github.com/DAVIDCmp121/project-david#readme",
   "dependencies": {
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^13.0.3",
     "cloudinary": "^2.11.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",

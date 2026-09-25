@@ -63,6 +63,7 @@ function extractBillNumber(text) {
   return null;
 }
 
+// ✅ ຍັງເກັບໄວ້ໃຫ້ /verify-slip ໃຊ້ (ອາດເອົາໄປໃຊ້ເປັນເຄື່ອງມືຊ່ວຍແອັດມິນພາຍຫຼັງ) — checkout ໃໝ່ບໍ່ເອີ້ນໃຊ້ຟັງຊັນນີ້ອີກຕໍ່ໄປ
 async function checkSlip(buffer, expectedAmount) {
   try {
     const processedBuffer = await sharp(buffer)
@@ -108,48 +109,66 @@ async function checkSlip(buffer, expectedAmount) {
   }
 }
 
-// ດຶງລາຍການອໍເດີທັງໝົດ (ແອັດມິນ/ພະນັກງານ)
+// ✅ helper: ດຶງ cart ຂອງ customer ພ້ອມຂໍ້ມູນສິນຄ້າ ແລະ ຄຳນວນຍອດລວມ
+async function getCartWithTotal(customerId) {
+  const [items] = await pool.query(
+    `SELECT cart_items.product_id, cart_items.quantity, products.price, products.stock, products.name
+     FROM cart_items
+     JOIN products ON cart_items.product_id = products.id
+     WHERE cart_items.customer_id = ?`,
+    [customerId]
+  );
+  const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  return { items, total };
+}
+
+// ດຶງລາຍການອໍເດີທັງໝົດ (ແອັດມິນ/ພະນັກງານ) — ✅ ອັບເດດແລ້ວ: ດຶງ order_items ມາຮ່ວມນຳ ເພື່ອຮອງຮັບຫຼາຍສິນຄ້າຕໍ່ 1 ອໍເດີ
 router.get('/', requireAuth, async (req, res) => {
   try {
     const [orders] = await pool.query(`
-      SELECT orders.*, products.name AS product_name, products.price
-      FROM orders
-      JOIN products ON orders.product_id = products.id
-      ORDER BY orders.created_at DESC
+      SELECT * FROM orders ORDER BY created_at DESC
     `);
-    res.json(orders);
+
+    if (orders.length === 0) {
+      return res.json([]);
+    }
+
+    const orderIds = orders.map(o => o.id);
+    const [items] = await pool.query(
+      `SELECT order_items.order_id, order_items.product_id, order_items.quantity,
+              order_items.price_at_order, products.name AS product_name
+       FROM order_items
+       JOIN products ON order_items.product_id = products.id
+       WHERE order_items.order_id IN (?)`,
+      [orderIds]
+    );
+
+    const result = orders.map(order => {
+      const orderItems = items.filter(it => it.order_id === order.id);
+      const total = orderItems.reduce((sum, it) => sum + it.price_at_order * it.quantity, 0);
+      return { ...order, items: orderItems, total };
+    });
+
+    res.json(result);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'ດຶງຂໍ້ມູນອໍເດີບໍ່ສຳເລັດ' });
   }
 });
 
-router.post('/verify-slip', uploadMemory.single('slip'), async (req, res) => {
+// ✅ ຍັງໃຊ້ໄດ້ (ບໍ່ລຶບ) ແຕ່ບໍ່ຖືກເອີ້ນໃຊ້ຈາກ checkout ໃໝ່ອີກຕໍ່ໄປ
+router.post('/verify-slip', requireCustomerAuth, uploadMemory.single('slip'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ valid: false, reason: 'ບໍ່ພົບຮູບ' });
     }
 
-    const { product_id, quantity } = req.body;
-    const [productRows] = await pool.query('SELECT * FROM products WHERE id = ?', [product_id]);
-    const product = productRows[0];
-    if (!product) {
-      return res.status(404).json({ valid: false, reason: 'ບໍ່ພົບສິນຄ້ານີ້' });
+    const { items, total } = await getCartWithTotal(req.customerId);
+    if (items.length === 0) {
+      return res.status(400).json({ valid: false, reason: 'ກະຕ່າສິນຄ້າຫວ່າງເປົ່າ' });
     }
 
-    const expectedAmount = product.price * parseInt(quantity, 10);
-    const result = await checkSlip(req.file.buffer, expectedAmount);
-    if (!result.valid) {
-      return res.json(result);
-    }
-
-    if (result.billNumber) {
-      const [dupRows] = await pool.query('SELECT id FROM orders WHERE bill_number = ?', [result.billNumber]);
-      if (dupRows[0]) {
-        return res.json({ valid: false, reason: 'ສະລິບນີ້ຖືກໃຊ້ໄປແລ້ວ ກະລຸນາອັບໂຫລດສະລິບໃໝ່' });
-      }
-    }
-
+    const result = await checkSlip(req.file.buffer, total);
     res.json(result);
   } catch (err) {
     console.error(err);
@@ -157,19 +176,12 @@ router.post('/verify-slip', uploadMemory.single('slip'), async (req, res) => {
   }
 });
 
-// ລູກຄ້າສັ່ງຊື້ — ຕ້ອງ login ກ່ອນ
+// ✅ ລູກຄ້າສັ່ງຊື້ — ສ້າງ order ຈາກ cart_items ທັງໝົດ, ບໍ່ກວດ OCR ອີກຕໍ່ໄປ (ແອັດມິນກວດສະລິບເອງພາຍຫຼັງ)
 router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) => {
+  const connection = await pool.getConnection();
   try {
-    const { product_id, quantity, customer_phone, customer_address } = req.body;
+    const { customer_phone, customer_address } = req.body;
 
-    const [productRows] = await pool.query('SELECT * FROM products WHERE id = ?', [product_id]);
-    const product = productRows[0];
-    if (!product) {
-      return res.status(404).json({ error: 'ບໍ່ພົບສິນຄ້ານີ້' });
-    }
-    if (product.stock < quantity) {
-      return res.status(400).json({ error: 'ສິນຄ້າບໍ່ພໍ' });
-    }
     if (!customer_phone || !customer_address) {
       return res.status(400).json({ error: 'ກະລຸນາໃສ່ເບີໂທ ແລະ ທີ່ຢູ່' });
     }
@@ -177,38 +189,48 @@ router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) =>
       return res.status(400).json({ error: 'ກະລຸນາອັບໂຫລດຮູບສະລິບໂອນເງິນ' });
     }
 
-    const expectedAmount = product.price * parseInt(quantity, 10);
-    const filePath = path.join(__dirname, '../public/uploads', req.file.filename);
-    const buffer = fs.readFileSync(filePath);
-    const result = await checkSlip(buffer, expectedAmount);
-
-    if (!result.valid) {
-      fs.unlinkSync(filePath);
-      return res.status(400).json({ error: result.reason || 'ສະລິບບໍ່ຖືກຕ້ອງ' });
+    const { items } = await getCartWithTotal(req.customerId);
+    if (items.length === 0) {
+      fs.unlinkSync(path.join(__dirname, '../public/uploads', req.file.filename));
+      return res.status(400).json({ error: 'ກະຕ່າສິນຄ້າຫວ່າງເປົ່າ' });
     }
 
-    if (result.billNumber) {
-      const [dupRows] = await pool.query('SELECT id FROM orders WHERE bill_number = ?', [result.billNumber]);
-      if (dupRows[0]) {
-        fs.unlinkSync(filePath);
-        return res.status(400).json({ error: 'ສະລິບນີ້ຖືກໃຊ້ໄປແລ້ວ ກະລຸນາອັບໂຫລດສະລິບໃໝ່' });
-      }
+    const outOfStock = items.find(item => item.stock < item.quantity);
+    if (outOfStock) {
+      fs.unlinkSync(path.join(__dirname, '../public/uploads', req.file.filename));
+      return res.status(400).json({ error: `ສິນຄ້າ "${outOfStock.name}" ບໍ່ພໍ` });
     }
 
     const slipImage = '/uploads/' + req.file.filename;
 
-    const [insertResult] = await pool.query(
-      `INSERT INTO orders (product_id, quantity, customer_phone, customer_address, slip_image, bill_number, customer_id, order_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'awaiting_review')`,
-      [product_id, quantity, customer_phone, customer_address, slipImage, result.billNumber || null, req.customerId]
+    await connection.beginTransaction();
+
+    const [insertResult] = await connection.query(
+      `INSERT INTO orders (customer_phone, customer_address, slip_image, customer_id, order_status)
+       VALUES (?, ?, ?, ?, 'awaiting_review')`,
+      [customer_phone, customer_address, slipImage, req.customerId]
     );
+    const orderId = insertResult.insertId;
 
-    await pool.query('UPDATE products SET stock = stock - ? WHERE id = ?', [quantity, product_id]);
+    for (const item of items) {
+      await connection.query(
+        `INSERT INTO order_items (order_id, product_id, quantity, price_at_order)
+         VALUES (?, ?, ?, ?)`,
+        [orderId, item.product_id, item.quantity, item.price]
+      );
+      await connection.query('UPDATE products SET stock = stock - ? WHERE id = ?', [item.quantity, item.product_id]);
+    }
 
-    res.json({ id: insertResult.insertId, message: 'ສັ່ງຊື້ສຳເລັດ' });
+    await connection.query('DELETE FROM cart_items WHERE customer_id = ?', [req.customerId]);
+
+    await connection.commit();
+    res.json({ id: orderId, message: 'ສັ່ງຊື້ສຳເລັດ' });
   } catch (err) {
+    await connection.rollback();
     console.error(err);
     res.status(500).json({ error: 'ສັ່ງຊື້ບໍ່ສຳເລັດ' });
+  } finally {
+    connection.release();
   }
 });
 
@@ -238,7 +260,13 @@ router.put('/:id', requireAuth, async (req, res) => {
   }
 });
 
-// ລູກຄ້າຍົກເລີກອໍເດີເອງ
+async function restoreStockForOrder(orderId) {
+  const [itemRows] = await pool.query('SELECT product_id, quantity FROM order_items WHERE order_id = ?', [orderId]);
+  for (const item of itemRows) {
+    await pool.query('UPDATE products SET stock = stock + ? WHERE id = ?', [item.quantity, item.product_id]);
+  }
+}
+
 router.post('/:id/cancel', requireCustomerAuth, async (req, res) => {
   try {
     const { id } = req.params;
@@ -258,7 +286,7 @@ router.post('/:id/cancel', requireCustomerAuth, async (req, res) => {
     }
 
     await pool.query(`UPDATE orders SET order_status = 'cancelled', cancelled_by = 'customer' WHERE id = ?`, [id]);
-    await pool.query('UPDATE products SET stock = stock + ? WHERE id = ?', [order.quantity, order.product_id]);
+    await restoreStockForOrder(id);
 
     res.json({ success: true });
   } catch (err) {
@@ -267,7 +295,6 @@ router.post('/:id/cancel', requireCustomerAuth, async (req, res) => {
   }
 });
 
-// ✅ ແອັດມິນ/ພະນັກງານຍົກເລີກອໍເດີແທນລູກຄ້າ
 router.post('/:id/admin-cancel', requireAuth, async (req, res) => {
   try {
     const { id } = req.params;
@@ -282,7 +309,7 @@ router.post('/:id/admin-cancel', requireAuth, async (req, res) => {
     }
 
     await pool.query(`UPDATE orders SET order_status = 'cancelled', cancelled_by = 'staff' WHERE id = ?`, [id]);
-    await pool.query('UPDATE products SET stock = stock + ? WHERE id = ?', [order.quantity, order.product_id]);
+    await restoreStockForOrder(id);
 
     res.json({ success: true });
   } catch (err) {

@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 
 import ProductList from './pages/customer/ProductList.jsx';
 import CustomerLogin from './pages/customer/Login.jsx';
+import Cart from './pages/customer/Cart.jsx';
 import Checkout from './pages/customer/Checkout.jsx';
 import CustomerOrders from './pages/customer/Orders.jsx';
 import CustomerChat from './pages/customer/Chat.jsx';
@@ -25,6 +26,7 @@ export default function App() {
       {/* ---------- ຝັ່ງລູກຄ້າ ---------- */}
       <Route path="/menu" element={<ProductList />} />
       <Route path="/menu/login" element={<CustomerLogin />} />
+      <Route path="/menu/cart" element={<Cart />} />
       <Route path="/menu/checkout" element={<Checkout />} />
       <Route path="/menu/orders" element={<CustomerOrders />} />
       <Route path="/menu/chat" element={<CustomerChat />} />
@@ -32,7 +34,7 @@ export default function App() {
       {/* ---------- ຝັ່ງພະນັກງານ ---------- */}
       <Route path="/staff/login" element={<StaffLogin />} />
 
-      {/* ---------- ຝັ່ງແອດມິນ (ໃຊ້ AdminLayout ຫໍ່ໜ້າທັງໝົດ ເພື່ອກວດ role ແລະ ໂຊວ໌ nav) ---------- */}
+      {/* ---------- ຝັ່ງແອດມິນ ---------- */}
       <Route path="/admin/login" element={<AdminLogin />} />
       <Route
         path="/admin"

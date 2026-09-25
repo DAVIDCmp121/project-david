@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { apiPost } from '../../api.js';
+import { apiPost, saveToken } from '../../api.js';
 
 export default function StaffLogin() {
   const [username, setUsername] = useState('');
@@ -16,6 +16,7 @@ export default function StaffLogin() {
     }
     const { data } = await apiPost('/api/auth/login', { username, password });
     if (data.success) {
+      saveToken(data.token); // ✅ ໃໝ່
       navigate('/admin');
     } else {
       setError(data.error || 'ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ');

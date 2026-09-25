@@ -7,8 +7,6 @@ const JWT_SECRET = require('../jwtSecret');
 const requireCustomerAuth = require('../middleware/requireCustomerAuth');
 const { checkLocked, recordFailure, clearAttempts } = require('../utils/ratelimiter');
 
-// sameSite:'none' + secure:true ใช้ได้เฉพาะตอนรนจริงผาน https เท่านน
-// ตอนเทสต local (http://localhost) ต้องใช้ sameSite:'lax' + secure:false ไมงน browser จะไมยอมแนบ cookie ไปกบ request เลย
 const isProd = process.env.NODE_ENV === 'production';
 
 const COOKIE_OPTIONS = {
@@ -59,6 +57,7 @@ router.post('/register', async (req, res) => {
     maxAge: 90 * 24 * 60 * 60 * 1000
   });
 
+  // ✅ ໃໝ່: ສົ່ງ token ກັບໄປໃນ response body ນຳ ເພື່ອໃຫ້ frontend ເກັບໄວ້ໃນ localStorage
   res.json({ success: true, customerId, token });
 });
 
@@ -99,6 +98,7 @@ router.post('/login', async (req, res) => {
     maxAge: 90 * 24 * 60 * 60 * 1000
   });
 
+  // ✅ ໃໝ່: ສົ່ງ token ກັບໄປໃນ response body
   res.json({ success: true, customerId: customer.id, token });
 });
 

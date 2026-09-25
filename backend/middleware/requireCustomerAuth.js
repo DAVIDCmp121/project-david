@@ -1,21 +1,15 @@
-// Middleware ตรวจสอบวาลูกค้า login อยู่ (ใช token จาก header ก่อน, fallback เป็น cookie)
+// Middleware ກວດສອບວ່າລູກຄ້າ login ຢູ່ບໍ (ໃຊ້ token ຈາກ Authorization header ຫຼື cookie)
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = require('../jwtSecret');
 
 function requireCustomerAuth(req, res, next) {
-  let token = null;
-
   const authHeader = req.headers.authorization;
-  if (authHeader && authHeader.startsWith('Bearer ')) {
-    token = authHeader.slice(7);
-  }
+  const token = (authHeader && authHeader.startsWith('Bearer '))
+    ? authHeader.slice(7)
+    : (req.cookies ? req.cookies.customer_token : undefined);
 
   if (!token) {
-    token = req.cookies.customer_token;
-  }
-
-  if (!token) {
-    return res.status(401).json({ error: 'ກະລນາເຂາສູລະບົບກອນ' });
+    return res.status(401).json({ error: 'ກະລຸນາເຂົ້າສູ່ລະບົບກ່ອນ' });
   }
 
   try {
@@ -23,7 +17,7 @@ function requireCustomerAuth(req, res, next) {
     req.customerId = decoded.customerId;
     next();
   } catch (err) {
-    return res.status(401).json({ error: 'Token ບຖືກຕອງ ຫ ໝດອາຍ' });
+    return res.status(401).json({ error: 'Token ບໍ່ຖືກຕ້ອງ ຫຼື ໝົດອາຍຸ' });
   }
 }
 

@@ -29,5 +29,34 @@ services:
     depends_on:
       - mysql
 
+  backend:
+    build: ./backend
+    restart: always
+    env_file:
+      - ./backend/.env
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: rootpassword123
+      DB_NAME: polo_shop
+      DB_SSL: "false"
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./backend/public/uploads:/app/public/uploads
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    restart: always
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend
+
 volumes:
   mysql_data:
