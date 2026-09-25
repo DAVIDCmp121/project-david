@@ -17,6 +17,9 @@ export default function AdminProducts() {
   const [editForm, setEditForm] = useState({ name: '', price: '', size: '', color: '', stock: '' });
   const editImageRef = useRef(null);
 
+  const [confirmSaveOpen, setConfirmSaveOpen] = useState(false);
+  const [pendingSaveId, setPendingSaveId] = useState(null);
+
   async function loadProducts() {
     const res = await fetch('/api/products');
     const data = await res.json();
@@ -39,6 +42,12 @@ export default function AdminProducts() {
     loadCurrentQr();
   }, []);
 
+  function closeAddModal() {
+    setAddOpen(false);
+    setForm({ name: '', price: '', size: '', color: '', stock: '' });
+    if (imageRef.current) imageRef.current.value = '';
+  }
+
   async function addProduct() {
     if (!form.name || !form.price) {
       alert('ກະລຸນາໃສ່ຊື່ສິນຄ້າ ແລະ ລາຄາ');
@@ -55,13 +64,11 @@ export default function AdminProducts() {
     await fetch('/api/products', {
       method: 'POST',
       credentials: 'include',
-      headers: { ...getAuthHeader() }, // ✅ ໃໝ່
+      headers: { ...getAuthHeader() },
       body: formData,
     });
 
-    setForm({ name: '', price: '', size: '', color: '', stock: '' });
-    if (imageRef.current) imageRef.current.value = '';
-    setAddOpen(false);
+    closeAddModal();
     loadProducts();
   }
 
@@ -70,7 +77,7 @@ export default function AdminProducts() {
     await fetch(`/api/products/${id}`, {
       method: 'DELETE',
       credentials: 'include',
-      headers: { ...getAuthHeader() }, // ✅ ໃໝ່
+      headers: { ...getAuthHeader() },
     });
     loadProducts();
   }
@@ -85,11 +92,21 @@ export default function AdminProducts() {
     if (editImageRef.current) editImageRef.current.value = '';
   }
 
-  async function saveEdit(id) {
+  function askSaveEdit(id) {
     if (!editForm.name || !editForm.price) {
       alert('ກະລຸນາໃສ່ຊື່ສິນຄ້າ ແລະ ລາຄາ');
       return;
     }
+    setPendingSaveId(id);
+    setConfirmSaveOpen(true);
+  }
+
+  function cancelConfirmSave() {
+    setConfirmSaveOpen(false);
+    setPendingSaveId(null);
+  }
+
+  async function saveEdit(id) {
     const formData = new FormData();
     formData.append('name', editForm.name);
     formData.append('price', editForm.price);
@@ -101,9 +118,11 @@ export default function AdminProducts() {
     const res = await fetch(`/api/products/${id}`, {
       method: 'PUT',
       credentials: 'include',
-      headers: { ...getAuthHeader() }, // ✅ ໃໝ່
+      headers: { ...getAuthHeader() },
       body: formData,
     });
+    setConfirmSaveOpen(false);
+    setPendingSaveId(null);
     if (res.ok) {
       setEditingId(null);
       loadProducts();
@@ -124,7 +143,7 @@ export default function AdminProducts() {
     const res = await fetch('/api/settings/payment-qr', {
       method: 'POST',
       credentials: 'include',
-      headers: { ...getAuthHeader() }, // ✅ ໃໝ່
+      headers: { ...getAuthHeader() },
       body: formData,
     });
     if (res.ok) {
@@ -140,23 +159,8 @@ export default function AdminProducts() {
     <div>
       <div className="admin-card" style={{ display: 'flex', gap: 10 }}>
         <button className="primary" onClick={() => setQrOpen(true)}>⚙️ QR ຊັບເງິນ</button>
-        <button className="primary" onClick={() => setAddOpen((v) => !v)}>
-          {addOpen ? '✕ ປິດຟອມ' : '➕ ເພີ່ມສິນຄ້າ'}
-        </button>
+        <button className="primary" onClick={() => setAddOpen(true)}>➕ ເພີ່ມສິນຄ້າ</button>
       </div>
-
-      {addOpen && (
-        <div className="admin-card">
-          <h2>ເພີ່ມສິນຄ້າໃໝ່</h2>
-          <input placeholder="ຊື່ສິນຄ້າ" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <input placeholder="ລາຄາ" type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
-          <input placeholder="ໄຊສ໌" value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} />
-          <input placeholder="ສີ" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
-          <input placeholder="ຈຳນວນສະຕັອກ" type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
-          <input type="file" accept="image/*" ref={imageRef} />
-          <button className="primary" onClick={addProduct}>ເພີ່ມສິນຄ້າ</button>
-        </div>
-      )}
 
       <div className="admin-card">
         {products.length === 0 && <p>ຍັງບໍ່ມີສິນຄ້າ</p>}
@@ -181,7 +185,7 @@ export default function AdminProducts() {
                       <td><input value={editForm.color} onChange={(e) => setEditForm({ ...editForm, color: e.target.value })} style={{ width: 60 }} /></td>
                       <td><input type="number" value={editForm.stock} onChange={(e) => setEditForm({ ...editForm, stock: e.target.value })} style={{ width: 60 }} /></td>
                       <td style={{ whiteSpace: 'nowrap' }}>
-                        <button className="primary" onClick={() => saveEdit(p.id)}>ບັນທຶກ</button>
+                        <button className="primary" onClick={() => askSaveEdit(p.id)}>ບັນທຶກ</button>
                         <button onClick={cancelEdit} style={{ marginLeft: 4 }}>ຍົກເລີກ</button>
                       </td>
                     </tr>
@@ -206,6 +210,34 @@ export default function AdminProducts() {
           </table>
         )}
       </div>
+
+      {addOpen && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) closeAddModal(); }}>
+          <div className="modal-box" style={{ background: '#fff', color: '#1f2937' }}>
+            <button className="modal-close" style={{ color: '#1f2937' }} onClick={closeAddModal}>✕</button>
+            <h2 style={{ color: 'var(--navy)' }}>ເພີ່ມສິນຄ້າໃໝ່</h2>
+            <input placeholder="ຊື່ສິນຄ້າ" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+            <input placeholder="ລາຄາ" type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
+            <input placeholder="ໄຊສ໌" value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} />
+            <input placeholder="ສີ" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
+            <input placeholder="ຈຳນວນສະຕັອກ" type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
+            <input type="file" accept="image/*" ref={imageRef} />
+            <button className="primary" style={{ marginTop: 10 }} onClick={addProduct}>ເພີ່ມສິນຄ້າ</button>
+          </div>
+        </div>
+      )}
+
+      {confirmSaveOpen && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) cancelConfirmSave(); }}>
+          <div className="modal-box" style={{ background: '#fff', color: '#1f2937', maxWidth: 340, textAlign: 'center' }}>
+            <p style={{ fontSize: '1.05rem', marginBottom: 20 }}>ຢືນຢັນບັນທຶກການແກ້ໄຂສິນຄ້ານີ້?</p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button className="primary" onClick={() => saveEdit(pendingSaveId)}>ບັນທຶກ</button>
+              <button onClick={cancelConfirmSave}>ຍົກເລີກ</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {qrOpen && (
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setQrOpen(false); }}>

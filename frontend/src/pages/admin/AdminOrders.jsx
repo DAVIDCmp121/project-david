@@ -19,11 +19,12 @@ export default function AdminOrders() {
   const [searchPhone, setSearchPhone] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterDate, setFilterDate] = useState('');
+  const [reviewOrder, setReviewOrder] = useState(null);
 
   async function loadOrders() {
     const res = await fetch('/api/orders', {
       credentials: 'include',
-      headers: { ...getAuthHeader() }, // ✅ ໃໝ່
+      headers: { ...getAuthHeader() },
     });
     const data = await res.json();
     setAllOrders(data);
@@ -67,7 +68,23 @@ export default function AdminOrders() {
       alert(data.error || 'ຍົກເລີກບໍ່ສຳເລັດ');
       return;
     }
+    setReviewOrder(null);
     loadOrders();
+  }
+
+  async function confirmSlip(id) {
+    const { data } = await apiPut(`/api/orders/${id}`, { order_status: 'confirmed' });
+    if (!data.success) {
+      alert(data.error || 'ປ່ຽນສະຖານະບໍ່ສຳເລັດ');
+      return;
+    }
+    setReviewOrder(null);
+    loadOrders();
+  }
+
+  function rejectSlip(id) {
+    if (!window.confirm('ສະລິບບໍ່ຖືກຕ້ອງ ຢືນຢັນຍົກເລີກອໍເດີນີ້? ສະຕ໋ອກສິນຄ້າຈະຄືນກັບຄືນ')) return;
+    adminCancelOrder(id);
   }
 
   function clearFilters() {
@@ -128,7 +145,12 @@ export default function AdminOrders() {
                   }
                   const status = o.order_status || 'awaiting_review';
                   rows.push(
-                    <tr key={o.id}>
+                    <tr
+                      key={o.id}
+                      onClick={() => setReviewOrder(o)}
+                      style={{ cursor: 'pointer' }}
+                      title="ກົດເພື່ອກວດສະລິບ"
+                    >
                       <td>{orderNumbers[o.id]}</td>
                       <td>
                         {(o.items || []).map((it, i) => (
@@ -138,7 +160,7 @@ export default function AdminOrders() {
                       <td>{o.customer_phone || '-'}</td>
                       <td>{(o.items || []).reduce((s, it) => s + it.quantity, 0)}</td>
                       <td>{o.total} ກີບ</td>
-                      <td>
+                      <td onClick={(e) => e.stopPropagation()}>
                         <select className="status-select" value={status} onChange={(e) => updateStatus(o.id, e.target.value)}>
                           {Object.entries(statusLabels).map(([key, label]) => (
                             <option key={key} value={key}>{label}</option>
@@ -146,7 +168,15 @@ export default function AdminOrders() {
                         </select>
                       </td>
                       <td>{new Date(o.created_at).toLocaleTimeString('lo-LA', { hour: '2-digit', minute: '2-digit' })}</td>
-                      <td><button className="cancel-btn" onClick={() => adminCancelOrder(o.id)}>ຍົກເລີກ</button></td>
+                      <td style={{ whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
+                        <button
+                          style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: '0.85rem', cursor: 'pointer' }}
+                          onClick={() => updateStatus(o.id, 'confirmed')}
+                        >
+                          ກຳລັງດຳເນີນການ
+                        </button>
+                        <button className="cancel-btn" onClick={() => adminCancelOrder(o.id)} style={{ marginLeft: 4 }}>ຍົກເລີກ</button>
+                      </td>
                     </tr>
                   );
                 });
@@ -203,6 +233,38 @@ export default function AdminOrders() {
             </tbody>
           </table>
         )
+      )}
+
+      {reviewOrder && (
+        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setReviewOrder(null); }}>
+          <div className="modal-box" style={{ background: '#fff', color: '#1f2937', maxWidth: 420 }}>
+            <button className="modal-close" style={{ color: '#1f2937' }} onClick={() => setReviewOrder(null)}>✕</button>
+            <h2 style={{ color: 'var(--navy)' }}>ກວດສອບສະລິບ #{orderNumbers[reviewOrder.id]}</h2>
+
+            <p style={{ marginBottom: 4 }}><strong>ເບີໂທ:</strong> {reviewOrder.customer_phone || '-'}</p>
+            <p style={{ marginBottom: 12 }}><strong>ທີ່ຢູ່ຈັດສົ່ງ:</strong> {reviewOrder.customer_address || '-'}</p>
+
+            <div style={{ marginBottom: 8 }}>
+              {(reviewOrder.items || []).map((it, i) => (
+                <div key={i}>{it.product_name} ×{it.quantity}</div>
+              ))}
+            </div>
+            <p style={{ marginBottom: 12 }}><strong>ລາຄາລວມ:</strong> {reviewOrder.total} ກີບ</p>
+
+            {reviewOrder.slip_image && (
+              <img
+                src={reviewOrder.slip_image}
+                alt="slip"
+                style={{ width: '100%', borderRadius: 8, marginBottom: 16, border: '1px solid #e5e7eb' }}
+              />
+            )}
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
+              <button className="primary" onClick={() => confirmSlip(reviewOrder.id)}>✅ ຖືກຕ້ອງ / ຢືນຢັນ</button>
+              <button className="cancel-btn" onClick={() => rejectSlip(reviewOrder.id)}>❌ ບໍ່ຖືກຕ້ອງ</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
