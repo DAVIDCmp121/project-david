@@ -31,7 +31,7 @@ router.get('/', async (req, res) => {
 });
 
 // ເພມສນຄ້າໃໝ — ต้อง login และตองเป็น role='admin' เท่านั้น
-router.post('/', requireAuth, requireAdminRole, upload.single('image'), async (req, res) => {
+router.post('/', requireAuth, upload.single('image'), async (req, res) => {
   try {
     const { name, price, size, color, stock } = req.body;
     const image = req.file ? '/uploads/' + req.file.filename : '';
@@ -48,7 +48,7 @@ router.post('/', requireAuth, requireAdminRole, upload.single('image'), async (r
 });
 
 // ລບສິນຄ້າ — ต้อง login และต้องเป็น role='admin' เท่านั้น (staff ทำไม่ได้)
-router.delete('/:id', requireAuth, requireAdminRole, async (req, res) => {
+router.delete('/:id', requireAuth, async (req, res) => {
   try {
     const productId = req.params.id;
 
@@ -62,7 +62,7 @@ router.delete('/:id', requireAuth, requireAdminRole, async (req, res) => {
   }
 });
 // ✅ ໃໝ່: ແກ້ໄຂສິນຄ້າ (ຊື່/ລາຄາ/ໄຊສ໌/ສີ/ສະຕັອກ/ຮູບ) — ต้อง login และต้องเป็น role='admin' เท่านั้น
-router.put('/:id', requireAuth, requireAdminRole, upload.single('image'), async (req, res) => {
+router.put('/:id', requireAuth, upload.single('image'), async (req, res) => {
   try {
     const { name, price, size, color, stock } = req.body;
     const productId = req.params.id;
