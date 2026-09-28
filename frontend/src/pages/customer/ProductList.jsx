@@ -10,6 +10,7 @@ function ProductListInner() {
   const [loadError, setLoadError] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [toast, setToast] = useState('');
+  const [search, setSearch] = useState('');
   const navigate = useNavigate();
   const { refreshCartCount } = useCart();
 
@@ -37,16 +38,16 @@ function ProductListInner() {
     try {
       const { ok, data } = await apiPost('/api/cart', { product_id: product.id, quantity: 1 });
       if (ok) {
-        setToast('ເພີ່ມລົງກະຕ່າແລ້ວ');
+        setToast('ເພີ່ມລງກະຕາແລວ');
         refreshCartCount();
         setTimeout(() => setToast(''), 1500);
       } else {
-        setToast(data.error || 'ເພີ່ມລົງກະຕ່າບໍ່ສຳເລັດ');
+        setToast(data.error || 'ເພີມລົງກະຕ່າບສຳເລັດ');
         setTimeout(() => setToast(''), 2000);
       }
     } catch (err) {
       console.error(err);
-      setToast('ເພີ່ມລົງກະຕ່າບໍ່ສຳເລັດ');
+      setToast('ເພີມລົງກະຕ່າບໍສຳເລດ');
       setTimeout(() => setToast(''), 2000);
     } finally {
       setBusyId(null);
@@ -58,7 +59,7 @@ function ProductListInner() {
     try {
       const { ok, data } = await apiPost('/api/cart', { product_id: product.id, quantity: 1 });
       if (!ok) {
-        setToast(data.error || 'ເພີ່ມສິນຄ້າບໍ່ສຳເລັດ');
+        setToast(data.error || 'ເພີ່ມສິນຄາບໍ່ສຳເລັດ');
         setTimeout(() => setToast(''), 2000);
         return;
       }
@@ -70,6 +71,13 @@ function ProductListInner() {
       setBusyId(null);
     }
   }
+
+  const keyword = search.trim().toLowerCase();
+  const filteredProducts = products
+    ? (keyword
+        ? products.filter((p) => (p.name || '').toLowerCase().includes(keyword))
+        : products)
+    : null;
 
   return (
     <div className="customer-shell">
@@ -92,7 +100,52 @@ function ProductListInner() {
         </div>
       )}
 
-      <main style={{ paddingBottom: 80 }}>
+      <div style={{ padding: '14px 16px 4px' }}>
+        <div style={{ position: 'relative', maxWidth: 520, margin: '0 auto' }}>
+          <svg
+            width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af"
+            strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+            style={{ position: 'absolute', left: 15, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}
+          >
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="ຄົ້ນຫາສິນຄ້າ..."
+            style={{
+              width: '100%',
+              boxSizing: 'border-box',
+              padding: '11px 42px 11px 42px',
+              borderRadius: 999,
+              border: '1px solid #e5e7eb',
+              background: '#fff',
+              color: '#1f2937',
+              fontSize: 15,
+              outline: 'none',
+              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.06)',
+            }}
+          />
+          {search && (
+            <button
+              onClick={() => setSearch('')}
+              aria-label="ລ້າງ"
+              style={{
+                position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
+                width: 28, height: 28, borderRadius: '50%', border: 'none',
+                background: '#f3f4f6', color: '#6b7280', cursor: 'pointer',
+                fontSize: 16, lineHeight: 1, padding: 0,
+              }}
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      </div>
+
+      <main style={{ paddingBottom: 110 }}>
         {products === null && !loadError && (
           <p style={{ padding: 20, color: '#ccc' }}>ກຳລັງໂຫລດ...</p>
         )}
@@ -105,15 +158,25 @@ function ProductListInner() {
         {products && products.length === 0 && (
           <p style={{ padding: 20, color: '#ccc' }}>ຍັງບໍ່ມີສິນຄ້າ</p>
         )}
-        {products && products.length > 0 && (
+        {products && products.length > 0 && filteredProducts.length === 0 && (
+          <p style={{ padding: 20, textAlign: 'center', color: '#6b7280' }}>
+            ບໍ່ພົບສິນຄ້າທີ່ຄົ້ນຫາ
+          </p>
+        )}
+        {filteredProducts && filteredProducts.length > 0 && (
           <div className="product-grid">
-            {products.map((p) => (
-              <div className="product-card" key={p.id}>
-                {p.image && <img src={`${API_BASE}${p.image}`} className="product-img" alt={p.name} />}
-                <h3>{p.name}</h3>
-                <p>ໄຊສ໌: {p.size} | ສີ: {p.color}</p>
-                <p>ເຫຼືອ: {p.stock} ອັນ</p>
-                <p className="price">{p.price} ກີບ</p>
+            {filteredProducts.map((p) => (
+             <div className="product-card" key={p.id}>
+                <div
+                  onClick={() => navigate(`/menu/product/${p.id}`)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  {p.image && <img src={`${API_BASE}${p.image}`} className="product-img" alt={p.name} />}
+                  <h3>{p.name}</h3>
+                  <p>ໄຊສ໌: {p.size} | ສີ: {p.color}</p>
+                  <p>ເຫຼືອ: {p.stock} ອັນ</p>
+                  <p className="price">{p.price} ກີບ</p>
+                </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button
                     disabled={p.stock <= 0 || busyId === p.id}

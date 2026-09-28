@@ -11,11 +11,22 @@ export default function BottomNav() {
     try {
       await apiPost('/api/customer-auth/logout', {});
     } catch (err) {}
-    clearToken(); // ✅ ໃໝ່: ລ້າງ token ອອກຈາກ localStorage
+    clearToken();
     navigate('/menu/login');
   }
 
   const items = [
+    {
+      key: 'home',
+      label: 'ໜ້າແຮກ',
+      path: '/menu',
+      icon: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+          <polyline points="9 22 9 12 15 12 15 22" />
+        </svg>
+      ),
+    },
     {
       key: 'cart',
       label: 'ກະຕ່າ',
@@ -68,14 +79,21 @@ export default function BottomNav() {
     <nav
       style={{
         position: 'fixed',
-        bottom: 0,
-        left: 0,
-        right: 0,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        bottom: 'calc(14px + env(safe-area-inset-bottom))',
+        width: 'calc(100% - 32px)',
+        maxWidth: 460,
         display: 'flex',
-        background: '#1e1e1e',
-        borderTop: '1px solid #333',
+        gap: 4,
+        padding: 6,
+        background: 'rgba(255, 255, 255, 0.72)',
+        backdropFilter: 'blur(16px) saturate(160%)',
+        WebkitBackdropFilter: 'blur(16px) saturate(160%)',
+        border: '1px solid rgba(255, 255, 255, 0.7)',
+        borderRadius: 28,
+        boxShadow: '0 8px 30px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06)',
         zIndex: 50,
-        paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
       {items.map((item) => {
@@ -90,13 +108,15 @@ export default function BottomNav() {
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              gap: 2,
+              gap: 3,
               padding: '8px 4px',
-              background: 'none',
+              background: active ? 'rgba(212, 165, 72, 0.16)' : 'transparent',
               border: 'none',
-              color: active ? '#d4a548' : '#ccc',
+              borderRadius: 22,
+              color: active ? '#b8862b' : '#6b7280',
               cursor: 'pointer',
               position: 'relative',
+              transition: 'background 0.2s, color 0.2s',
             }}
           >
             {item.icon}
@@ -104,24 +124,26 @@ export default function BottomNav() {
               <span
                 style={{
                   position: 'absolute',
-                  top: 2,
-                  right: '28%',
+                  top: 3,
+                  right: '24%',
                   background: '#e53935',
                   color: '#fff',
                   borderRadius: '999px',
                   fontSize: 10,
-                  minWidth: 15,
-                  height: 15,
+                  fontWeight: 600,
+                  minWidth: 16,
+                  height: 16,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  padding: '0 3px',
+                  padding: '0 4px',
+                  boxShadow: '0 0 0 2px rgba(255,255,255,0.9)',
                 }}
               >
                 {item.badge}
               </span>
             )}
-            <span style={{ fontSize: 11 }}>{item.label}</span>
+            <span style={{ fontSize: 11, fontWeight: active ? 600 : 500 }}>{item.label}</span>
           </button>
         );
       })}
