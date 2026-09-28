@@ -14,6 +14,18 @@ const pool = mysql.createPool({
     : undefined,
 });
 
+// ✅ ໃໝ່: ເພີ່ມຄອລຳໃຫ້ຕາຕະລາງເດີມ ຖ້າຍັງບໍ່ມີ (ໃຊ້ໄດ້ທັງ MySQL ແລະ TiDB)
+async function addColumnIfMissing(table, column, definition) {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS c FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+    [table, column]
+  );
+  if (Number(rows[0].c) === 0) {
+    await pool.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`);
+  }
+}
+
 async function initDb() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS products (
@@ -24,6 +36,24 @@ async function initDb() {
       color VARCHAR(50),
       stock INT DEFAULT 0,
       image VARCHAR(255)
+    )
+  `);
+
+  // ✅ ໃໝ່: ລາຍລະອຽດສິນຄ້າ + ຕາຕະລາງຂະໜາດ (ເກັບເປັນ JSON text)
+  await addColumnIfMissing('products', 'description', 'TEXT NULL');
+  await addColumnIfMissing('products', 'size_chart', 'TEXT NULL');
+
+  // ✅ ໃໝ່: ລຳດັບການສະແດງສິນຄ້າ (ລາກສະຫຼັບໃນໜ້າແອັດມິນ)
+  await addColumnIfMissing('products', 'sort_order', 'INT DEFAULT 0');
+
+  // ✅ ໃໝ່: ຮູບສິນຄ້າຫຼາຍຮູບ
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS product_images (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      product_id INT NOT NULL,
+      image_url VARCHAR(255) NOT NULL,
+      sort_order INT DEFAULT 0,
+      INDEX idx_product_images_product (product_id)
     )
   `);
 

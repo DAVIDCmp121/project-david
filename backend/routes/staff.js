@@ -1,4 +1,4 @@
-// Route ຈັດການບນຊີພະນກງານ (ສະເພາະແອດມນເທານນ)
+// Route ຈດການບນຊພະນກງານ (ສະເພາະແອດມນເທົານນ)
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
@@ -17,7 +17,7 @@ router.post('/', requireAuth, requireAdminRole, async (req, res) => {
   const { username, password, name } = req.body;
 
   if (!username || !password || !name) {
-    return res.status(400).json({ error: 'ກະລນາປອນຂມນໃຫຄົບ' });
+    return res.status(400).json({ error: 'ກະລນາປອນຂມນໃຫ້ຄົບ' });
   }
   if (password.length < 4) {
     return res.status(400).json({ error: 'ລະຫັດຜ່ານຕ້ອງມີຢ່າງໜ້ອຍ 4 ໂຕອັກສອນ' });
@@ -25,7 +25,7 @@ router.post('/', requireAuth, requireAdminRole, async (req, res) => {
 
   const [existingRows] = await pool.query('SELECT id FROM admins WHERE username = ?', [username]);
   if (existingRows.length > 0) {
-    return res.status(409).json({ error: 'ຊືຜູໃຊນມແລວ' });
+    return res.status(409).json({ error: 'ຊືຜູໃຊ້ນມີແລວ' });
   }
 
   const hashed = await bcrypt.hash(password, 10);
@@ -37,16 +37,61 @@ router.post('/', requireAuth, requireAdminRole, async (req, res) => {
   res.json({ success: true, id: result.insertId });
 });
 
+// ✅ ໃໝ: ແກໄຂຊື / ຊືຜູໃຊ້ / ຕແໜງ ຂອງພະນກງານ
+router.put('/:id', requireAuth, requireAdminRole, async (req, res) => {
+  const { id } = req.params;
+  const { username, name, role } = req.body;
+
+  if (!username || !name || !role) {
+    return res.status(400).json({ error: 'ກະລນາປອນຂມນໃຫ້ຄບ' });
+  }
+  if (!['admin', 'staff'].includes(role)) {
+    return res.status(400).json({ error: 'ສິດບໍຖືກຕອງ' });
+  }
+
+  const [targetRows] = await pool.query('SELECT role FROM admins WHERE id = ?', [id]);
+  if (!targetRows[0]) {
+    return res.status(404).json({ error: 'ບພບບນຊີນ' });
+  }
+
+  const [dupRows] = await pool.query('SELECT id FROM admins WHERE username = ? AND id != ?', [username, id]);
+  if (dupRows.length > 0) {
+    return res.status(409).json({ error: 'ຊືຜູໃຊ້ນມແລ້ວ' });
+  }
+
+  await pool.query('UPDATE admins SET username = ?, name = ?, role = ? WHERE id = ?', [username, name, role, id]);
+  res.json({ success: true });
+});
+
+// ✅ ໃໝ່: ຣເຊັດລະຫັດຜ່ານພະນກງານ
+router.put('/:id/reset-password', requireAuth, requireAdminRole, async (req, res) => {
+  const { id } = req.params;
+  const { password } = req.body;
+
+  if (!password || password.length < 4) {
+    return res.status(400).json({ error: 'ລະຫັດຜ່ານຕ້ອງມີຢ່າງໜ້ອຍ 4 ໂຕອັກສອນ' });
+  }
+
+  const [targetRows] = await pool.query('SELECT id FROM admins WHERE id = ?', [id]);
+  if (!targetRows[0]) {
+    return res.status(404).json({ error: 'ບພບບັນຊີນ' });
+  }
+
+  const hashed = await bcrypt.hash(password, 10);
+  await pool.query('UPDATE admins SET password = ? WHERE id = ?', [hashed, id]);
+  res.json({ success: true });
+});
+
 router.delete('/:id', requireAuth, requireAdminRole, async (req, res) => {
   const { id } = req.params;
   const [targetRows] = await pool.query('SELECT role FROM admins WHERE id = ?', [id]);
   const target = targetRows[0];
 
   if (!target) {
-    return res.status(404).json({ error: 'ບພບບນຊີນີ' });
+    return res.status(404).json({ error: 'ບພບບັນຊນ' });
   }
   if (target.role === 'admin') {
-    return res.status(403).json({ error: 'ບໍ່ສາມາດລບບນຊີແອດມິນໄດ' });
+    return res.status(403).json({ error: 'ບສາມາດລບບນຊີແອດມນໄດ' });
   }
 
   await pool.query('DELETE FROM admins WHERE id = ?', [id]);

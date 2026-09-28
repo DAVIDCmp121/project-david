@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 
 import ProductList from './pages/customer/ProductList.jsx';
+import ProductDetail from './pages/customer/ProductDetail.jsx';
 import CustomerLogin from './pages/customer/Login.jsx';
 import Cart from './pages/customer/Cart.jsx';
 import Checkout from './pages/customer/Checkout.jsx';
@@ -25,6 +26,7 @@ export default function App() {
 
       {/* ---------- ຝັ່ງລູກຄ້າ ---------- */}
       <Route path="/menu" element={<ProductList />} />
+      <Route path="/menu/product/:id" element={<ProductDetail />} />
       <Route path="/menu/login" element={<CustomerLogin />} />
       <Route path="/menu/cart" element={<Cart />} />
       <Route path="/menu/checkout" element={<Checkout />} />
