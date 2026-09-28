@@ -5,12 +5,32 @@ import BottomNav from '../../components/BottomNav.jsx';
 import { CartProvider, useCart } from '../../context/CartContext.jsx';
 import { API_BASE, apiGet, apiPost } from '../../api';
 
+// ຈດວາງແຖບຄນຫາ + ປມໝວດ: ຈກວາງຢຂາງກນ, ມຖືປມໝວດລົງມາໃຕຊອງຄົນຫາ (ເລອນຊາຍຂວາໄດ້)
+const toolbarCss = `
+.pl-toolbar { display: flex; align-items: center; gap: 12px; max-width: 980px; margin: 0 auto; padding: 14px 16px 4px; }
+.pl-search { position: relative; flex: 0 1 380px; min-width: 220px; }
+.pl-cats { flex: 1 1 0; min-width: 0; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding: 2px 0; }
+.pl-cats::-webkit-scrollbar { display: none; }
+.pl-cat {
+  flex: 0 0 auto; padding: 8px 16px; border-radius: 999px; border: 1px solid #e5e7eb;
+  background: #fff; color: #6b7280; font-size: 14px; white-space: nowrap; cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+.pl-cat.active { background: rgba(212, 165, 72, 0.16); border-color: var(--gold); color: #b8862b; font-weight: 600; }
+@media (max-width: 720px) {
+  .pl-toolbar { flex-direction: column; align-items: stretch; gap: 10px; }
+  .pl-search { flex: 0 0 auto; min-width: 0; width: 100%; }
+  .pl-cats { flex: 0 0 auto; width: 100%; }
+}
+`;
+
 function ProductListInner() {
   const [products, setProducts] = useState(null);
   const [loadError, setLoadError] = useState(false);
   const [busyId, setBusyId] = useState(null);
   const [toast, setToast] = useState('');
   const [search, setSearch] = useState('');
+  const [activeCategory, setActiveCategory] = useState('');
   const navigate = useNavigate();
   const { refreshCartCount } = useCart();
 
@@ -38,11 +58,11 @@ function ProductListInner() {
     try {
       const { ok, data } = await apiPost('/api/cart', { product_id: product.id, quantity: 1 });
       if (ok) {
-        setToast('ເພີ່ມລງກະຕາແລວ');
+        setToast('ເພີມລົງກະຕ່າແລວ');
         refreshCartCount();
         setTimeout(() => setToast(''), 1500);
       } else {
-        setToast(data.error || 'ເພີມລົງກະຕ່າບສຳເລັດ');
+        setToast(data.error || 'ເພມລົງກະຕ່າບສເລັດ');
         setTimeout(() => setToast(''), 2000);
       }
     } catch (err) {
@@ -59,7 +79,7 @@ function ProductListInner() {
     try {
       const { ok, data } = await apiPost('/api/cart', { product_id: product.id, quantity: 1 });
       if (!ok) {
-        setToast(data.error || 'ເພີ່ມສິນຄາບໍ່ສຳເລັດ');
+        setToast(data.error || 'ເພີ່ມສິນຄ້າບສຳເລັດ');
         setTimeout(() => setToast(''), 2000);
         return;
       }
@@ -72,15 +92,25 @@ function ProductListInner() {
     }
   }
 
+  // ໝວດທີ່ມີສິນຄ້າຢູ່ຕອນນ (ໝວດວາງຈະບສະແດງ) ຮຽງຕາມລດບທປາກດໃນລາຍການ
+  const categories = products
+    ? Array.from(new Set(products.map((p) => (p.category || '').trim()).filter(Boolean)))
+    : [];
+  const currentCategory = categories.includes(activeCategory) ? activeCategory : '';
+
   const keyword = search.trim().toLowerCase();
   const filteredProducts = products
-    ? (keyword
-        ? products.filter((p) => (p.name || '').toLowerCase().includes(keyword))
-        : products)
+    ? products.filter((p) => {
+        if (currentCategory && (p.category || '').trim() !== currentCategory) return false;
+        if (keyword && !(p.name || '').toLowerCase().includes(keyword)) return false;
+        return true;
+      })
     : null;
 
   return (
     <div className="customer-shell">
+      <style>{toolbarCss}</style>
+
       <header className="customer-header">
         <div className="header-top">
           <div>
@@ -100,8 +130,8 @@ function ProductListInner() {
         </div>
       )}
 
-      <div style={{ padding: '14px 16px 4px' }}>
-        <div style={{ position: 'relative', maxWidth: 520, margin: '0 auto' }}>
+      <div className="pl-toolbar">
+        <div className="pl-search">
           <svg
             width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af"
             strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
@@ -143,6 +173,26 @@ function ProductListInner() {
             </button>
           )}
         </div>
+
+        {categories.length > 0 && (
+          <div className="pl-cats">
+            <button
+              className={`pl-cat ${currentCategory === '' ? 'active' : ''}`}
+              onClick={() => setActiveCategory('')}
+            >
+              ທັງໝົດ
+            </button>
+            {categories.map((c) => (
+              <button
+                key={c}
+                className={`pl-cat ${currentCategory === c ? 'active' : ''}`}
+                onClick={() => setActiveCategory(c)}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <main style={{ paddingBottom: 110 }}>
@@ -166,7 +216,7 @@ function ProductListInner() {
         {filteredProducts && filteredProducts.length > 0 && (
           <div className="product-grid">
             {filteredProducts.map((p) => (
-             <div className="product-card" key={p.id}>
+              <div className="product-card" key={p.id}>
                 <div
                   onClick={() => navigate(`/menu/product/${p.id}`)}
                   style={{ cursor: 'pointer' }}

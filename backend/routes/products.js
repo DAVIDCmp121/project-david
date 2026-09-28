@@ -7,7 +7,7 @@ const requireAuth = require('../middleware/requireAuth');
 
 const MAX_IMAGES = 6;
 
-// ตั้งค่า multer ให้เก็บไฟล์ที่ public/uploads
+// ตงค่า multer ให้เก็บไฟล์ที่ public/uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, path.join(__dirname, '../public/uploads'));
@@ -31,7 +31,7 @@ function uploadImages(req, res, next) {
   upload.array('images', MAX_IMAGES)(req, res, (err) => {
     if (err) {
       console.error('UPLOAD ERROR:', err.code, err.message);
-      return res.status(400).json({ error: `ອັບໂຫລດຮູບບໍ່ສຳເລັດ (${err.code || err.message})` });
+      return res.status(400).json({ error: `ອບໂຫລດຮູບບສຳເລັດ (${err.code || err.message})` });
     }
     next();
   });
@@ -60,6 +60,13 @@ function cleanSizeChart(raw) {
     }))
     .filter((r) => r.size);
   return JSON.stringify(rows);
+}
+
+// ✅ ໃໝ່: ລາງຊື່ໝວດ — ບໄດ້ສົງມາ = undefined, ສງມາເປນຄາຫວາງ = null (ບໍ່ມໝວດ)
+function cleanCategory(raw) {
+  if (raw === undefined) return undefined;
+  const v = String(raw).trim().slice(0, 100);
+  return v === '' ? null : v;
 }
 
 function buildImageList(req) {
@@ -97,24 +104,24 @@ async function saveImages(productId, images) {
   await pool.query('UPDATE products SET image = ? WHERE id = ?', [images[0] || '', productId]);
 }
 
-// ດຶງສິນຄ້າທັງໝົດ (ທຸກຄົນດູໄດ້ ບໍ່ຕ້ອງ login) — ✅ ໃໝ່: ຮຽງຕາມ sort_order
+// ດຶງສນຄ້າທງໝົດ (ທຸກຄົນດູໄດ້ ບຕ້ອງ login) — ຮຽງຕາມ sort_order
 router.get('/', async (req, res) => {
   try {
     const [products] = await pool.query('SELECT * FROM products ORDER BY sort_order ASC, id ASC');
     res.json(products);
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'ດຶງຂໍ້ມູນສິນຄ້າບໍ່ສຳເລັດ' });
+    res.status(500).json({ error: 'ດຶງຂມູນສນຄ້າບສຳເລັດ' });
   }
 });
 
-// ✅ ໃໝ່: ບັນທຶກລຳດັບການສະແດງສິນຄ້າ (ລາກສະຫຼັບໃນໜ້າແອັດມິນ)
-// ຕ້ອງຢູ່ກ່ອນ router.put('/:id', ...) ບໍ່ດັ່ງນັ້ນ Express ຈະຈັບ 'reorder' ເປັນ :id
+// ບັນທຶກລຳດບການສະແດງສິນຄາ (ລາກສະຫຼັບໃນໜາແອັດມິນ)
+// ຕອງຢູກ່ອນ router.put('/:id', ...) ບໍດັງນນ Express ຈະຈັບ 'reorder' ເປັນ :id
 router.put('/reorder', requireAuth, async (req, res) => {
   try {
     const { ids } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({ error: 'ຂໍ້ມູນລຳດັບບໍ່ຖືກຕ້ອງ' });
+      return res.status(400).json({ error: 'ຂໍ້ມນລດບບຖືກຕອງ' });
     }
     for (let i = 0; i < ids.length; i++) {
       await pool.query('UPDATE products SET sort_order = ? WHERE id = ?', [i, ids[i]]);
@@ -122,7 +129,7 @@ router.put('/reorder', requireAuth, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'ບັນທຶກລຳດັບບໍ່ສຳເລັດ' });
+    res.status(500).json({ error: 'ບັນທຶກລຳດັບບສເລັດ' });
   }
 });
 
@@ -131,7 +138,7 @@ router.get('/:id', async (req, res) => {
     const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
     const product = rows[0];
     if (!product) {
-      return res.status(404).json({ error: 'ບໍ່ພົບສິນຄ້ານີ້' });
+      return res.status(404).json({ error: 'ບໍພົບສິນຄ້ານີ້' });
     }
 
     const [imgRows] = await pool.query(
@@ -144,7 +151,7 @@ router.get('/:id', async (req, res) => {
     res.json({ ...product, images, size_chart: parseSizeChart(product.size_chart) });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'ດຶງຂໍ້ມູນສິນຄ້າບໍ່ສຳເລັດ' });
+    res.status(500).json({ error: 'ດຶງຂໍ້ມູນສິນຄາບໍ່ສເລັດ' });
   }
 });
 
@@ -152,26 +159,27 @@ router.post('/', requireAuth, uploadImages, async (req, res) => {
   try {
     const { name, price, size, color, stock, description } = req.body;
     if (!name || price === undefined || price === '') {
-      return res.status(400).json({ error: 'ກະລຸນາໃສ່ຊື່ສິນຄ້າ ແລະ ລາຄາ' });
+      return res.status(400).json({ error: 'ກະລນາໃສຊື່ສິນຄ້າ ແລະ ລາຄາ' });
     }
 
     const images = buildImageList(req);
     if (images.length > MAX_IMAGES) {
-      return res.status(400).json({ error: `ອັບໂຫລດໄດ້ສູງສຸດ ${MAX_IMAGES} ຮູບ` });
+      return res.status(400).json({ error: `ອັບໂຫລດໄດ້ສູງສດ ${MAX_IMAGES} ຮູບ` });
     }
     const sizeChart = cleanSizeChart(req.body.size_chart) || '[]';
+    const category = cleanCategory(req.body.category);
 
     const [result] = await pool.query(
-      `INSERT INTO products (name, price, size, color, stock, image, description, size_chart)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, price, size || '', color || '', stock || 0, images[0] || '', description || '', sizeChart]
+      `INSERT INTO products (name, price, size, color, stock, image, description, size_chart, category)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, price, size || '', color || '', stock || 0, images[0] || '', description || '', sizeChart, category ?? null]
     );
     await saveImages(result.insertId, images);
 
     res.json({ id: result.insertId });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'ເພີ່ມສິນຄ້າບໍ່ສຳເລັດ' });
+    res.status(500).json({ error: 'ເພີມສິນຄ້າບໍ່ສເລັດ' });
   }
 });
 
@@ -186,7 +194,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'ລຶບສິນຄ້າບໍ່ສຳເລັດ' });
+    res.status(500).json({ error: 'ລຶບສິນຄ້າບໍສຳເລັດ' });
   }
 });
 
@@ -204,6 +212,9 @@ router.put('/:id', requireAuth, uploadImages, async (req, res) => {
     if (stock !== undefined) { fields.push('stock = ?'); values.push(stock); }
     if (description !== undefined) { fields.push('description = ?'); values.push(description); }
 
+    const category = cleanCategory(req.body.category);
+    if (category !== undefined) { fields.push('category = ?'); values.push(category); }
+
     const sizeChart = cleanSizeChart(req.body.size_chart);
     if (sizeChart !== undefined) { fields.push('size_chart = ?'); values.push(sizeChart); }
 
@@ -211,12 +222,12 @@ router.put('/:id', requireAuth, uploadImages, async (req, res) => {
     if (req.body.image_order !== undefined || (req.files && req.files.length > 0)) {
       images = buildImageList(req);
       if (images.length > MAX_IMAGES) {
-        return res.status(400).json({ error: `ອັບໂຫລດໄດ້ສູງສຸດ ${MAX_IMAGES} ຮູບ` });
+        return res.status(400).json({ error: `ອັບໂຫລດໄດສູງສດ ${MAX_IMAGES} ຮູບ` });
       }
     }
 
     if (fields.length === 0 && images === null) {
-      return res.status(400).json({ error: 'ບໍ່ມີຂໍ້ມູນທີ່ຈະອັບເດດ' });
+      return res.status(400).json({ error: 'ບໍ່ມຂໍ້ມູນທີ່ຈະອັບເດດ' });
     }
 
     if (fields.length > 0) {
@@ -230,7 +241,7 @@ router.put('/:id', requireAuth, uploadImages, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'ອັບເດດສິນຄ້າບໍ່ສຳເລັດ' });
+    res.status(500).json({ error: 'ອັບເດດສິນຄ້າບໍສເລັດ' });
   }
 });
 

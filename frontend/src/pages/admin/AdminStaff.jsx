@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiDelete, apiPost, apiPut, getAuthHeader } from '../../api.js';
+import ConfirmModal from '../../components/ConfirmModal.jsx';
 
 export default function AdminStaff() {
   const [role, setRole] = useState(null);
@@ -23,6 +24,9 @@ export default function AdminStaff() {
   const [resetTarget, setResetTarget] = useState(null);
   const [resetPassword, setResetPassword] = useState('');
   const [resetError, setResetError] = useState('');
+
+  // ✅ ໃໝ່: popup ຢືນຢັນລຶບພະນັກງານ (ແທນ window.confirm)
+  const [deleteTarget, setDeleteTarget] = useState(null); // { id, name }
 
   useEffect(() => {
     (async () => {
@@ -72,8 +76,13 @@ export default function AdminStaff() {
     }
   }
 
-  async function deleteStaffMember(id, memberName) {
-    if (!window.confirm(`ຢນຢນລບພະນກງານ "${memberName}" ອອກຈາກລະບບ?`)) return;
+  function deleteStaffMember(id, memberName) {
+    setDeleteTarget({ id, name: memberName });
+  }
+
+  async function confirmDeleteStaff() {
+    const { id } = deleteTarget;
+    setDeleteTarget(null);
     const { data } = await apiDelete(`/api/staff/${id}`);
     if (data.success) {
       loadStaffList();
@@ -220,6 +229,14 @@ export default function AdminStaff() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        message={deleteTarget ? `ຢືນຢັນລົບພະນັກງານ "${deleteTarget.name}" ອອກຈາກລະບົບ?` : ''}
+        danger
+        onConfirm={confirmDeleteStaff}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

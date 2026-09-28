@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { getAuthHeader } from '../../api.js';
+import ConfirmModal from '../../components/ConfirmModal.jsx';
 
 const MAX_IMAGES = 6;
+const NEW_CATEGORY = '__new__';
 const emptyForm = { name: '', price: '', size: '', color: '', stock: '', description: '' };
 
 const primaryBtnStyle = {
@@ -16,12 +18,19 @@ const smallArrowStyle = {
   border: '1px solid #dfe3e8', background: '#fff', borderRadius: 4,
   width: 36, height: 22, fontSize: 11, cursor: 'pointer', padding: 0,
 };
+const selectStyle = {
+  width: '100%', padding: 10, marginBottom: 10, borderRadius: 6,
+  border: '1px solid #E5E0D8', background: '#F5F5F3', color: '#2B2620',
+  fontSize: '0.85rem', boxSizing: 'border-box', fontFamily: 'inherit',
+};
 
-// ---------- ຟອມເພີ່ມ / ແກ້ໄຂສິນຄ້າ (popup) ----------
-function ProductFormModal({ mode, productId, onClose, onSaved }) {
+// ---------- ຟອມເພີ່ມ / ແກໄຂສິນຄ້າ (popup) ----------
+function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
   const isEdit = mode === 'edit';
   const [loading, setLoading] = useState(isEdit);
   const [form, setForm] = useState(emptyForm);
+  const [categoryChoice, setCategoryChoice] = useState('');
+  const [newCategory, setNewCategory] = useState('');
   const [images, setImages] = useState([]);
   const [sizeRows, setSizeRows] = useState([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -51,6 +60,7 @@ function ProductFormModal({ mode, productId, onClose, onSaved }) {
           stock: p.stock ?? '',
           description: p.description || '',
         });
+        setCategoryChoice(p.category || '');
         setImages((p.images || []).map((url) => ({ key: nextKey(), url })));
         setSizeRows(
           Array.isArray(p.size_chart)
@@ -58,7 +68,7 @@ function ProductFormModal({ mode, productId, onClose, onSaved }) {
             : []
         );
       } catch (e) {
-        setError('ໂຫລດຂໍ້ມູນສິນຄ້າບໍ່ສຳເລັດ');
+        setError('ໂຫລດຂມູນສນຄ້າບໍ່ສເລັດ');
       }
       setLoading(false);
     })();
@@ -81,7 +91,7 @@ function ProductFormModal({ mode, productId, onClose, onSaved }) {
       return;
     }
     if (picked.length > slots) {
-      alert(`ເພີ່ມໄດ້ອີກ ${slots} ຮູບ ລະບົບຈະໃຊ້ ${slots} ຮູບທຳອິດ`);
+      alert(`ເພີ່ມໄດ້ອີກ ${slots} ຮູບ ລະບົບຈະໃຊ້ ${slots} ຮູບທອິດ`);
     }
     const added = picked.slice(0, slots).map((file) => ({
       key: nextKey(),
@@ -119,10 +129,21 @@ function ProductFormModal({ mode, productId, onClose, onSaved }) {
     setSizeRows((prev) => prev.filter((_, idx) => idx !== i));
   }
 
+  function resolveCategory() {
+    if (categoryChoice !== NEW_CATEGORY) return categoryChoice;
+    const typed = newCategory.trim();
+    const same = categories.find((c) => c.toLowerCase() === typed.toLowerCase());
+    return same || typed;
+  }
+
   function validateAndSave() {
     setError('');
     if (!form.name || !form.price) {
-      setError('ກະລຸນາໃສ່ຊື່ສິນຄ້າ ແລະ ລາຄາ');
+      setError('ກະລນາໃສ່ຊື່ສິນຄ້າ ແລະ ລາຄາ');
+      return;
+    }
+    if (categoryChoice === NEW_CATEGORY && !newCategory.trim()) {
+      setError('ກະລຸນາໃສ່ຊື່ໝວດໃໝ່');
       return;
     }
     if (isEdit) setConfirmOpen(true);
@@ -140,6 +161,7 @@ function ProductFormModal({ mode, productId, onClose, onSaved }) {
     fd.append('color', form.color);
     fd.append('stock', form.stock === '' ? 0 : form.stock);
     fd.append('description', form.description);
+    fd.append('category', resolveCategory());
     fd.append('size_chart', JSON.stringify(sizeRows));
     fd.append('image_order', JSON.stringify(images.map((i) => (i.file ? '__new__' : i.url))));
     images.filter((i) => i.file).forEach((i) => fd.append('images', i.file));
@@ -156,9 +178,9 @@ function ProductFormModal({ mode, productId, onClose, onSaved }) {
         return;
       }
       const data = await res.json().catch(() => ({}));
-      setError(data.error || (isEdit ? 'ອັບເດດສິນຄ້າບໍ່ສຳເລັດ' : 'ເພີ່ມສິນຄ້າບໍ່ສຳເລັດ'));
+      setError(data.error || (isEdit ? 'ອັບເດດສິນຄ້າບໍສຳເລັດ' : 'ເພີ່ມສິນຄ້າບສຳເລັດ'));
     } catch (e) {
-      setError('ເຊື່ອມຕໍ່ເຊີບເວີບໍ່ໄດ້');
+      setError('ເຊອມຕໍ່ເຊີບເວີບໄດ້');
     }
     setSaving(false);
     setConfirmOpen(false);
@@ -169,6 +191,11 @@ function ProductFormModal({ mode, productId, onClose, onSaved }) {
     border: '1px solid #dfe3e8', boxSizing: 'border-box',
     fontFamily: 'inherit', fontSize: '0.9rem', resize: 'vertical',
   };
+
+  const categoryOptions = [...categories];
+  if (categoryChoice && categoryChoice !== NEW_CATEGORY && !categoryOptions.includes(categoryChoice)) {
+    categoryOptions.push(categoryChoice);
+  }
 
   return (
     <>
@@ -185,6 +212,28 @@ function ProductFormModal({ mode, productId, onClose, onSaved }) {
           ) : (
             <>
               <input placeholder="ຊື່ສິນຄ້າ" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+
+              <div style={{ fontWeight: 600, margin: '6px 0' }}>ໝວດສິນຄ້າ</div>
+              <select
+                value={categoryChoice}
+                onChange={(e) => setCategoryChoice(e.target.value)}
+                style={selectStyle}
+              >
+                <option value="">— ບໍ່ມີໝວດ —</option>
+                {categoryOptions.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+                <option value={NEW_CATEGORY}>＋ ສ້າງໝວດໃໝ່...</option>
+              </select>
+              {categoryChoice === NEW_CATEGORY && (
+                <input
+                  placeholder="ຊື່ໝວດໃໝ່ (ເຊັ່ນ ກະເປົາ, ເສື້ອ, ໂສ້ງ)"
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  maxLength={100}
+                />
+              )}
+
               <input placeholder="ລາຄາ" type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
               <input placeholder="ໄຊສ໌ (ເຊັ່ນ M\L\XL)" value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} />
               <input placeholder="ສີ" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
@@ -296,13 +345,19 @@ export default function AdminProducts() {
 
   const [qrOpen, setQrOpen] = useState(false);
   const [qrImage, setQrImage] = useState('');
-  const [qrStatus, setQrStatus] = useState('ກຳລັງກວດສອບ...');
+  const [qrStatus, setQrStatus] = useState('ກຳລງກວດສອບ...');
   const qrFileRef = useRef(null);
 
-  // ✅ ໃໝ່: ລາກສະຫຼັບລຳດັບສິນຄ້າ
   const dragItem = useRef(null);
   const dragOverItem = useRef(null);
   const [dragging, setDragging] = useState(false);
+
+  // ✅ ໃໝ່: popup ຢືນຢັນລຶບສິນຄ້າ (ແທນ window.confirm)
+  const [deleteTarget, setDeleteTarget] = useState(null);
+
+  const categories = Array.from(
+    new Set(products.map((p) => (p.category || '').trim()).filter(Boolean))
+  );
 
   async function loadProducts() {
     const res = await fetch('/api/products');
@@ -315,9 +370,9 @@ export default function AdminProducts() {
     const data = await res.json();
     if (data.qrImage) {
       setQrImage(data.qrImage);
-      setQrStatus('QR ປັດຈຸບັນ:');
+      setQrStatus('QR ປັດຈຸບນ:');
     } else {
-      setQrStatus('ຍັງບໍ່ໄດ້ອັບໂຫລດ QR');
+      setQrStatus('ຍັງບໄດອບໂຫລດ QR');
     }
   }
 
@@ -326,8 +381,13 @@ export default function AdminProducts() {
     loadCurrentQr();
   }, []);
 
-  async function deleteProduct(id) {
-    if (!window.confirm('ຕ້ອງການລຶບສິນຄ້ານີ້ບໍ?')) return;
+  function deleteProduct(id) {
+    setDeleteTarget(id);
+  }
+
+  async function confirmDeleteProduct() {
+    const id = deleteTarget;
+    setDeleteTarget(null);
     await fetch(`/api/products/${id}`, {
       method: 'DELETE',
       credentials: 'include',
@@ -339,7 +399,7 @@ export default function AdminProducts() {
   async function uploadQr() {
     const file = qrFileRef.current?.files[0];
     if (!file) {
-      alert('ກະລຸນາເລືອກຮູບ QR ກ່ອນ');
+      alert('ກະລຸນາເລືອກຮູບ QR ກອນ');
       return;
     }
     const formData = new FormData();
@@ -360,7 +420,6 @@ export default function AdminProducts() {
     }
   }
 
-  // ✅ ໃໝ່: ຈັດການລາກສະຫຼັບແຖວ
   function handleDragStart(index) {
     dragItem.current = index;
     setDragging(true);
@@ -389,7 +448,6 @@ export default function AdminProducts() {
         body: JSON.stringify({ ids: reordered.map((p) => p.id) }),
       });
     } catch (e) {
-      // ຖ້າບັນທຶກລຳດັບບໍ່ສຳເລັດ ໂຫລດຂໍ້ມູນຄືນເພື່ອໃຫ້ກົງກັບ DB
       loadProducts();
     }
   }
@@ -410,7 +468,7 @@ export default function AdminProducts() {
             </p>
             <table className="admin-table">
               <thead>
-                <tr><th></th><th>ຮູບ</th><th>ຊື່</th><th>ລາຄາ</th><th>ໄຊສ໌</th><th>ສີ</th><th>ສະຕັອກ</th><th></th></tr>
+                <tr><th></th><th>ຮູບ</th><th>ຊື່</th><th>ໝວດ</th><th>ລາຄາ</th><th>ໄຊສ໌</th><th>ສີ</th><th>ສະຕັອກ</th><th></th></tr>
               </thead>
               <tbody>
                 {products.map((p, idx) => (
@@ -426,6 +484,7 @@ export default function AdminProducts() {
                     <td style={{ color: '#9ca3af', fontSize: 18, textAlign: 'center' }}>⠿</td>
                     <td>{p.image ? <img src={p.image} width={50} height={50} style={{ objectFit: 'cover', borderRadius: 6 }} alt="" /> : '-'}</td>
                     <td>{p.name}</td>
+                    <td>{p.category || '-'}</td>
                     <td>{p.price} ກີບ</td>
                     <td>{p.size}</td>
                     <td>{p.color}</td>
@@ -447,6 +506,7 @@ export default function AdminProducts() {
           key={formModal.mode + (formModal.id || '')}
           mode={formModal.mode}
           productId={formModal.id}
+          categories={categories}
           onClose={() => setFormModal(null)}
           onSaved={() => {
             setFormModal(null);
@@ -467,6 +527,14 @@ export default function AdminProducts() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        message="ຕ້ອງການລຶບສິນຄ້ານີ້ບໍ?"
+        danger
+        onConfirm={confirmDeleteProduct}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

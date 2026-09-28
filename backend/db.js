@@ -45,6 +45,8 @@ async function initDb() {
 
   // ✅ ໃໝ່: ລຳດັບການສະແດງສິນຄ້າ (ລາກສະຫຼັບໃນໜ້າແອັດມິນ)
   await addColumnIfMissing('products', 'sort_order', 'INT DEFAULT 0');
+  // ✅ ໃໝ: ໝວດສິນຄາ (ເກບເປັນຊໝວດ ບມີໝວດ = NULL)
+  await addColumnIfMissing('products', 'category', 'VARCHAR(100) NULL');
 
   // ✅ ໃໝ່: ຮູບສິນຄ້າຫຼາຍຮູບ
   await pool.query(`

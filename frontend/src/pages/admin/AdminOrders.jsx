@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { apiPost, apiPut, getAuthHeader } from '../../api.js';
+import ConfirmModal from '../../components/ConfirmModal.jsx';
 
 const statusLabels = {
   awaiting_review: 'ລຖາກວດສະລບ',
@@ -19,6 +20,9 @@ export default function AdminOrders() {
   const [searchPhone, setSearchPhone] = useState('');
   const [filterDate, setFilterDate] = useState('');
   const [reviewOrder, setReviewOrder] = useState(null);
+
+  // ✅ ໃໝ່: popup ຢືນຢັນຍົກເລີກອໍເດີ (ແທນ window.confirm) — ເກັບທັງ id ແລະ ຂໍ້ຄວາມ
+  const [cancelConfirm, setCancelConfirm] = useState(null); // { id, message }
 
   async function loadOrders() {
     const res = await fetch('/api/orders', {
@@ -68,8 +72,18 @@ export default function AdminOrders() {
     loadOrders();
   }
 
-  async function adminCancelOrder(id) {
-    if (!window.confirm('ຢນຢນຍົກເລກອເດນີ? ສະຕອກສນຄ້າຈະຄນກບຄນ')) return;
+  // ✅ ໃໝ່: ເປີດ popup ຢືນຢັນ ແທນ window.confirm — ໃຊ້ຮ່ວມກັນທັງປຸ່ມ "ຍົກເລີກ" ໃນຕາຕະລາງ ແລະ "ບໍ່ຖືກຕ້ອງ" ໃນ popup ກວດສອບສະລິບ
+  function adminCancelOrder(id) {
+    setCancelConfirm({ id, message: 'ຢນຢນຍົກເລກອເດນີ? ສະຕອກສນຄ້າຈະຄນກບຄນ' });
+  }
+
+  function rejectSlip(id) {
+    setCancelConfirm({ id, message: 'ສະລິບບໍ່ຖືກຕ້ອງ ຢືນຢັນຍົກເລີກອໍເດີ? ສະຕັອກສິນຄ້າຈະຄືນກັບຄືນ' });
+  }
+
+  async function confirmCancelOrder() {
+    const id = cancelConfirm.id;
+    setCancelConfirm(null);
     const { data } = await apiPost(`/api/orders/${id}/admin-cancel`, {});
     if (!data.success) {
       alert(data.error || 'ຍົກເລກບສເລດ');
@@ -77,21 +91,6 @@ export default function AdminOrders() {
     }
     setReviewOrder(null);
     loadOrders();
-  }
-
-  async function confirmSlip(id) {
-    const { data } = await apiPut(`/api/orders/${id}`, { order_status: 'confirmed' });
-    if (!data.success) {
-      alert(data.error || 'ປຽນສະຖານະບສເລັດ');
-      return;
-    }
-    setReviewOrder(null);
-    loadOrders();
-  }
-
-  function rejectSlip(id) {
-    if (!window.confirm('ສະລບບຖືກຕອງ ຢນຢນຍກເລກອເດນ? ສະຕອກສນຄາຈະຄືນກບຄນ')) return;
-    adminCancelOrder(id);
   }
 
   function clearFilters() {
@@ -262,6 +261,24 @@ export default function AdminOrders() {
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        open={!!cancelConfirm}
+        message={cancelConfirm?.message}
+        danger
+        onConfirm={confirmCancelOrder}
+        onCancel={() => setCancelConfirm(null)}
+      />
     </div>
   );
+
+  async function confirmSlip(id) {
+    const { data } = await apiPut(`/api/orders/${id}`, { order_status: 'confirmed' });
+    if (!data.success) {
+      alert(data.error || 'ປຽນສະຖານະບສເລັດ');
+      return;
+    }
+    setReviewOrder(null);
+    loadOrders();
+  }
 }
