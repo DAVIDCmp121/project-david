@@ -8,6 +8,7 @@ const Tesseract = require('tesseract.js');
 const requireAuth = require('../middleware/requireAuth');
 const requireCustomerAuth = require('../middleware/requireCustomerAuth');
 const sharp = require('sharp');
+const { EFFECTIVE_PRICE_SQL } = require('../utils/pricing');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -112,7 +113,7 @@ async function checkSlip(buffer, expectedAmount) {
 // ✅ helper: ດຶງ cart ຂອງ customer ພ້ອມຂໍ້ມູນສິນຄ້າ ແລະ ຄຳນວນຍອດລວມ
 async function getCartWithTotal(customerId) {
   const [items] = await pool.query(
-    `SELECT cart_items.product_id, cart_items.quantity, products.price, products.stock, products.name
+    `SELECT cart_items.product_id, cart_items.quantity, ${EFFECTIVE_PRICE_SQL} AS price, products.stock, products.name
      FROM cart_items
      JOIN products ON cart_items.product_id = products.id
      WHERE cart_items.customer_id = ?`,

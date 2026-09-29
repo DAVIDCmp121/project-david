@@ -4,6 +4,12 @@ const { pool } = require('../db');
 const multer = require('multer');
 const path = require('path');
 const requireAuth = require('../middleware/requireAuth');
+const {
+  PRODUCT_EXTRA_COLUMNS,
+  getBestsellerThreshold,
+  decorateProduct,
+  parseMarketingFields,
+} = require('../utils/pricing');
 
 const MAX_IMAGES = 6;
 
@@ -107,11 +113,16 @@ async function saveImages(productId, images) {
 // ດຶງສນຄ້າທງໝົດ (ທຸກຄົນດູໄດ້ ບຕ້ອງ login) — ຮຽງຕາມ sort_order
 router.get('/', async (req, res) => {
   try {
-    const [products] = await pool.query('SELECT * FROM products ORDER BY sort_order ASC, id ASC');
-    res.json(products);
+    const threshold = await getBestsellerThreshold();
+    const [rows] = await pool.query(
+      `SELECT products.*, ${PRODUCT_EXTRA_COLUMNS}
+       FROM products
+       ORDER BY products.sort_order ASC, products.id ASC`
+    );
+    res.json(rows.map((p) => decorateProduct(p, threshold)));
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'ດຶງຂມູນສນຄ້າບສຳເລັດ' });
+    res.status(500).json({ error: 'ດງຂໍ້ມນສິນຄາບໍ່ສເລັດ' });
   }
 });
 
@@ -132,11 +143,34 @@ router.put('/reorder', requireAuth, async (req, res) => {
     res.status(500).json({ error: 'ບັນທຶກລຳດັບບສເລັດ' });
   }
 });
+router.get('/bestseller-threshold', async (req, res) => {
+  res.json({ threshold: await getBestsellerThreshold() });
+});
 
+router.put('/bestseller-threshold', requireAuth, async (req, res) => {
+  try {
+    const n = parseInt(req.body.threshold, 10);
+    if (!Number.isInteger(n) || n < 1 || n > 100000) {
+      return res.status(400).json({ error: 'ຕົວເລກບໍ່ຖືກຕ້ອງ' });
+    }
+    await pool.query(
+      "INSERT INTO settings (`key`, value) VALUES ('bestseller_threshold', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)",
+      [String(n)]
+    );
+    res.json({ success: true, threshold: n });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'ບັນທຶກບສຳເລັດ' });
+  }
+});
 router.get('/:id', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
-    const product = rows[0];
+  const threshold = await getBestsellerThreshold();
+    const [rows] = await pool.query(
+      `SELECT products.*, ${PRODUCT_EXTRA_COLUMNS} FROM products WHERE products.id = ?`,
+      [req.params.id]
+    );
+    const product = rows[0] ? decorateProduct(rows[0], threshold) : undefined;
     if (!product) {
       return res.status(404).json({ error: 'ບໍພົບສິນຄ້ານີ້' });
     }
@@ -169,10 +203,16 @@ router.post('/', requireAuth, uploadImages, async (req, res) => {
     const sizeChart = cleanSizeChart(req.body.size_chart) || '[]';
     const category = cleanCategory(req.body.category);
 
+    const mk = parseMarketingFields(req.body, Number(price));
+    if (mk.error) return res.status(400).json({ error: mk.error });
+    const m = mk.fields;
+
     const [result] = await pool.query(
-      `INSERT INTO products (name, price, size, color, stock, image, description, size_chart, category)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, price, size || '', color || '', stock || 0, images[0] || '', description || '', sizeChart, category ?? null]
+      `INSERT INTO products (name, price, size, color, stock, image, description, size_chart, category,
+                             promo_active, promo_price, promo_end, bestseller_mode)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, price, size || '', color || '', stock || 0, images[0] || '', description || '', sizeChart, category ?? null,
+       m.promo_active ?? 0, m.promo_price ?? null, m.promo_end ?? null, m.bestseller_mode ?? 'auto']
     );
     await saveImages(result.insertId, images);
 
@@ -211,6 +251,12 @@ router.put('/:id', requireAuth, uploadImages, async (req, res) => {
     if (color !== undefined) { fields.push('color = ?'); values.push(color); }
     if (stock !== undefined) { fields.push('stock = ?'); values.push(stock); }
     if (description !== undefined) { fields.push('description = ?'); values.push(description); }
+    const mk = parseMarketingFields(req.body, price !== undefined ? Number(price) : null);
+    if (mk.error) return res.status(400).json({ error: mk.error });
+    for (const [k, v] of Object.entries(mk.fields)) {
+      fields.push(`${k} = ?`);
+      values.push(v);
+    }
 
     const category = cleanCategory(req.body.category);
     if (category !== undefined) { fields.push('category = ?'); values.push(category); }

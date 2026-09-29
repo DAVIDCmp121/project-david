@@ -163,4 +163,16 @@ router.get('/me', requireCustomerAuth, async (req, res) => {
   res.json({ customerId: customer.id, phone: customer.phone, name: customer.name });
 });
 
+router.post('/me/name', requireCustomerAuth, async (req, res) => {
+  const name = String(req.body.name || '').trim();
+  if (!name) {
+    return res.status(400).json({ error: 'ກະລຸນາປ້ອນຊື່' });
+  }
+  if (name.length > 30) {
+    return res.status(400).json({ error: 'ຊື່ຍາວເກີນໄປ (ສູງສຸດ 30 ໂຕອັກສອນ)' });
+  }
+  await pool.query('UPDATE customers SET name = ? WHERE id = ?', [name, req.customerId]);
+  res.json({ success: true, name });
+});
+
 module.exports = router;

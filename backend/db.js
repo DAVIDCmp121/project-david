@@ -14,7 +14,6 @@ const pool = mysql.createPool({
     : undefined,
 });
 
-// ✅ ໃໝ່: ເພີ່ມຄອລຳໃຫ້ຕາຕະລາງເດີມ ຖ້າຍັງບໍ່ມີ (ໃຊ້ໄດ້ທັງ MySQL ແລະ TiDB)
 async function addColumnIfMissing(table, column, definition) {
   const [rows] = await pool.query(
     `SELECT COUNT(*) AS c FROM information_schema.COLUMNS
@@ -39,16 +38,15 @@ async function initDb() {
     )
   `);
 
-  // ✅ ໃໝ່: ລາຍລະອຽດສິນຄ້າ + ຕາຕະລາງຂະໜາດ (ເກັບເປັນ JSON text)
   await addColumnIfMissing('products', 'description', 'TEXT NULL');
   await addColumnIfMissing('products', 'size_chart', 'TEXT NULL');
-
-  // ✅ ໃໝ່: ລຳດັບການສະແດງສິນຄ້າ (ລາກສະຫຼັບໃນໜ້າແອັດມິນ)
   await addColumnIfMissing('products', 'sort_order', 'INT DEFAULT 0');
-  // ✅ ໃໝ: ໝວດສິນຄາ (ເກບເປັນຊໝວດ ບມີໝວດ = NULL)
   await addColumnIfMissing('products', 'category', 'VARCHAR(100) NULL');
+  await addColumnIfMissing('products', 'promo_price', 'DECIMAL(10,2) NULL');
+  await addColumnIfMissing('products', 'promo_active', 'TINYINT DEFAULT 0');
+  await addColumnIfMissing('products', 'promo_end', 'DATE NULL');
+  await addColumnIfMissing('products', 'bestseller_mode', "VARCHAR(10) DEFAULT 'auto'");
 
-  // ✅ ໃໝ່: ຮູບສິນຄ້າຫຼາຍຮູບ
   await pool.query(`
     CREATE TABLE IF NOT EXISTS product_images (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -79,6 +77,7 @@ async function initDb() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  await addColumnIfMissing('customers', 'birth_date', 'DATE NULL');
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS orders (
@@ -116,6 +115,19 @@ async function initDb() {
       is_read TINYINT DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (customer_id) REFERENCES customers(id)
+    )
+  `);
+
+  // ✅ ໃໝ: ສນຄາທລກຄາກດຖືກໃຈ (wishlist)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS favorites (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      customer_id INT NOT NULL,
+      product_id INT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_customer_product (customer_id, product_id),
+      FOREIGN KEY (customer_id) REFERENCES customers(id),
+      FOREIGN KEY (product_id) REFERENCES products(id)
     )
   `);
 

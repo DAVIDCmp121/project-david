@@ -52,6 +52,7 @@ app.use('/api/customer-auth', customerAuthRouter);
 app.use('/api/customer', customerOrdersRouter);
 app.use('/api/messages', messagesRouter);
 app.use('/api/products', productsRouter);
+app.use('/api/favorites', require('./routes/favorites'));
 app.use('/api/orders', ordersRouter);
 app.use('/api/qrcode', qrcodeRouter);
 app.use('/api/customers', customersRouter);

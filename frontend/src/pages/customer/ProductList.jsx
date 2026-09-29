@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import CustomerHeader from '../../components/CustomerHeader.jsx';
 import BottomNav from '../../components/BottomNav.jsx';
 import { CartProvider, useCart } from '../../context/CartContext.jsx';
-import { API_BASE, apiGet, apiPost } from '../../api';
+import { API_BASE, apiGet, apiPost, apiDelete } from '../../api';
+import { ImageBadges, PriceBlock } from '../../components/ProductBadges.jsx';
 
-// ຈດວາງແຖບຄນຫາ + ປມໝວດ: ຈກວາງຢຂາງກນ, ມຖືປມໝວດລົງມາໃຕຊອງຄົນຫາ (ເລອນຊາຍຂວາໄດ້)
 const toolbarCss = `
 .pl-toolbar { display: flex; align-items: center; gap: 12px; max-width: 980px; margin: 0 auto; padding: 14px 16px 4px; }
 .pl-search { position: relative; flex: 0 1 380px; min-width: 220px; }
@@ -31,11 +31,13 @@ function ProductListInner() {
   const [toast, setToast] = useState('');
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('');
+  const [favIds, setFavIds] = useState(new Set());
   const navigate = useNavigate();
   const { refreshCartCount } = useCart();
 
   useEffect(() => {
     loadProducts();
+    loadFavoriteIds();
   }, []);
 
   async function loadProducts() {
@@ -53,21 +55,49 @@ function ProductListInner() {
     }
   }
 
+  // ✅ ໃໝ: ດງ id ສນຄ້າທຖືກໃຈໄວ (ຖາຍງບ login ຈະ error ບເປນຫຍງ ປອຍເປນ set ຫວາງ)
+  async function loadFavoriteIds() {
+    try {
+      const { ok, data } = await apiGet('/api/favorites/ids');
+      if (ok && Array.isArray(data)) setFavIds(new Set(data));
+    } catch (err) {
+      // ບ login ຫ error — ປອຍເປນຫວາງ
+    }
+  }
+
+  // ✅ ໃໝ່: ກດ/ຍກເລກຫວໃຈ
+  async function toggleFavorite(e, productId) {
+    e.stopPropagation();
+    const isFav = favIds.has(productId);
+    setFavIds((prev) => {
+      const next = new Set(prev);
+      if (isFav) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+    try {
+      if (isFav) await apiDelete(`/api/favorites/${productId}`);
+      else await apiPost(`/api/favorites/${productId}`, {});
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   async function addToCart(product) {
     setBusyId(product.id);
     try {
       const { ok, data } = await apiPost('/api/cart', { product_id: product.id, quantity: 1 });
       if (ok) {
-        setToast('ເພີມລົງກະຕ່າແລວ');
+        setToast('ເພມລງກະຕາແລວ');
         refreshCartCount();
         setTimeout(() => setToast(''), 1500);
       } else {
-        setToast(data.error || 'ເພມລົງກະຕ່າບສເລັດ');
+        setToast(data.error || 'ເພມລງກະຕ່າບສເລດ');
         setTimeout(() => setToast(''), 2000);
       }
     } catch (err) {
       console.error(err);
-      setToast('ເພີມລົງກະຕ່າບໍສຳເລດ');
+      setToast('ເພມລງກະຕ່າບສເລດ');
       setTimeout(() => setToast(''), 2000);
     } finally {
       setBusyId(null);
@@ -79,7 +109,7 @@ function ProductListInner() {
     try {
       const { ok, data } = await apiPost('/api/cart', { product_id: product.id, quantity: 1 });
       if (!ok) {
-        setToast(data.error || 'ເພີ່ມສິນຄ້າບສຳເລັດ');
+        setToast(data.error || 'ເພມສນຄ້າບສເລດ');
         setTimeout(() => setToast(''), 2000);
         return;
       }
@@ -92,7 +122,6 @@ function ProductListInner() {
     }
   }
 
-  // ໝວດທີ່ມີສິນຄ້າຢູ່ຕອນນ (ໝວດວາງຈະບສະແດງ) ຮຽງຕາມລດບທປາກດໃນລາຍການ
   const categories = products
     ? Array.from(new Set(products.map((p) => (p.category || '').trim()).filter(Boolean)))
     : [];
@@ -217,15 +246,37 @@ function ProductListInner() {
           <div className="product-grid">
             {filteredProducts.map((p) => (
               <div className="product-card" key={p.id}>
-                <div
-                  onClick={() => navigate(`/menu/product/${p.id}`)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  {p.image && <img src={`${API_BASE}${p.image}`} className="product-img" alt={p.name} />}
-                  <h3>{p.name}</h3>
-                  <p>ໄຊສ໌: {p.size} | ສີ: {p.color}</p>
-                  <p>ເຫຼືອ: {p.stock} ອັນ</p>
-                  <p className="price">{p.price} ກີບ</p>
+                <div style={{ position: 'relative' }}>
+                  <ImageBadges product={p} />
+                  <div
+                    onClick={() => navigate(`/menu/product/${p.id}`)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    {p.image && <img src={`${API_BASE}${p.image}`} className="product-img" alt={p.name} />}
+                    <h3>{p.name}</h3>
+                    <p>ໄຊສ໌: {p.size} | ສີ: {p.color}</p>
+                    <p>ເຫຼືອ: {p.stock} ອັນ</p>
+                    <PriceBlock product={p} />
+                  </div>
+                  <button
+                    onClick={(e) => toggleFavorite(e, p.id)}
+                    aria-label="ຖືກໃຈ"
+                    style={{
+                      position: 'absolute', top: 8, right: 8, width: 34, height: 34,
+                      borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.9)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: 'pointer', boxShadow: '0 2px 6px rgba(0,0,0,0.15)',
+                    }}
+                  >
+                    <svg
+                      width="18" height="18" viewBox="0 0 24 24"
+                      fill={favIds.has(p.id) ? '#e53935' : 'none'}
+                      stroke={favIds.has(p.id) ? '#e53935' : '#9ca3af'}
+                      strokeWidth="2"
+                    >
+                      <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z" />
+                    </svg>
+                  </button>
                 </div>
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button

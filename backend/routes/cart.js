@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
 const requireCustomerAuth = require('../middleware/requireCustomerAuth');
+const { EFFECTIVE_PRICE_SQL, PROMO_ACTIVE_SQL } = require('../utils/pricing');
 
 // ดึงตะกราของลูกค้าที่ login อยู
 router.get('/', requireCustomerAuth, async (req, res) => {
@@ -12,7 +13,9 @@ router.get('/', requireCustomerAuth, async (req, res) => {
         cart_items.quantity,
         products.id AS product_id,
         products.name,
-        products.price,
+       ${EFFECTIVE_PRICE_SQL} AS price,
+        products.price AS original_price,
+        ${PROMO_ACTIVE_SQL} AS is_promo,
         products.image,
         products.stock,
         products.size,

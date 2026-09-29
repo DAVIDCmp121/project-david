@@ -7,6 +7,9 @@ import Cart from './pages/customer/Cart.jsx';
 import Checkout from './pages/customer/Checkout.jsx';
 import CustomerOrders from './pages/customer/Orders.jsx';
 import CustomerChat from './pages/customer/Chat.jsx';
+import Profile from './pages/customer/Profile.jsx';
+import ProfileInfo from './pages/customer/ProfileInfo.jsx';
+import Favorites from './pages/customer/Favorites.jsx';
 
 import AdminLogin from './pages/admin/AdminLogin.jsx';
 import AdminProducts from './pages/admin/AdminProducts.jsx';
@@ -32,6 +35,9 @@ export default function App() {
       <Route path="/menu/checkout" element={<Checkout />} />
       <Route path="/menu/orders" element={<CustomerOrders />} />
       <Route path="/menu/chat" element={<CustomerChat />} />
+      <Route path="/menu/profile" element={<Profile />} />
+      <Route path="/menu/profile/info" element={<ProfileInfo />} />
+<Route path="/menu/favorites" element={<Favorites />} />
 
       {/* ---------- ຝັ່ງພະນັກງານ ---------- */}
       <Route path="/staff/login" element={<StaffLogin />} />

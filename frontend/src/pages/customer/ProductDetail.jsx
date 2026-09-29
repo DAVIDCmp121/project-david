@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import BottomNav from '../../components/BottomNav.jsx';
 import { CartProvider, useCart } from '../../context/CartContext.jsx';
-import { API_BASE, apiGet, apiPost } from '../../api';
+import { API_BASE, apiGet, apiPost, apiDelete } from '../../api';
+import { ImageBadges, PriceBlock } from '../../components/ProductBadges.jsx';
 
 const AUTO_SLIDE_MS = 3000;
 
-// จอกวาง: รูปซาย / รายละเอียดขวา, มือถือ: เรียงลงมาเหมือนเดิม
 const layoutCss = `
 .pd-track::-webkit-scrollbar { display: none; }
 .pd-layout {
@@ -42,6 +42,7 @@ function ProductDetailInner() {
   const [toast, setToast] = useState('');
   const [slide, setSlide] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [isFav, setIsFav] = useState(false);
   const trackRef = useRef(null);
 
   useEffect(() => {
@@ -54,6 +55,7 @@ function ProductDetailInner() {
     setProduct(null);
     setQty(1);
     setSlide(0);
+    setIsFav(false);
     try {
       const { ok, data } = await apiGet(`/api/products/${id}`);
       if (ok && data && data.id) setProduct(data);
@@ -61,6 +63,12 @@ function ProductDetailInner() {
     } catch (err) {
       console.error(err);
       setLoadError(true);
+    }
+    try {
+      const idsRes = await apiGet('/api/favorites/ids');
+      if (idsRes.ok && Array.isArray(idsRes.data)) setIsFav(idsRes.data.includes(Number(id)));
+    } catch (err) {
+      // ບ login ຫ error — ປອຍເປນ false
     }
   }
 
@@ -86,8 +94,6 @@ function ProductDetailInner() {
     el.scrollTo({ left: clamped * el.clientWidth, behavior: instant ? 'auto' : 'smooth' });
   }
 
-  // เลื่อนรูปอัตโนมัติทุก 3 วินาที: ถึงรูปสุดทายแล้ววนกลับรปแรก
-  // หยุดตอนเอาเมาสวาง/แตะจอ และนบ 3 วินาทีใหม่ทุกครั้งทีรูปเปลียน (รวมตอนเลื่อนเอง)
   useEffect(() => {
     const reduceMotion =
       typeof window !== 'undefined' &&
@@ -103,19 +109,30 @@ function ProductDetailInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slide, paused, images.length]);
 
+  async function toggleFavorite() {
+    const next = !isFav;
+    setIsFav(next);
+    try {
+      if (next) await apiPost(`/api/favorites/${product.id}`, {});
+      else await apiDelete(`/api/favorites/${product.id}`);
+    } catch (err) {
+      console.error(err);
+    }
+  }
+
   async function addToCart() {
     setBusy(true);
     try {
       const { ok, data } = await apiPost('/api/cart', { product_id: product.id, quantity: qty });
       if (ok) {
         refreshCartCount();
-        showToast('ເພີ່ມລົງກະຕາແລ້ວ');
+        showToast('ເພມລງກະຕາແລວ');
       } else {
-        showToast(data.error || 'ເພີມລົງກະຕ່າບໍສເລັດ', 2200);
+        showToast(data.error || 'ເພມລງກະຕາບສເລດ', 2200);
       }
     } catch (err) {
       console.error(err);
-      showToast('ເພມລົງກະຕ່າບສຳເລັດ', 2200);
+      showToast('ເພມລງກະຕ່າບສເລດ', 2200);
     } finally {
       setBusy(false);
     }
@@ -126,14 +143,14 @@ function ProductDetailInner() {
     try {
       const { ok, data } = await apiPost('/api/cart', { product_id: product.id, quantity: qty });
       if (!ok) {
-        showToast(data.error || 'ເພີ່ມສິນຄາບໍ່ສຳເລັດ', 2200);
+        showToast(data.error || 'ເພມສນຄາບສເລດ', 2200);
         return;
       }
       refreshCartCount();
       navigate('/menu/checkout');
     } catch (err) {
       console.error(err);
-      showToast('ເພມສິນຄ້າບໍສຳເລດ', 2200);
+      showToast('ເພມສນຄາບສເລດ', 2200);
     } finally {
       setBusy(false);
     }
@@ -194,6 +211,7 @@ function ProductDetailInner() {
                 onTouchCancel={() => setPaused(false)}
                 style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', background: '#f4f4f2', border: '1px solid var(--cust-border)' }}
               >
+               <ImageBadges product={product} />
                 {images.length > 0 ? (
                   <div
                     ref={trackRef}
@@ -245,8 +263,33 @@ function ProductDetailInner() {
 
             {/* ---------- ขวา: รายละเอียด + ปุ่มสั่งซื้อ ---------- */}
             <div className="pd-right">
-              <h1 style={{ fontSize: '1.3rem', margin: '0 0 4px', color: 'var(--cust-text)' }}>{product.name}</h1>
-              <div style={{ color: 'var(--gold)', fontWeight: 'bold', fontSize: '1.25rem' }}>{product.price} ກີບ</div>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                <h1 style={{ fontSize: '1.3rem', margin: '0 0 4px', color: 'var(--cust-text)' }}>{product.name}</h1>
+                <button
+                  onClick={toggleFavorite}
+                  aria-label="ຖືກໃຈ"
+                  style={{
+                    width: 38, height: 38, borderRadius: '50%', border: '1px solid var(--cust-border)',
+                    background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', flexShrink: 0,
+                  }}
+                >
+                  <svg
+                    width="20" height="20" viewBox="0 0 24 24"
+                    fill={isFav ? '#e53935' : 'none'}
+                    stroke={isFav ? '#e53935' : '#9ca3af'}
+                    strokeWidth="2"
+                  >
+                    <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z" />
+                  </svg>
+                </button>
+              </div>
+             <PriceBlock product={product} large />
+{product.is_promo && product.promo_end && (
+  <div style={{ fontSize: '0.8rem', color: '#dc2626', marginTop: 4 }}>
+    ໂປຣນີ້ເຖິງວັນທີ {product.promo_end.split('-').reverse().join('/')}
+  </div>
+)}
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '12px 0' }}>
                 {product.category && <span style={chipStyle}>ໝວດ: {product.category}</span>}
@@ -308,7 +351,7 @@ function ProductDetailInner() {
                       cursor: 'pointer', opacity: soldOut || busy ? 0.5 : 1,
                     }}
                   >
-                    ເພີ່ມລົງກະຕາ
+                    ເພມລງກະຕາ
                   </button>
                   <button
                     disabled={soldOut || busy}
@@ -319,7 +362,7 @@ function ProductDetailInner() {
                       cursor: 'pointer', opacity: soldOut || busy ? 0.5 : 1,
                     }}
                   >
-                    {soldOut ? 'ສິນຄ້າໝດ' : 'ຊື້ເລີຍ'}
+                    {soldOut ? 'ສນຄ້າໝດ' : 'ຊເລຍ'}
                   </button>
                 </div>
               </section>
