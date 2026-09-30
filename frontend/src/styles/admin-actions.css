@@ -1,0 +1,109 @@
+/* ปุ่มในคอลัมน์สุดท้ายของตารางแอดมิน: ชิดซ้ายเหมือนกันทุกแถว ขนาดเท่ากัน */
+table.admin-table td:last-child {
+  text-align: left;
+  white-space: nowrap;
+}
+
+table.admin-table td:last-child button {
+  min-width: 104px;
+  padding: 7px 14px;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  color: #374151;
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1.3;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+
+table.admin-table td:last-child button + button {
+  margin-left: 8px;
+}
+
+table.admin-table td:last-child button:hover {
+  background: #f3f4f6;
+  border-color: #9ca3af;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* ปุ่มลบ / ยกเลิกออเดอร: พื้นแดงอ่อน ชี้แล้วเข้มขน */
+table.admin-table td:last-child button.del-btn,
+table.admin-table td:last-child button.cancel-btn {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #dc2626;
+}
+table.admin-table td:last-child button.del-btn:hover,
+table.admin-table td:last-child button.cancel-btn:hover {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
+}
+
+/* ปุ่มกวดสอบ (สีเขียว) */
+table.admin-table td:last-child button.review-btn {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+table.admin-table td:last-child button.review-btn:hover {
+  background: #15803d;
+  border-color: #15803d;
+}
+
+/* ปุ่มหลัก (เช่น ຣີເຊັດ PIN) */
+table.admin-table td:last-child button.primary {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+table.admin-table td:last-child button.primary:hover {
+  filter: brightness(1.08);
+}
+
+/* ---------- ตารางพนักงาน: แบ่งคอลัมนให้สมดุล จัดกลางทงหมด ---------- */
+table.staff-table {
+  width: 100%;
+  table-layout: fixed;
+}
+
+table.staff-table th,
+table.staff-table td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+table.staff-table th:nth-child(1),
+table.staff-table td:nth-child(1) { width: 22%; }
+table.staff-table th:nth-child(2),
+table.staff-table td:nth-child(2) { width: 20%; }
+table.staff-table th:nth-child(3),
+table.staff-table td:nth-child(3) { width: 14%; }
+table.staff-table th:nth-child(4),
+table.staff-table td:nth-child(4) { width: 44%; }
+
+/* กลุ่มปุ่มอยูกลางช่อง */
+table.staff-table td:last-child {
+  text-align: center;
+}
+
+/* ช่องวางแทนปุมลบของแถว admin (ขนาดเท่าปุ่ม) */
+.btn-placeholder {
+  display: inline-block;
+  min-width: 104px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+/* จอเล็ก: ให้ตารางยืดหยุ่นตามเนื้อหา */
+@media (max-width: 900px) {
+  table.staff-table {
+    table-layout: auto;
+  }
+  table.staff-table th,
+  table.staff-table td {
+    width: auto !important;
+  }
+}

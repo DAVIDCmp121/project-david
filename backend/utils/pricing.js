@@ -1,9 +1,10 @@
 const { pool } = require('../db');
 
-// โปรใช้งานอยู่เมื่อ: เปิดโปร + มราคาโปร + ราคาโปรตกว่าปกติ + ยังไม่หมดวัน
+// โปรใช้งานอยู่เมื่อ: เปิดโปร + มีราคาโปร + ราคาโปรต่ำกว่าปกติ + ถึงวันเริ่มแล้ว + ยังไม่หมดวัน
 const PROMO_ACTIVE_SQL = `(products.promo_active = 1
   AND products.promo_price IS NOT NULL
   AND products.promo_price < products.price
+  AND (products.promo_start IS NULL OR products.promo_start <= CURDATE())
   AND (products.promo_end IS NULL OR products.promo_end >= CURDATE()))`;
 
 const EFFECTIVE_PRICE_SQL = `(CASE WHEN ${PROMO_ACTIVE_SQL} THEN products.promo_price ELSE products.price END)`;
@@ -17,6 +18,7 @@ const SOLD_COUNT_SQL = `(SELECT COALESCE(SUM(oi.quantity), 0)
 
 const PRODUCT_EXTRA_COLUMNS = `${SOLD_COUNT_SQL} AS sold_count,
   ${PROMO_ACTIVE_SQL} AS is_promo_raw,
+  DATE_FORMAT(products.promo_start, '%Y-%m-%d') AS promo_start_str,
   DATE_FORMAT(products.promo_end, '%Y-%m-%d') AS promo_end_str`;
 
 async function getBestsellerThreshold() {
@@ -34,9 +36,10 @@ function decorateProduct(p, threshold) {
   const sold = Number(p.sold_count) || 0;
   const mode = p.bestseller_mode || 'auto';
   const isBest = mode === 'on' || (mode !== 'off' && sold >= threshold);
-  const { is_promo_raw, promo_end_str, ...rest } = p;
+  const { is_promo_raw, promo_start_str, promo_end_str, ...rest } = p;
   return {
     ...rest,
+    promo_start: promo_start_str || null,
     promo_end: promo_end_str || null,
     sold_count: sold,
     is_promo: isPromo,
@@ -45,7 +48,7 @@ function decorateProduct(p, threshold) {
   };
 }
 
-// อานและตรวจคา promo / bestseller จาก req.body
+// อ่านและตรวจค่า promo / bestseller จาก req.body
 function parseMarketingFields(body, basePrice) {
   const out = {};
   if (body.promo_active !== undefined) {
@@ -55,14 +58,23 @@ function parseMarketingFields(body, basePrice) {
     const v = String(body.promo_price).trim();
     out.promo_price = v === '' ? null : Number(v);
     if (out.promo_price !== null && !(out.promo_price > 0)) {
-      return { error: 'ລາຄາໂປຣບຖກຕ້ອງ' };
+      return { error: 'ລາຄາໂປຣບໍ່ຖືກຕ້ອງ' };
     }
+  }
+  if (body.promo_start !== undefined) {
+    const v = String(body.promo_start).trim();
+    if (v === '') out.promo_start = null;
+    else if (/^\d{4}-\d{2}-\d{2}$/.test(v)) out.promo_start = v;
+    else return { error: 'ວັນເລີ່ມໂປຣບໍ່ຖືກຕ້ອງ' };
   }
   if (body.promo_end !== undefined) {
     const v = String(body.promo_end).trim();
     if (v === '') out.promo_end = null;
     else if (/^\d{4}-\d{2}-\d{2}$/.test(v)) out.promo_end = v;
-    else return { error: 'ວນສິ້ນສຸດໂປຣບໍ່ຖືກຕ້ອງ' };
+    else return { error: 'ວັນສິ້ນສຸດໂປຣບໍ່ຖືກຕ້ອງ' };
+  }
+  if (out.promo_start && out.promo_end && out.promo_start > out.promo_end) {
+    return { error: 'ວັນເລີ່ມໂປຣຕ້ອງມາກ່ອນວັນສິ້ນສຸດ' };
   }
   if (body.bestseller_mode !== undefined) {
     out.bestseller_mode = ['auto', 'on', 'off'].includes(body.bestseller_mode) ? body.bestseller_mode : 'auto';

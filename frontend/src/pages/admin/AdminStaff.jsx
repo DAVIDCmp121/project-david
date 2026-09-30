@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { apiDelete, apiPost, apiPut, getAuthHeader } from '../../api.js';
 import ConfirmModal from '../../components/ConfirmModal.jsx';
 
+const footerStyle = { display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' };
+
 export default function AdminStaff() {
   const [role, setRole] = useState(null);
   const [staff, setStaff] = useState([]);
@@ -25,7 +27,7 @@ export default function AdminStaff() {
   const [resetPassword, setResetPassword] = useState('');
   const [resetError, setResetError] = useState('');
 
-  // ✅ ໃໝ່: popup ຢືນຢັນລຶບພະນັກງານ (ແທນ window.confirm)
+  // popup ຢືນຢັນລບພະນັກງານ
   const [deleteTarget, setDeleteTarget] = useState(null); // { id, name }
 
   useEffect(() => {
@@ -38,7 +40,7 @@ export default function AdminStaff() {
       const r = data.role || 'admin';
       setRole(r);
       if (r !== 'admin') {
-        alert('ໜານສະເພາະແອດມິນເທົານນ');
+        alert('ໜ້ານີ້ສະເພາະແອດມນເທົ່ານັນ');
         navigate('/admin');
         return;
       }
@@ -64,7 +66,7 @@ export default function AdminStaff() {
   async function addStaff() {
     setError('');
     if (!name || !username || !password) {
-      setError('ກະລນາປອນຂມນໃຫ້ຄບ');
+      setError('ກະລນາປ້ອນຂໍມູນໃຫ້ຄົບ');
       return;
     }
     const { data } = await apiPost('/api/staff', { name, username, password });
@@ -72,7 +74,7 @@ export default function AdminStaff() {
       closeAddModal();
       loadStaffList();
     } else {
-      setError(data.error || 'ເພມພະນກງານບສເລດ');
+      setError(data.error || 'ເພີ່ມພະນັກງານບໍ່ສເລັດ');
     }
   }
 
@@ -87,7 +89,7 @@ export default function AdminStaff() {
     if (data.success) {
       loadStaffList();
     } else {
-      alert(data.error || 'ລບບສເລດ');
+      alert(data.error || 'ລບບສຳເລັດ');
     }
   }
 
@@ -108,7 +110,7 @@ export default function AdminStaff() {
   async function saveEdit() {
     setEditError('');
     if (!editName || !editUsername) {
-      setEditError('ກະລນາປອນຂມູນໃຫ້ຄບ');
+      setEditError('ກະລຸນາປ້ອນຂໍມູນໃຫ້ຄົບ');
       return;
     }
     const { data } = await apiPut(`/api/staff/${editTarget.id}`, {
@@ -120,7 +122,7 @@ export default function AdminStaff() {
       closeEdit();
       loadStaffList();
     } else {
-      setEditError(data.error || 'ແກໄຂບສເລດ');
+      setEditError(data.error || 'ແກ້ໄຂບໍສຳເລດ');
     }
   }
 
@@ -144,10 +146,10 @@ export default function AdminStaff() {
     }
     const { data } = await apiPut(`/api/staff/${resetTarget.id}/reset-password`, { password: resetPassword });
     if (data.success) {
-      alert('ຣເຊັດລະຫັດຜ່ານສເລັດ ✅');
+      alert('ຣີເຊັດລະຫັດຜານສຳເລດ ✅');
       closeReset();
     } else {
-      setResetError(data.error || 'ຣີເຊັດບສເລດ');
+      setResetError(data.error || 'ຣີເຊັດບໍ່ສເລັດ');
     }
   }
 
@@ -159,7 +161,7 @@ export default function AdminStaff() {
         <button className="primary" onClick={() => setAddOpen(true)}>➕ ເພີ່ມພະນັກງານ</button>
       </div>
 
-      <table className="admin-table">
+      <table className="admin-table staff-table">
         <thead>
           <tr><th>ຊື່</th><th>ຊື່ຜູ້ໃຊ້</th><th>ສິດ</th><th></th></tr>
         </thead>
@@ -169,11 +171,13 @@ export default function AdminStaff() {
               <td>{s.name}</td>
               <td>{s.username}</td>
               <td><span className={`role-badge role-${s.role}`}>{s.role === 'admin' ? 'ແອດມິນ' : 'ພະນັກງານ'}</span></td>
-              <td style={{ whiteSpace: 'nowrap' }}>
+              <td>
                 <button onClick={() => openEdit(s)}>ແກ້ໄຂ</button>
-                <button onClick={() => openReset(s)} style={{ marginLeft: 4 }}>ຣີເຊັດລະຫັດ</button>
-                {s.role === 'staff' && (
-                  <button className="del-btn" onClick={() => deleteStaffMember(s.id, s.name)} style={{ marginLeft: 4 }}>ລຶບ</button>
+                <button onClick={() => openReset(s)}>ຣີເຊັດລະຫັດ</button>
+                {s.role === 'staff' ? (
+                  <button className="del-btn" onClick={() => deleteStaffMember(s.id, s.name)}>ລຶບ</button>
+                ) : (
+                  <span className="btn-placeholder" />
                 )}
               </td>
             </tr>
@@ -190,7 +194,10 @@ export default function AdminStaff() {
             <input placeholder="ຊື່ຜູ້ໃຊ້ (ໃຊ້ login)" value={username} onChange={(e) => setUsername(e.target.value)} />
             <input placeholder="ລະຫັດຜ່ານ" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
             <div style={{ color: '#dc2626', fontSize: '0.85rem', minHeight: 18 }}>{error}</div>
-            <button className="primary" style={{ marginTop: 10 }} onClick={addStaff}>ເພີ່ມພະນັກງານ</button>
+            <div style={footerStyle}>
+              <button onClick={closeAddModal}>ຍົກເລີກ</button>
+              <button className="primary" onClick={addStaff}>ເພີ່ມພະນັກງານ</button>
+            </div>
           </div>
         </div>
       )}
@@ -207,9 +214,9 @@ export default function AdminStaff() {
               <option value="admin">ແອດມິນ</option>
             </select>
             <div style={{ color: '#dc2626', fontSize: '0.85rem', minHeight: 18 }}>{editError}</div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-              <button className="primary" onClick={saveEdit}>ບັນທຶກ</button>
+            <div style={footerStyle}>
               <button onClick={closeEdit}>ຍົກເລີກ</button>
+              <button className="primary" onClick={saveEdit}>ບັນທຶກ</button>
             </div>
           </div>
         </div>
@@ -222,9 +229,9 @@ export default function AdminStaff() {
             <h3 style={{ color: 'var(--navy)' }}>ຣີເຊັດລະຫັດຜ່ານ: {resetTarget?.name}</h3>
             <input placeholder="ລະຫັດຜ່ານໃໝ່" type="password" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} />
             <div style={{ color: '#dc2626', fontSize: '0.85rem', minHeight: 18 }}>{resetError}</div>
-            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-              <button className="primary" onClick={saveReset}>ຣີເຊັດ</button>
+            <div style={footerStyle}>
               <button onClick={closeReset}>ຍົກເລີກ</button>
+              <button className="primary" onClick={saveReset}>ຣີເຊັດ</button>
             </div>
           </div>
         </div>

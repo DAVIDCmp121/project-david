@@ -1,4 +1,11 @@
-// ป้ายบนรูปสนค้า (มมบนซ้าย): ขายดี + จัดโปร
+// จดรูปแบบตัวเลข: 129500.00 -> 129,500
+export function formatPrice(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return String(n ?? '');
+  return v.toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+
+// ป้ายบนรปสินค้า (มุมบนซ้าย): ขายดี + จัดโปร
 export function ImageBadges({ product }) {
   if (!product.is_bestseller && !product.is_promo) return null;
 
@@ -52,24 +59,57 @@ export function ImageBadges({ product }) {
   );
 }
 
-// ราคา: ถ้ามีโปรจะแสดงราคาโปรสีแดง + ราคาเดิมขีดฆ่า
+// ราคา: โปรอยู่แถวเดียวกัน = ราคาโปรสีแดง + ราคาเดิมขีดฆ่าข้างๆ
 export function PriceBlock({ product, large = false }) {
+  const rowStyle = {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: large ? 10 : 6,
+    flexWrap: large ? 'wrap' : 'nowrap',
+    whiteSpace: 'nowrap',
+    overflow: large ? 'visible' : 'hidden',
+    minWidth: 0,
+  };
+
   if (!product.is_promo) {
-    return large ? (
-      <div style={{ color: 'var(--gold)', fontWeight: 'bold', fontSize: '1.25rem' }}>{product.price} ກີບ</div>
-    ) : (
-      <p className="price">{product.price} ກີບ</p>
+    return (
+      <div style={rowStyle}>
+        <span
+          style={{
+            color: 'var(--gold)',
+            fontWeight: 700,
+            fontSize: large ? '1.25rem' : '0.98rem',
+          }}
+        >
+          {formatPrice(product.price)} ກີບ
+        </span>
+      </div>
     );
   }
 
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', margin: '4px 0' }}>
-      <span style={{ color: '#dc2626', fontWeight: 700, fontSize: large ? '1.35rem' : '1rem' }}>
-        {product.final_price} ກີບ
+    <div style={rowStyle}>
+      <span
+        style={{
+          color: '#dc2626',
+          fontWeight: 700,
+          fontSize: large ? '1.35rem' : '0.98rem',
+          flexShrink: 0,
+        }}
+      >
+        {formatPrice(product.final_price)} ກີບ
       </span>
-      <span style={{ color: '#9ca3af', textDecoration: 'line-through', fontSize: large ? '0.95rem' : '0.8rem' }}>
-        {product.price} ກີບ
-      </span>
+      <s
+        style={{
+          color: '#9ca3af',
+          fontSize: large ? '0.95rem' : '0.74rem',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          minWidth: 0,
+        }}
+      >
+        {formatPrice(product.price)}{large ? ' ກີບ' : ''}
+      </s>
     </div>
   );
 }

@@ -2,18 +2,17 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { apiGet, apiPost } from '../api.js';
 
-// ➕ ນຳໜ້າທີ່ຂອງ auth-guard.js ເກົ່າມາເຮັດເປັນ Layout Component
-// - ເຊັກວ່າ login ຢູ່ບໍ່ (/api/auth/me), ຖ້າບໍ່ login ເດັ້ງໄປໜ້າ login ທີ່ຖືກຕ້ອງ
-// - ໂຊວ໌ແຖບເທິງ "ສະບາຍດີ, [ຊື່] ([ບົດບາດ])" + ປຸ່ມອອກຈາກລະບົບ
-// - ເຊື່ອງ nav item ທີ່ຕິດ [data-admin-only] ຖ້າຄົນ login ບໍ່ແມ່ນ role admin
+// Layout ຫນາແອດມນ: ເຊັກ login (/api/auth/me), ໂຊວແຖບເທິງ + ເມນູ
+// ເມນູທີ່ມ adminOnly ຈະເຫນສະເພາະ role admin
 
 const NAV_ITEMS = [
-  { key: 'products', label: 'ສິນຄ້າ', href: '/admin' },
-  { key: 'orders', label: 'ຄຳສັ່ງຊື້', href: '/admin/orders' },
+  { key: 'products', label: 'ສິນຄາ', href: '/admin' },
+  { key: 'orders', label: 'ຄຳສງຊື', href: '/admin/orders' },
   { key: 'qrcode', label: 'QR Code', href: '/admin/qrcode' },
+  { key: 'banners', label: 'ແບນເນີ', href: '/admin/banners' },
   { key: 'chat', label: 'ແຊັດ', href: '/admin/chat' },
   { key: 'customers', label: 'ລູກຄ້າ', href: '/admin/customers' },
-  { key: 'staff', label: 'ພະນັກງານ', href: '/admin/staff', adminOnly: true },
+  { key: 'staff', label: 'ພະນກງານ', href: '/admin/staff', adminOnly: true },
 ];
 
 export default function AdminLayout({ children, active }) {

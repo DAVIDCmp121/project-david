@@ -13,7 +13,6 @@ const {
 
 const MAX_IMAGES = 6;
 
-// ตงค่า multer ให้เก็บไฟล์ที่ public/uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, path.join(__dirname, '../public/uploads'));
@@ -37,7 +36,7 @@ function uploadImages(req, res, next) {
   upload.array('images', MAX_IMAGES)(req, res, (err) => {
     if (err) {
       console.error('UPLOAD ERROR:', err.code, err.message);
-      return res.status(400).json({ error: `ອບໂຫລດຮູບບສຳເລັດ (${err.code || err.message})` });
+      return res.status(400).json({ error: `ອັບໂຫລດຮູບບໍ່ສຳເລັດ (${err.code || err.message})` });
     }
     next();
   });
@@ -68,7 +67,6 @@ function cleanSizeChart(raw) {
   return JSON.stringify(rows);
 }
 
-// ✅ ໃໝ່: ລາງຊື່ໝວດ — ບໄດ້ສົງມາ = undefined, ສງມາເປນຄາຫວາງ = null (ບໍ່ມໝວດ)
 function cleanCategory(raw) {
   if (raw === undefined) return undefined;
   const v = String(raw).trim().slice(0, 100);
@@ -110,7 +108,6 @@ async function saveImages(productId, images) {
   await pool.query('UPDATE products SET image = ? WHERE id = ?', [images[0] || '', productId]);
 }
 
-// ດຶງສນຄ້າທງໝົດ (ທຸກຄົນດູໄດ້ ບຕ້ອງ login) — ຮຽງຕາມ sort_order
 router.get('/', async (req, res) => {
   try {
     const threshold = await getBestsellerThreshold();
@@ -122,17 +119,15 @@ router.get('/', async (req, res) => {
     res.json(rows.map((p) => decorateProduct(p, threshold)));
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'ດງຂໍ້ມນສິນຄາບໍ່ສເລັດ' });
+    res.status(500).json({ error: 'ດຶງຂໍ້ມູນສິນຄ້າບໍ່ສຳເລັດ' });
   }
 });
 
-// ບັນທຶກລຳດບການສະແດງສິນຄາ (ລາກສະຫຼັບໃນໜາແອັດມິນ)
-// ຕອງຢູກ່ອນ router.put('/:id', ...) ບໍດັງນນ Express ຈະຈັບ 'reorder' ເປັນ :id
 router.put('/reorder', requireAuth, async (req, res) => {
   try {
     const { ids } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({ error: 'ຂໍ້ມນລດບບຖືກຕອງ' });
+      return res.status(400).json({ error: 'ຂໍ້ມູນລຳດັບບໍ່ຖືກຕ້ອງ' });
     }
     for (let i = 0; i < ids.length; i++) {
       await pool.query('UPDATE products SET sort_order = ? WHERE id = ?', [i, ids[i]]);
@@ -140,9 +135,10 @@ router.put('/reorder', requireAuth, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'ບັນທຶກລຳດັບບສເລັດ' });
+    res.status(500).json({ error: 'ບັນທຶກລຳດັບບໍ່ສຳເລັດ' });
   }
 });
+
 router.get('/bestseller-threshold', async (req, res) => {
   res.json({ threshold: await getBestsellerThreshold() });
 });
@@ -160,19 +156,20 @@ router.put('/bestseller-threshold', requireAuth, async (req, res) => {
     res.json({ success: true, threshold: n });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'ບັນທຶກບສຳເລັດ' });
+    res.status(500).json({ error: 'ບັນທຶກບໍ່ສຳເລັດ' });
   }
 });
+
 router.get('/:id', async (req, res) => {
   try {
-  const threshold = await getBestsellerThreshold();
+    const threshold = await getBestsellerThreshold();
     const [rows] = await pool.query(
       `SELECT products.*, ${PRODUCT_EXTRA_COLUMNS} FROM products WHERE products.id = ?`,
       [req.params.id]
     );
     const product = rows[0] ? decorateProduct(rows[0], threshold) : undefined;
     if (!product) {
-      return res.status(404).json({ error: 'ບໍພົບສິນຄ້ານີ້' });
+      return res.status(404).json({ error: 'ບໍ່ພົບສິນຄ້ານີ້' });
     }
 
     const [imgRows] = await pool.query(
@@ -185,7 +182,7 @@ router.get('/:id', async (req, res) => {
     res.json({ ...product, images, size_chart: parseSizeChart(product.size_chart) });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'ດຶງຂໍ້ມູນສິນຄາບໍ່ສເລັດ' });
+    res.status(500).json({ error: 'ດຶງຂໍ້ມູນສິນຄ້າບໍ່ສຳເລັດ' });
   }
 });
 
@@ -193,12 +190,12 @@ router.post('/', requireAuth, uploadImages, async (req, res) => {
   try {
     const { name, price, size, color, stock, description } = req.body;
     if (!name || price === undefined || price === '') {
-      return res.status(400).json({ error: 'ກະລນາໃສຊື່ສິນຄ້າ ແລະ ລາຄາ' });
+      return res.status(400).json({ error: 'ກະລຸນາໃສ່ຊື່ສິນຄ້າ ແລະ ລາຄາ' });
     }
 
     const images = buildImageList(req);
     if (images.length > MAX_IMAGES) {
-      return res.status(400).json({ error: `ອັບໂຫລດໄດ້ສູງສດ ${MAX_IMAGES} ຮູບ` });
+      return res.status(400).json({ error: `ອັບໂຫລດໄດ້ສູງສຸດ ${MAX_IMAGES} ຮູບ` });
     }
     const sizeChart = cleanSizeChart(req.body.size_chart) || '[]';
     const category = cleanCategory(req.body.category);
@@ -209,17 +206,17 @@ router.post('/', requireAuth, uploadImages, async (req, res) => {
 
     const [result] = await pool.query(
       `INSERT INTO products (name, price, size, color, stock, image, description, size_chart, category,
-                             promo_active, promo_price, promo_end, bestseller_mode)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                             promo_active, promo_price, promo_start, promo_end, bestseller_mode)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [name, price, size || '', color || '', stock || 0, images[0] || '', description || '', sizeChart, category ?? null,
-       m.promo_active ?? 0, m.promo_price ?? null, m.promo_end ?? null, m.bestseller_mode ?? 'auto']
+       m.promo_active ?? 0, m.promo_price ?? null, m.promo_start ?? null, m.promo_end ?? null, m.bestseller_mode ?? 'auto']
     );
     await saveImages(result.insertId, images);
 
     res.json({ id: result.insertId });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'ເພີມສິນຄ້າບໍ່ສເລັດ' });
+    res.status(500).json({ error: 'ເພີ່ມສິນຄ້າບໍ່ສຳເລັດ' });
   }
 });
 
@@ -234,7 +231,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'ລຶບສິນຄ້າບໍສຳເລັດ' });
+    res.status(500).json({ error: 'ລຶບສິນຄ້າບໍ່ສຳເລັດ' });
   }
 });
 
@@ -268,12 +265,12 @@ router.put('/:id', requireAuth, uploadImages, async (req, res) => {
     if (req.body.image_order !== undefined || (req.files && req.files.length > 0)) {
       images = buildImageList(req);
       if (images.length > MAX_IMAGES) {
-        return res.status(400).json({ error: `ອັບໂຫລດໄດສູງສດ ${MAX_IMAGES} ຮູບ` });
+        return res.status(400).json({ error: `ອັບໂຫລດໄດ້ສູງສຸດ ${MAX_IMAGES} ຮູບ` });
       }
     }
 
     if (fields.length === 0 && images === null) {
-      return res.status(400).json({ error: 'ບໍ່ມຂໍ້ມູນທີ່ຈະອັບເດດ' });
+      return res.status(400).json({ error: 'ບໍ່ມີຂໍ້ມູນທີ່ຈະອັບເດດ' });
     }
 
     if (fields.length > 0) {
@@ -287,7 +284,7 @@ router.put('/:id', requireAuth, uploadImages, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: 'ອັບເດດສິນຄ້າບໍສເລັດ' });
+    res.status(500).json({ error: 'ອັບເດດສິນຄ້າບໍ່ສຳເລັດ' });
   }
 });
 

@@ -44,6 +44,7 @@ async function initDb() {
   await addColumnIfMissing('products', 'category', 'VARCHAR(100) NULL');
   await addColumnIfMissing('products', 'promo_price', 'DECIMAL(10,2) NULL');
   await addColumnIfMissing('products', 'promo_active', 'TINYINT DEFAULT 0');
+  await addColumnIfMissing('products', 'promo_start', 'DATE NULL');
   await addColumnIfMissing('products', 'promo_end', 'DATE NULL');
   await addColumnIfMissing('products', 'bestseller_mode', "VARCHAR(10) DEFAULT 'auto'");
 
@@ -118,7 +119,6 @@ async function initDb() {
     )
   `);
 
-  // ✅ ໃໝ: ສນຄາທລກຄາກດຖືກໃຈ (wishlist)
   await pool.query(`
     CREATE TABLE IF NOT EXISTS favorites (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -130,6 +130,17 @@ async function initDb() {
       FOREIGN KEY (product_id) REFERENCES products(id)
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS banners (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      image_url VARCHAR(255) NOT NULL,
+      link_product_id INT NULL,
+      sort_order INT DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await addColumnIfMissing('banners', 'slot', "VARCHAR(20) DEFAULT 'main'");
 
   console.log('✅ MySQL tables checked/created');
 }

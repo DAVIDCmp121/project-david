@@ -18,6 +18,7 @@ import AdminQrCode from './pages/admin/AdminQrCode.jsx';
 import AdminChat from './pages/admin/AdminChat.jsx';
 import AdminCustomers from './pages/admin/AdminCustomers.jsx';
 import AdminStaff from './pages/admin/AdminStaff.jsx';
+import AdminBanners from './pages/admin/AdminBanners.jsx';
 import AdminLayout from './components/AdminLayout.jsx';
 
 import StaffLogin from './pages/staff/StaffLogin.jsx';
@@ -65,6 +66,14 @@ export default function App() {
         element={
           <AdminLayout active="qrcode">
             <AdminQrCode />
+          </AdminLayout>
+        }
+      />
+      <Route
+        path="/admin/banners"
+        element={
+          <AdminLayout active="banners">
+            <AdminBanners />
           </AdminLayout>
         }
       />

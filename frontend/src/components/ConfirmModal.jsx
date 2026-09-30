@@ -17,22 +17,22 @@ export default function ConfirmModal({
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
           <button
-            onClick={onConfirm}
-            style={{
-              background: danger ? '#dc2626' : 'var(--blue)', color: '#fff', border: 'none',
-              padding: '10px 20px', borderRadius: 6, fontWeight: 'bold', cursor: 'pointer',
-            }}
-          >
-            {confirmText}
-          </button>
-          <button
             onClick={onCancel}
             style={{
               background: '#fff', color: '#374151', border: '1px solid #dfe3e8',
-              padding: '10px 20px', borderRadius: 6, cursor: 'pointer',
+              padding: '10px 20px', borderRadius: 6, cursor: 'pointer', minWidth: 96,
             }}
           >
             {cancelText}
+          </button>
+          <button
+            onClick={onConfirm}
+            style={{
+              background: danger ? '#dc2626' : 'var(--blue)', color: '#fff', border: 'none',
+              padding: '10px 20px', borderRadius: 6, fontWeight: 'bold', cursor: 'pointer', minWidth: 96,
+            }}
+          >
+            {confirmText}
           </button>
         </div>
       </div>

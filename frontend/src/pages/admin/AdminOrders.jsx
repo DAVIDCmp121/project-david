@@ -3,14 +3,14 @@ import { apiPost, apiPut, getAuthHeader } from '../../api.js';
 import ConfirmModal from '../../components/ConfirmModal.jsx';
 
 const statusLabels = {
-  awaiting_review: 'ລຖາກວດສະລບ',
-  confirmed: 'ຢນຢນແລວ',
-  shipped: 'ຈດສງແລ້ວ',
-  delivered: 'ຮອດແລວ',
+  awaiting_review: 'ລໍຖ້າກວດສະລິບ',
+  confirmed: 'ຢືນຢັນແລ້ວ',
+  shipped: 'ຈັດສົ່ງແລ້ວ',
+  delivered: 'ຮອດແລ້ວ',
 };
 
 const cancelledByLabels = {
-  customer: { text: 'ລກຄາຍກເລກ', cls: 'by-customer' },
+  customer: { text: 'ລູກຄ້າຍົກເລີກ', cls: 'by-customer' },
   staff: { text: 'ພະນັກງານຍົກເລີກ', cls: 'by-staff' },
 };
 
@@ -21,7 +21,7 @@ export default function AdminOrders() {
   const [filterDate, setFilterDate] = useState('');
   const [reviewOrder, setReviewOrder] = useState(null);
 
-  // ✅ ໃໝ່: popup ຢືນຢັນຍົກເລີກອໍເດີ (ແທນ window.confirm) — ເກັບທັງ id ແລະ ຂໍ້ຄວາມ
+  // popup ຢືນຢັນຍົກເລີກອໍເດີ — ເກັບທັງ id ແລະ ຂໍ້ຄວາມ
   const [cancelConfirm, setCancelConfirm] = useState(null); // { id, message }
 
   async function loadOrders() {
@@ -66,15 +66,19 @@ export default function AdminOrders() {
 
   const showInProgressTable = tab !== 'cancelled';
 
-  async function updateStatus(id, order_status) {
-    const { data } = await apiPut(`/api/orders/${id}`, { order_status });
-    if (!data.success) alert(data.error || 'ປຽນສະຖານະບສເລດ');
+  async function confirmSlip(id) {
+    const { data } = await apiPut(`/api/orders/${id}`, { order_status: 'confirmed' });
+    if (!data.success) {
+      alert(data.error || 'ປ່ຽນສະຖານະບໍ່ສຳເລັດ');
+      return;
+    }
+    setReviewOrder(null);
     loadOrders();
   }
 
-  // ✅ ໃໝ່: ເປີດ popup ຢືນຢັນ ແທນ window.confirm — ໃຊ້ຮ່ວມກັນທັງປຸ່ມ "ຍົກເລີກ" ໃນຕາຕະລາງ ແລະ "ບໍ່ຖືກຕ້ອງ" ໃນ popup ກວດສອບສະລິບ
+  // ເປີດ popup ຢືນຢັນ — ໃຊ້ຮ່ວມກັນທັງປຸ່ມ "ຍົກເລີກ" ໃນຕາຕະລາງ ແລະ "ບໍ່ຖືກຕ້ອງ" ໃນ popup ກວດສອບສະລິບ
   function adminCancelOrder(id) {
-    setCancelConfirm({ id, message: 'ຢນຢນຍົກເລກອເດນີ? ສະຕອກສນຄ້າຈະຄນກບຄນ' });
+    setCancelConfirm({ id, message: 'ຢືນຢັນຍົກເລີກອໍເດີ? ສະຕັອກສິນຄ້າຈະຄືນກັບຄືນ' });
   }
 
   function rejectSlip(id) {
@@ -86,7 +90,7 @@ export default function AdminOrders() {
     setCancelConfirm(null);
     const { data } = await apiPost(`/api/orders/${id}/admin-cancel`, {});
     if (!data.success) {
-      alert(data.error || 'ຍົກເລກບສເລດ');
+      alert(data.error || 'ຍົກເລີກບໍ່ສຳເລັດ');
       return;
     }
     setReviewOrder(null);
@@ -163,14 +167,9 @@ export default function AdminOrders() {
                       <td>{(o.items || []).reduce((s, it) => s + it.quantity, 0)}</td>
                       <td>{o.total} ກີບ</td>
                       <td>{new Date(o.created_at).toLocaleTimeString('lo-LA', { hour: '2-digit', minute: '2-digit' })}</td>
-                      <td style={{ whiteSpace: 'nowrap' }}>
-                        <button
-                          style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: '0.85rem', cursor: 'pointer' }}
-                          onClick={() => setReviewOrder(o)}
-                        >
-                          ກວດສອບ
-                        </button>
-                        <button className="cancel-btn" onClick={() => adminCancelOrder(o.id)} style={{ marginLeft: 4 }}>ຍົກເລີກ</button>
+                      <td>
+                        <button className="review-btn" onClick={() => setReviewOrder(o)}>ກວດສອບ</button>
+                        <button className="cancel-btn" onClick={() => adminCancelOrder(o.id)}>ຍົກເລີກ</button>
                       </td>
                     </tr>
                   );
@@ -255,8 +254,8 @@ export default function AdminOrders() {
             )}
 
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', position: 'sticky', bottom: 0, background: '#fff', paddingTop: 8 }}>
-              <button className="primary" onClick={() => confirmSlip(reviewOrder.id)}>✅ ຖືກຕ້ອງ</button>
               <button className="cancel-btn" onClick={() => rejectSlip(reviewOrder.id)}>❌ ບໍ່ຖືກຕ້ອງ</button>
+              <button className="primary" onClick={() => confirmSlip(reviewOrder.id)}>✅ ຖືກຕ້ອງ</button>
             </div>
           </div>
         </div>
@@ -271,14 +270,4 @@ export default function AdminOrders() {
       />
     </div>
   );
-
-  async function confirmSlip(id) {
-    const { data } = await apiPut(`/api/orders/${id}`, { order_status: 'confirmed' });
-    if (!data.success) {
-      alert(data.error || 'ປຽນສະຖານະບສເລັດ');
-      return;
-    }
-    setReviewOrder(null);
-    loadOrders();
-  }
 }
