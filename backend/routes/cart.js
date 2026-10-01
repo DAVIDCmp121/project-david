@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { pool } = require('../db');
 const requireCustomerAuth = require('../middleware/requireCustomerAuth');
-const { EFFECTIVE_PRICE_SQL, PROMO_ACTIVE_SQL } = require('../utils/pricing');
+const { EFFECTIVE_PRICE_SQL, PROMO_ACTIVE_SQL, parseSizeOptions } = require('../utils/pricing');
 
 // ดึงตะกราของลูกค้าที่ login อยู
 router.get('/', requireCustomerAuth, async (req, res) => {
@@ -11,6 +11,7 @@ router.get('/', requireCustomerAuth, async (req, res) => {
       SELECT
         cart_items.id,
         cart_items.quantity,
+        cart_items.size AS chosen_size,
         products.id AS product_id,
         products.name,
        ${EFFECTIVE_PRICE_SQL} AS price,
@@ -40,17 +41,32 @@ router.post('/', requireCustomerAuth, async (req, res) => {
     const qty = parseInt(quantity, 10) || 1;
 
     if (!product_id) {
-      return res.status(400).json({ success: false, error: 'ບພບສນຄານ' });
+      return res.status(400).json({ success: false, error: 'ບໍ່ພົບສິນຄ້າ' });
     }
 
     const [productRows] = await pool.query('SELECT * FROM products WHERE id = ?', [product_id]);
-    if (!productRows[0]) {
-      return res.status(404).json({ success: false, error: 'ບພບສິນຄ້ານ' });
+    const product = productRows[0];
+    if (!product) {
+      return res.status(404).json({ success: false, error: 'ບໍ່ພົບສິນຄ້ານີ້' });
+    }
+
+    // ສິນຄ້າທີ່ຕ້ອງເລືອກໄຊສ໌: ຕ້ອງສົ່ງໄຊສ໌ມາ ແລະ ຕ້ອງຢູ່ໃນຕົວເລືອກ
+    const options = Number(product.size_selectable) === 1 ? parseSizeOptions(product.size) : [];
+    let size = String(req.body.size || '').trim();
+    if (options.length > 0) {
+      if (!size) {
+        return res.status(400).json({ success: false, error: 'ກະລຸນາເລືອກໄຊສ໌' });
+      }
+      if (!options.includes(size)) {
+        return res.status(400).json({ success: false, error: 'ໄຊສ໌ບໍ່ຖືກຕ້ອງ' });
+      }
+    } else {
+      size = '';
     }
 
     const [existing] = await pool.query(
-      'SELECT id, quantity FROM cart_items WHERE customer_id = ? AND product_id = ?',
-      [req.customerId, product_id]
+      'SELECT id, quantity FROM cart_items WHERE customer_id = ? AND product_id = ? AND size = ?',
+      [req.customerId, product_id, size]
     );
 
     if (existing[0]) {
@@ -60,15 +76,15 @@ router.post('/', requireCustomerAuth, async (req, res) => {
       );
     } else {
       await pool.query(
-        'INSERT INTO cart_items (customer_id, product_id, quantity) VALUES (?, ?, ?)',
-        [req.customerId, product_id, qty]
+        'INSERT INTO cart_items (customer_id, product_id, quantity, size) VALUES (?, ?, ?, ?)',
+        [req.customerId, product_id, qty, size]
       );
     }
 
     res.json({ success: true });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ success: false, error: 'ເພມສນຄາລງຕະກຣ້າບສເລດ' });
+    res.status(500).json({ success: false, error: 'ເພີ່ມສິນຄ້າລົງຕະກຣ້າບໍ່ສຳເລັດ' });
   }
 });
 

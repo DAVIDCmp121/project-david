@@ -113,7 +113,7 @@ async function checkSlip(buffer, expectedAmount) {
 // ✅ helper: ດຶງ cart ຂອງ customer ພ້ອມຂໍ້ມູນສິນຄ້າ ແລະ ຄຳນວນຍອດລວມ
 async function getCartWithTotal(customerId) {
   const [items] = await pool.query(
-    `SELECT cart_items.product_id, cart_items.quantity, ${EFFECTIVE_PRICE_SQL} AS price, products.stock, products.name
+    `SELECT cart_items.product_id, cart_items.quantity, cart_items.size, ${EFFECTIVE_PRICE_SQL} AS price, products.stock, products.name
      FROM cart_items
      JOIN products ON cart_items.product_id = products.id
      WHERE cart_items.customer_id = ?`,
@@ -137,7 +137,7 @@ router.get('/', requireAuth, async (req, res) => {
     const orderIds = orders.map(o => o.id);
     const [items] = await pool.query(
       `SELECT order_items.order_id, order_items.product_id, order_items.quantity,
-              order_items.price_at_order, products.name AS product_name
+              order_items.price_at_order, order_items.size, products.name AS product_name
        FROM order_items
        JOIN products ON order_items.product_id = products.id
        WHERE order_items.order_id IN (?)`,
@@ -196,7 +196,11 @@ router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) =>
       return res.status(400).json({ error: 'ກະຕ່າສິນຄ້າຫວ່າງເປົ່າ' });
     }
 
-    const outOfStock = items.find(item => item.stock < item.quantity);
+    const totalByProduct = {};
+    for (const item of items) {
+      totalByProduct[item.product_id] = (totalByProduct[item.product_id] || 0) + item.quantity;
+    }
+    const outOfStock = items.find(item => item.stock < totalByProduct[item.product_id]);
     if (outOfStock) {
       fs.unlinkSync(path.join(__dirname, '../public/uploads', req.file.filename));
       return res.status(400).json({ error: `ສິນຄ້າ "${outOfStock.name}" ບໍ່ພໍ` });
@@ -215,9 +219,9 @@ router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) =>
 
     for (const item of items) {
       await connection.query(
-        `INSERT INTO order_items (order_id, product_id, quantity, price_at_order)
-         VALUES (?, ?, ?, ?)`,
-        [orderId, item.product_id, item.quantity, item.price]
+        `INSERT INTO order_items (order_id, product_id, quantity, price_at_order, size)
+         VALUES (?, ?, ?, ?, ?)`,
+        [orderId, item.product_id, item.quantity, item.price, item.size || '']
       );
       await connection.query('UPDATE products SET stock = stock - ? WHERE id = ?', [item.quantity, item.product_id]);
     }

@@ -93,7 +93,9 @@ export default function Checkout() {
       const { ok, data } = await apiUpload('/api/orders', formData);
 
       if (ok) {
-        const itemLines = items.map((i) => `- ${i.name} x${i.quantity} = ${i.price * i.quantity} ກີບ`).join('\n');
+        const itemLines = items
+          .map((i) => `- ${i.name}${i.chosen_size ? ` (ໄຊສ໌ ${i.chosen_size})` : ''} x${i.quantity} = ${i.price * i.quantity} ກີບ`)
+          .join('\n');
         const orderMessage =
           `ສັ່ງຊື້ໃໝ່:\n${itemLines}\nລວມ: ${total} ກີບ\nທີ່ຢູ່ຈັດສົ່ງ: ${address}`;
 
@@ -139,7 +141,9 @@ export default function Checkout() {
                   )}
                   <div style={{ flex: 1 }}>
                     <div>{item.name}</div>
-                    <div style={{ color: '#999', fontSize: 13 }}>x{item.quantity}</div>
+                    <div style={{ color: '#999', fontSize: 13 }}>
+                      {item.chosen_size ? `ໄຊສ໌ ${item.chosen_size} · ` : ''}x{item.quantity}
+                    </div>
                   </div>
                   <div>{item.price * item.quantity} ກີບ</div>
                 </div>

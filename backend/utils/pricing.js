@@ -30,7 +30,14 @@ async function getBestsellerThreshold() {
     return 10;
   }
 }
-
+// ຕັດຊ່ອງໄຊສ໌ເປັນຕົວເລືອກ: "L/M/XL" ຫຼື "M\L" ຫຼື "S, M" -> ['L','M','XL']
+function parseSizeOptions(raw) {
+  const seen = new Set();
+  return String(raw || '')
+    .split(/[\/\\,]+/)
+    .map((s) => s.trim())
+    .filter((s) => s && !seen.has(s) && seen.add(s));
+}
 function decorateProduct(p, threshold) {
   const isPromo = Number(p.is_promo_raw) === 1;
   const sold = Number(p.sold_count) || 0;
@@ -45,6 +52,8 @@ function decorateProduct(p, threshold) {
     is_promo: isPromo,
     final_price: isPromo ? p.promo_price : p.price,
     is_bestseller: isBest,
+    size_selectable: Number(p.size_selectable) === 1,
+    size_options: Number(p.size_selectable) === 1 ? parseSizeOptions(p.size) : [],
   };
 }
 
@@ -96,4 +105,5 @@ module.exports = {
   getBestsellerThreshold,
   decorateProduct,
   parseMarketingFields,
+  parseSizeOptions,
 };

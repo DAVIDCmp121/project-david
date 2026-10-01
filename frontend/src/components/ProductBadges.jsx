@@ -59,7 +59,7 @@ export function ImageBadges({ product }) {
   );
 }
 
-// ราคา: โปรอยู่แถวเดียวกัน = ราคาโปรสีแดง + ราคาเดิมขีดฆ่าข้างๆ
+// ราคา: ถ้ามีโปร = ราคาเดิมขีดฆ่าอยู่ซ้าย / ราคาโปรสีแดงอยู่ขวา (แถวเดียวกัน)
 export function PriceBlock({ product, large = false }) {
   const rowStyle = {
     display: 'flex',
@@ -89,16 +89,6 @@ export function PriceBlock({ product, large = false }) {
 
   return (
     <div style={rowStyle}>
-      <span
-        style={{
-          color: '#dc2626',
-          fontWeight: 700,
-          fontSize: large ? '1.35rem' : '0.98rem',
-          flexShrink: 0,
-        }}
-      >
-        {formatPrice(product.final_price)} ກີບ
-      </span>
       <s
         style={{
           color: '#9ca3af',
@@ -110,6 +100,16 @@ export function PriceBlock({ product, large = false }) {
       >
         {formatPrice(product.price)}{large ? ' ກີບ' : ''}
       </s>
+      <span
+        style={{
+          color: '#dc2626',
+          fontWeight: 700,
+          fontSize: large ? '1.35rem' : '0.98rem',
+          flexShrink: 0,
+        }}
+      >
+        {formatPrice(product.final_price)} ກີບ
+      </span>
     </div>
   );
 }

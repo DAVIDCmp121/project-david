@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import CustomerHeader from '../../components/CustomerHeader.jsx';
 import BottomNav from '../../components/BottomNav.jsx';
 import HomeHero from '../../components/HomeHero.jsx';
+import CategoryBar from '../../components/CategoryBar.jsx';
 import { CartProvider, useCart } from '../../context/CartContext.jsx';
 import { API_BASE, apiGet, apiPost, apiDelete } from '../../api';
 import { ImageBadges, PriceBlock } from '../../components/ProductBadges.jsx';
@@ -13,13 +14,14 @@ const toolbarCss = `
 .pl-search { position: relative; flex: 1 1 auto; min-width: 0; }
 .pl-cat-dropdown { position: relative; flex: 0 0 auto; }
 .pl-cat-btn {
-  display: flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 999px;
-  border: 1px solid #e5e7eb; background: #fff; color: #374151; font-size: 14px; cursor: pointer;
+  display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px;
+  border: 1px solid #e5e7eb; background: #fff; color: #374151; font-size: 13.5px; cursor: pointer;
   white-space: nowrap;
 }
 .pl-cat-btn.active { border-color: var(--gold); color: #b8862b; background: rgba(212, 165, 72, 0.08); }
 .pl-cat-menu {
   position: absolute; top: calc(100% + 6px); right: 0; z-index: 20; min-width: 200px;
+  max-width: calc(100vw - 24px);
   background: #fff; border: 1px solid #e5e7eb; border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0,0,0,0.14); padding: 6px; max-height: 320px; overflow-y: auto;
 }
@@ -29,16 +31,9 @@ const toolbarCss = `
 }
 .pl-cat-item:hover { background: #f3f4f6; }
 .pl-cat-item.active { background: rgba(212, 165, 72, 0.16); color: #b8862b; font-weight: 600; }
-@media (max-width: 720px) {
-  .pl-toolbar { flex-wrap: wrap; }
-  .pl-search { flex: 1 1 100%; }
-  .pl-cat-dropdown { flex: 1 1 100%; }
-  .pl-cat-btn { width: 100%; justify-content: space-between; }
-  .pl-cat-menu { left: 0; right: 0; }
-}
 `;
 
-// ---------- การ์ดสนค้า (แบบ Shopee) ----------
+// ---------- การ์ดสินค้า (แบบ Shopee) ----------
 function MiniCard({ p, isFav, busy, onOpen, onFav, onCart, onBuy }) {
   const soldOut = p.stock <= 0;
   return (
@@ -139,7 +134,7 @@ function ProductListInner() {
       const { ok, data } = await apiGet('/api/banners');
       if (ok && Array.isArray(data)) setBanners(data);
     } catch (err) {
-      // ບໍ່ມີແບນເນ ກໍບເປັນຫຍັງ
+      // ບໍ່ມີແບນເນີ ກໍບໍ່ເປັນຫຍັງ
     }
   }
 
@@ -148,7 +143,7 @@ function ProductListInner() {
       const { ok, data } = await apiGet('/api/favorites/ids');
       if (ok && Array.isArray(data)) setFavIds(new Set(data));
     } catch (err) {
-      // ບໍ login ຫ error — ປອຍເປັນຫວ່າງ
+      // ບໍ່ login ຫຼື error — ປ່ອຍເປັນຫວ່າງ
     }
   }
 
@@ -170,20 +165,25 @@ function ProductListInner() {
   }
 
   async function addToCart(product) {
+    // ສິນຄ້າທີ່ຕ້ອງເລືອກໄຊສ໌ → ພາໄປໜ້າລາຍລະອຽດເພື່ອເລືອກໄຊສ໌ກ່ອນ
+    if ((product.size_options || []).length > 0) {
+      navigate(`/menu/product/${product.id}`);
+      return;
+    }
     setBusyId(product.id);
     try {
       const { ok, data } = await apiPost('/api/cart', { product_id: product.id, quantity: 1 });
       if (ok) {
-        setToast('ເພີ່ມລົງກະຕາແລ້ວ');
+        setToast('ເພີ່ມລົງກະຕ່າແລ້ວ');
         refreshCartCount();
         setTimeout(() => setToast(''), 1500);
       } else {
-        setToast(data.error || 'ເພີ່ມລົງກະຕ່າບໍສເລັດ');
+        setToast(data.error || 'ເພີ່ມລົງກະຕ່າບໍ່ສຳເລັດ');
         setTimeout(() => setToast(''), 2000);
       }
     } catch (err) {
       console.error(err);
-      setToast('ເພມລົງກະຕ່າບສຳເລັດ');
+      setToast('ເພີ່ມລົງກະຕ່າບໍ່ສຳເລັດ');
       setTimeout(() => setToast(''), 2000);
     } finally {
       setBusyId(null);
@@ -191,11 +191,16 @@ function ProductListInner() {
   }
 
   async function buyNow(product) {
+    // ສິນຄ້າທີ່ຕ້ອງເລືອກໄຊສ໌ → ພາໄປໜ້າລາຍລະອຽດເພື່ອເລືອກໄຊສ໌ກ່ອນ
+    if ((product.size_options || []).length > 0) {
+      navigate(`/menu/product/${product.id}`);
+      return;
+    }
     setBusyId(product.id);
     try {
       const { ok, data } = await apiPost('/api/cart', { product_id: product.id, quantity: 1 });
       if (!ok) {
-        setToast(data.error || 'ເພີ່ມສິນຄາບໍ່ສເລັດ');
+        setToast(data.error || 'ເພີ່ມສິນຄ້າບໍ່ສຳເລັດ');
         setTimeout(() => setToast(''), 2000);
         return;
       }
@@ -228,7 +233,11 @@ function ProductListInner() {
         return true;
       })
     : null;
-
+const headingText = keyword
+    ? `ຜົນການຄົ້ນຫາ (${filteredProducts ? filteredProducts.length : 0})`
+    : currentCategory
+      ? `${currentCategory} (${filteredProducts ? filteredProducts.length : 0})`
+      : 'ສິນຄ້າທັງໝົດ';
   return (
     <div className="customer-shell">
       <style>{toolbarCss}</style>
@@ -252,6 +261,7 @@ function ProductListInner() {
         </div>
       )}
 
+      {/* ແຖບຄົ້ນຫາ (ປຸ່ມໝວດຢູ່ແຖວຫົວຂໍ້ສິນຄ້າດ້ານລຸ່ມ) */}
       <div className="pl-toolbar">
         <div className="pl-search">
           <svg
@@ -295,47 +305,10 @@ function ProductListInner() {
             </button>
           )}
         </div>
-
-        {categories.length > 0 && (
-          <div className="pl-cat-dropdown">
-            <button
-              type="button"
-              className={`pl-cat-btn ${currentCategory ? 'active' : ''}`}
-              onClick={() => setCatMenuOpen((v) => !v)}
-            >
-              {currentCategory || 'ໝວດ'}
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="6 9 12 15 18 9" />
-              </svg>
-            </button>
-            {catMenuOpen && (
-              <>
-                <div onClick={() => setCatMenuOpen(false)} style={{ position: 'fixed', inset: 0, zIndex: 15 }} />
-                <div className="pl-cat-menu">
-                  <button
-                    className={`pl-cat-item ${currentCategory === '' ? 'active' : ''}`}
-                    onClick={() => pickCategory('')}
-                  >
-                    ທັງໝົດ
-                  </button>
-                  {categories.map((c) => (
-                    <button
-                      key={c}
-                      className={`pl-cat-item ${currentCategory === c ? 'active' : ''}`}
-                      onClick={() => pickCategory(c)}
-                    >
-                      {c}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        )}
       </div>
 
       {/* ແບນເນີ — ເຊື່ອງເວລາກຳລັງຄົ້ນຫາ/ກອງໝວດ */}
-      {!isFiltering && <HomeHero banners={banners} />}
+      {!keyword && <HomeHero banners={banners} />}
 
       <main style={{ paddingBottom: 110 }}>
         {products === null && !loadError && (
@@ -350,31 +323,38 @@ function ProductListInner() {
         {products && products.length === 0 && (
           <p style={{ padding: 20, color: '#ccc' }}>ຍັງບໍ່ມີສິນຄ້າ</p>
         )}
-        {products && products.length > 0 && filteredProducts.length === 0 && (
-          <p style={{ padding: 20, textAlign: 'center', color: '#6b7280' }}>
-            ບໍ່ພົບສິນຄ້າທີ່ຄົ້ນຫາ
-          </p>
-        )}
 
-        {filteredProducts && filteredProducts.length > 0 && (
+        {products && products.length > 0 && (
           <section className="hm-section">
-            <h2 className="hm-section-title">
-              {isFiltering ? `ຜົນການຄົ້ນຫາ (${filteredProducts.length})` : 'ສິນຄ້າທັງໝົດ'}
-            </h2>
-            <div className="hm-grid">
-              {filteredProducts.map((p) => (
-                <MiniCard
-                  key={p.id}
-                  p={p}
-                  isFav={favIds.has(p.id)}
-                  busy={busyId === p.id}
-                  onOpen={(id) => navigate(`/menu/product/${id}`)}
-                  onFav={toggleFavorite}
-                  onCart={addToCart}
-                  onBuy={buyNow}
-                />
-              ))}
+        <div className="hm-section-head">
+              <h2 className="hm-section-title">{headingText}</h2>
+              <CategoryBar
+                products={products}
+                selected={currentCategory}
+                onSelect={setActiveCategory}
+              />
             </div>
+
+            {filteredProducts.length === 0 ? (
+              <p style={{ padding: 20, textAlign: 'center', color: '#6b7280' }}>
+                ບໍ່ພົບສິນຄ້າທີ່ຄົ້ນຫາ
+              </p>
+            ) : (
+              <div className="hm-grid">
+                {filteredProducts.map((p) => (
+                  <MiniCard
+                    key={p.id}
+                    p={p}
+                    isFav={favIds.has(p.id)}
+                    busy={busyId === p.id}
+                    onOpen={(id) => navigate(`/menu/product/${id}`)}
+                    onFav={toggleFavorite}
+                    onCart={addToCart}
+                    onBuy={buyNow}
+                  />
+                ))}
+              </div>
+            )}
           </section>
         )}
       </main>

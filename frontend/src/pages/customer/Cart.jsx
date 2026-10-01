@@ -31,9 +31,17 @@ function CartInner() {
     }
   }
 
+  // ຈຳນວນສູງສຸດຂອງແຖວນີ້ = ສະຕັອກ − ຈຳນວນຂອງແຖວອື່ນທີ່ເປັນສິນຄ້າດຽວກັນ (ຄົນລະໄຊສ໌)
+  function maxQtyFor(item) {
+    const others = (items || [])
+      .filter((i) => i.product_id === item.product_id && i.id !== item.id)
+      .reduce((sum, i) => sum + i.quantity, 0);
+    return Math.max(1, item.stock - others);
+  }
+
   async function changeQty(item, newQty) {
     if (newQty < 1) return;
-    if (newQty > item.stock) return;
+    if (newQty > maxQtyFor(item)) return;
     setBusyId(item.id);
     try {
       const { ok } = await apiPut(`/api/cart/${item.id}`, { quantity: newQty });
@@ -116,7 +124,9 @@ function CartInner() {
                   )}
                   <div style={{ flex: 1 }}>
                     <div>{item.name}</div>
-                    <div style={{ color: '#999', fontSize: 13 }}>ໄຊສ໌: {item.size} | ສີ: {item.color}</div>
+                    <div style={{ color: '#999', fontSize: 13 }}>
+                      ໄຊສ໌: {item.chosen_size || item.size} | ສີ: {item.color}
+                    </div>
                     <div className="price">{item.price} ກີບ</div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -128,7 +138,7 @@ function CartInner() {
                     </button>
                     <span>{item.quantity}</span>
                     <button
-                      disabled={busyId === item.id || item.quantity >= item.stock}
+                      disabled={busyId === item.id || item.quantity >= maxQtyFor(item)}
                       onClick={() => changeQty(item, item.quantity + 1)}
                     >
                       +

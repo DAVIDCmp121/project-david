@@ -83,7 +83,7 @@ function CustomerOrdersInner() {
                     <td>{dateStr}</td>
                     <td>
                       {(order.items || []).map((it, i) => (
-                        <div key={i}>{it.product_name} ×{it.quantity}</div>
+                        <div key={i}>{it.product_name}{it.size ? ` (${it.size})` : ''} ×{it.quantity}</div>
                       ))}
                     </td>
                     <td>{order.total} ກີບ</td>

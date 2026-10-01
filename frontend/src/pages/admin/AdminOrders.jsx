@@ -14,6 +14,12 @@ const cancelledByLabels = {
   staff: { text: 'ພະນັກງານຍົກເລີກ', cls: 'by-staff' },
 };
 
+// ຊື່ສິນຄ້າ + ໄຊສ໌ທີ່ເລືອກ (ຖ້າມີ) + ຈຳນວນ  ເຊັ່ນ  POLO (L) ×1
+function itemLabel(it) {
+  const sizePart = it.size ? ' (' + it.size + ')' : '';
+  return it.product_name + sizePart + ' ×' + it.quantity;
+}
+
 export default function AdminOrders() {
   const [allOrders, setAllOrders] = useState([]);
   const [tab, setTab] = useState('inprogress');
@@ -160,7 +166,7 @@ export default function AdminOrders() {
                       <td>{orderNumbers[o.id]}</td>
                       <td>
                         {(o.items || []).map((it, i) => (
-                          <div key={i}>{it.product_name} ×{it.quantity}</div>
+                          <div key={i}>{itemLabel(it)}</div>
                         ))}
                       </td>
                       <td>{o.customer_phone || '-'}</td>
@@ -211,7 +217,7 @@ export default function AdminOrders() {
                       <td>{orderNumbers[o.id]}</td>
                       <td>
                         {(o.items || []).map((it, i) => (
-                          <div key={i}>{it.product_name} ×{it.quantity}</div>
+                          <div key={i}>{itemLabel(it)}</div>
                         ))}
                       </td>
                       <td>{o.customer_phone || '-'}</td>
@@ -240,7 +246,7 @@ export default function AdminOrders() {
 
             <div style={{ marginBottom: 6, fontSize: '0.9rem' }}>
               {(reviewOrder.items || []).map((it, i) => (
-                <div key={i}>{it.product_name} ×{it.quantity}</div>
+                <div key={i}>{itemLabel(it)}</div>
               ))}
             </div>
             <p style={{ marginBottom: 10, fontSize: '0.9rem' }}><strong>ລາຄາລວມ:</strong> {reviewOrder.total} ກີບ</p>

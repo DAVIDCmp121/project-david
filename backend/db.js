@@ -24,6 +24,55 @@ async function addColumnIfMissing(table, column, definition) {
     await pool.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`);
   }
 }
+async function tableExists(table) {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS c FROM information_schema.TABLES
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
+    [table]
+  );
+  return Number(rows[0].c) > 0;
+}
+
+// ເພີ່ມຄອລຳ size ໃຫ້ cart_items / order_items ແລະ ແກ້ unique key ຂອງຕະກຣ້າ
+// ໃຫ້ສິນຄ້າດຽວກັນແຕ່ຄົນລະໄຊສ໌ ໃສ່ໄດ້ຫຼາຍແຖວ
+async function migrateSizes() {
+  await addColumnIfMissing('products', 'size_selectable', 'TINYINT DEFAULT 0');
+
+  try {
+    if (await tableExists('order_items')) {
+      await addColumnIfMissing('order_items', 'size', "VARCHAR(50) NOT NULL DEFAULT ''");
+    }
+
+    if (await tableExists('cart_items')) {
+      await addColumnIfMissing('cart_items', 'size', "VARCHAR(50) NOT NULL DEFAULT ''");
+
+      const [uniq] = await pool.query(
+        `SELECT INDEX_NAME, GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX) AS cols
+         FROM information_schema.STATISTICS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'cart_items'
+           AND NON_UNIQUE = 0 AND INDEX_NAME <> 'PRIMARY'
+         GROUP BY INDEX_NAME`
+      );
+      const hasNew = uniq.some((u) => String(u.cols) === 'customer_id,product_id,size');
+      const oldOnes = uniq.filter((u) => String(u.cols) === 'customer_id,product_id');
+
+      if (!hasNew && oldOnes.length > 0) {
+        await pool.query(
+          'ALTER TABLE cart_items ADD UNIQUE INDEX uniq_cart_cust_prod_size (customer_id, product_id, size)'
+        );
+      }
+      for (const o of oldOnes) {
+        try {
+          await pool.query(`ALTER TABLE cart_items DROP INDEX \`${o.INDEX_NAME}\``);
+        } catch (e) {
+          console.warn('⚠️ ລຶບ unique key ເກົ່າບໍ່ໄດ້:', e.message);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('⚠️ migrateSizes:', err.message);
+  }
+}
 
 async function initDb() {
   await pool.query(`
@@ -142,6 +191,8 @@ async function initDb() {
   `);
   await addColumnIfMissing('banners', 'slot', "VARCHAR(20) DEFAULT 'main'");
 
+  await migrateSizes();
+  
   console.log('✅ MySQL tables checked/created');
 }
 

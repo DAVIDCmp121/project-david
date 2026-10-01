@@ -212,6 +212,8 @@ router.post('/', requireAuth, uploadImages, async (req, res) => {
        m.promo_active ?? 0, m.promo_price ?? null, m.promo_start ?? null, m.promo_end ?? null, m.bestseller_mode ?? 'auto']
     );
     await saveImages(result.insertId, images);
+    const sizeSelectable = ['1', 'true', 1, true].includes(req.body.size_selectable) ? 1 : 0;
+    await pool.query('UPDATE products SET size_selectable = ? WHERE id = ?', [sizeSelectable, result.insertId]);
 
     res.json({ id: result.insertId });
   } catch (err) {
@@ -248,6 +250,10 @@ router.put('/:id', requireAuth, uploadImages, async (req, res) => {
     if (color !== undefined) { fields.push('color = ?'); values.push(color); }
     if (stock !== undefined) { fields.push('stock = ?'); values.push(stock); }
     if (description !== undefined) { fields.push('description = ?'); values.push(description); }
+    if (req.body.size_selectable !== undefined) {
+      fields.push('size_selectable = ?');
+      values.push(['1', 'true', 1, true].includes(req.body.size_selectable) ? 1 : 0);
+    }
     const mk = parseMarketingFields(req.body, price !== undefined ? Number(price) : null);
     if (mk.error) return res.status(400).json({ error: mk.error });
     for (const [k, v] of Object.entries(mk.fields)) {

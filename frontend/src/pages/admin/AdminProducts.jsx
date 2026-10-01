@@ -33,6 +33,7 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
   const [newCategory, setNewCategory] = useState('');
   const [images, setImages] = useState([]);
   const [sizeRows, setSizeRows] = useState([]);
+  const [sizeSelectable, setSizeSelectable] = useState(false);
   const [promoActive, setPromoActive] = useState(false);
   const [promoPercent, setPromoPercent] = useState('');
   const [promoPrice, setPromoPrice] = useState('');
@@ -72,6 +73,7 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
         setPromoStart(p.promo_start || '');
         setPromoEnd(p.promo_end || '');
         setBsMode(p.bestseller_mode || 'auto');
+        setSizeSelectable(!!p.size_selectable);
         setImages((p.images || []).map((url) => ({ key: nextKey(), url })));
         setSizeRows(
           Array.isArray(p.size_chart)
@@ -204,6 +206,7 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
     fd.append('promo_start', promoStart);
     fd.append('promo_end', promoEnd);
     fd.append('bestseller_mode', bsMode);
+    fd.append('size_selectable', sizeSelectable ? '1' : '0');
     fd.append('image_order', JSON.stringify(images.map((i) => (i.file ? '__new__' : i.url))));
     images.filter((i) => i.file).forEach((i) => fd.append('images', i.file));
 
@@ -277,6 +280,20 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
 
               <input placeholder="ລາຄາ" type="number" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} />
               <input placeholder="ໄຊສ໌ (ເຊັ່ນ M\L\XL)" value={form.size} onChange={(e) => setForm({ ...form, size: e.target.value })} />
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '-2px 0 6px', fontSize: '0.88rem', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={sizeSelectable}
+                  onChange={(e) => setSizeSelectable(e.target.checked)}
+                  style={{ width: 'auto', margin: 0 }}
+                />
+                ໃຫ້ລູກຄ້າເລືອກໄຊສ໌ (ແຍກໄຊສ໌ດ້ວຍ / ຫຼື \)
+              </label>
+              {sizeSelectable && (
+                <div style={{ fontSize: '0.8rem', color: '#6b7280', margin: '0 0 10px' }}>
+                  ຕົວເລືອກທີ່ລູກຄ້າຈະເຫັນ: {form.size.split(/[\/\\,]+/).map((s) => s.trim()).filter(Boolean).join(' | ') || '—'}
+                </div>
+              )}
               <input placeholder="ສີ" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
               <input placeholder="ຈຳນວນສະຕັອກ" type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} />
 

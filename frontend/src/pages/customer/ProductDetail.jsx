@@ -43,6 +43,8 @@ function ProductDetailInner() {
   const [slide, setSlide] = useState(0);
   const [paused, setPaused] = useState(false);
   const [isFav, setIsFav] = useState(false);
+  const [selectedSize, setSelectedSize] = useState('');
+  const [sizeError, setSizeError] = useState(false);
   const trackRef = useRef(null);
 
   useEffect(() => {
@@ -56,6 +58,8 @@ function ProductDetailInner() {
     setQty(1);
     setSlide(0);
     setIsFav(false);
+    setSelectedSize('');
+    setSizeError(false);
     try {
       const { ok, data } = await apiGet(`/api/products/${id}`);
       if (ok && data && data.id) setProduct(data);
@@ -68,7 +72,7 @@ function ProductDetailInner() {
       const idsRes = await apiGet('/api/favorites/ids');
       if (idsRes.ok && Array.isArray(idsRes.data)) setIsFav(idsRes.data.includes(Number(id)));
     } catch (err) {
-      // ບ login ຫ error — ປອຍເປນ false
+      // ບໍ່ login ຫຼື error — ປ່ອຍເປັນ false
     }
   }
 
@@ -79,6 +83,8 @@ function ProductDetailInner() {
 
   const images = product ? (product.images || []) : [];
   const sizeChart = product && Array.isArray(product.size_chart) ? product.size_chart : [];
+  const sizeOptions = product ? (product.size_options || []) : [];
+  const needSize = sizeOptions.length > 0;
   const soldOut = product ? product.stock <= 0 : false;
 
   function handleScroll() {
@@ -120,37 +126,58 @@ function ProductDetailInner() {
     }
   }
 
+  function pickSize(s) {
+    setSelectedSize(s);
+    setSizeError(false);
+  }
+
+  // ກວດວ່າເລືອກໄຊສ໌ແລ້ວບໍ (ສິນຄ້າທີ່ຕ້ອງເລືອກ) ແລ້ວສ້າງຂໍ້ມູນສົ່ງເຂົ້າຕະກຣ້າ
+  function buildPayload() {
+    if (needSize && !selectedSize) {
+      setSizeError(true);
+      showToast('ກະລຸນາເລືອກໄຊສ໌ກ່ອນ', 2200);
+      return null;
+    }
+    const payload = { product_id: product.id, quantity: qty };
+    if (needSize) payload.size = selectedSize;
+    return payload;
+  }
+
   async function addToCart() {
+    const payload = buildPayload();
+    if (!payload) return;
     setBusy(true);
     try {
-      const { ok, data } = await apiPost('/api/cart', { product_id: product.id, quantity: qty });
+      const { ok, data } = await apiPost('/api/cart', payload);
       if (ok) {
         refreshCartCount();
-        showToast('ເພມລງກະຕາແລວ');
+        showToast('ເພີ່ມລົງກະຕ່າແລ້ວ');
       } else {
-        showToast(data.error || 'ເພມລງກະຕາບສເລດ', 2200);
+        showToast(data.error || 'ເພີ່ມລົງກະຕ່າບໍ່ສຳເລັດ', 2200);
       }
     } catch (err) {
       console.error(err);
-      showToast('ເພມລງກະຕ່າບສເລດ', 2200);
+      showToast('ເພີ່ມລົງກະຕ່າບໍ່ສຳເລັດ', 2200);
     } finally {
       setBusy(false);
     }
   }
 
   async function buyNow() {
+    const payload = buildPayload();
+    if (!payload) return;
     setBusy(true);
     try {
-      const { ok, data } = await apiPost('/api/cart', { product_id: product.id, quantity: qty });
+      const { ok, data } = await apiPost('/api/cart', payload);
       if (!ok) {
-        showToast(data.error || 'ເພມສນຄາບສເລດ', 2200);
+        showToast(data.error || 'ເພີ່ມສິນຄ້າບໍ່ສຳເລັດ', 2200);
         return;
       }
       refreshCartCount();
       navigate('/menu/checkout');
     } catch (err) {
       console.error(err);
-      showToast('ເພມສນຄາບສເລດ', 2200);
+      showToast('ເພີ່ມສິນຄ້າບໍ່ສຳເລັດ', 2200);
     } finally {
       setBusy(false);
     }
@@ -170,6 +197,19 @@ function ProductDetailInner() {
     width: 34, height: 34, borderRadius: '50%', border: 'none',
     background: 'rgba(255,255,255,0.85)', color: '#374151', fontSize: 22, lineHeight: 1,
     boxShadow: '0 2px 8px rgba(0,0,0,0.15)', cursor: 'pointer', padding: 0,
+  });
+
+  const sizeBtnStyle = (active) => ({
+    minWidth: 54,
+    padding: '9px 16px',
+    borderRadius: 10,
+    border: `1px solid ${active ? 'var(--gold)' : (sizeError ? '#dc2626' : '#d1d5db')}`,
+    background: active ? 'var(--gold)' : '#fff',
+    color: active ? '#fff' : 'var(--cust-text)',
+    fontWeight: 600,
+    fontSize: '0.92rem',
+    cursor: 'pointer',
+    transition: 'all 0.15s',
   });
 
   return (
@@ -211,7 +251,7 @@ function ProductDetailInner() {
                 onTouchCancel={() => setPaused(false)}
                 style={{ position: 'relative', borderRadius: 16, overflow: 'hidden', background: '#f4f4f2', border: '1px solid var(--cust-border)' }}
               >
-               <ImageBadges product={product} />
+                <ImageBadges product={product} />
                 {images.length > 0 ? (
                   <div
                     ref={trackRef}
@@ -284,16 +324,17 @@ function ProductDetailInner() {
                   </svg>
                 </button>
               </div>
-             <PriceBlock product={product} large />
-{product.is_promo && product.promo_end && (
-  <div style={{ fontSize: '0.8rem', color: '#dc2626', marginTop: 4 }}>
-    ໂປຣນີ້ເຖິງວັນທີ {product.promo_end.split('-').reverse().join('/')}
-  </div>
-)}
+
+              <PriceBlock product={product} large />
+              {product.is_promo && product.promo_end && (
+                <div style={{ fontSize: '0.8rem', color: '#dc2626', marginTop: 4 }}>
+                  ໂປຣນີ້ເຖິງວັນທີ {product.promo_end.split('-').reverse().join('/')}
+                </div>
+              )}
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '12px 0' }}>
                 {product.category && <span style={chipStyle}>ໝວດ: {product.category}</span>}
-                {product.size && <span style={chipStyle}>ໄຊສ໌: {product.size}</span>}
+                {!needSize && product.size && <span style={chipStyle}>ໄຊສ໌: {product.size}</span>}
                 {product.color && <span style={chipStyle}>ສີ: {product.color}</span>}
                 <span style={chipStyle}>ເຫຼືອ: {product.stock} ອັນ</span>
               </div>
@@ -331,6 +372,35 @@ function ProductDetailInner() {
                 </section>
               )}
 
+              {/* ---------- ເລືອກໄຊສ໌ ---------- */}
+              {needSize && (
+                <section style={{ marginTop: 22 }}>
+                  <h3 style={sectionTitle}>
+                    ເລືອກໄຊສ໌
+                    {selectedSize && (
+                      <span style={{ color: 'var(--gold)', marginLeft: 8 }}>: {selectedSize}</span>
+                    )}
+                  </h3>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                    {sizeOptions.map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => pickSize(s)}
+                        style={sizeBtnStyle(selectedSize === s)}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                  {sizeError && (
+                    <div style={{ color: '#dc2626', fontSize: '0.85rem', marginTop: 8 }}>
+                      ກະລຸນາເລືອກໄຊສ໌ກ່ອນ
+                    </div>
+                  )}
+                </section>
+              )}
+
               <section style={{ marginTop: 22 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
                   <span style={{ fontWeight: 600 }}>ຈຳນວນ</span>
@@ -351,7 +421,7 @@ function ProductDetailInner() {
                       cursor: 'pointer', opacity: soldOut || busy ? 0.5 : 1,
                     }}
                   >
-                    ເພມລງກະຕາ
+                    ເພີ່ມລົງກະຕ່າ
                   </button>
                   <button
                     disabled={soldOut || busy}
@@ -362,7 +432,7 @@ function ProductDetailInner() {
                       cursor: 'pointer', opacity: soldOut || busy ? 0.5 : 1,
                     }}
                   >
-                    {soldOut ? 'ສນຄ້າໝດ' : 'ຊເລຍ'}
+                    {soldOut ? 'ສິນຄ້າໝົດ' : 'ຊື້ເລີຍ'}
                   </button>
                 </div>
               </section>
