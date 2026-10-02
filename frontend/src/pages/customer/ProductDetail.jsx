@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import BottomNav from '../../components/BottomNav.jsx';
+import TopBar from '../../components/TopBar.jsx';
 import { CartProvider, useCart } from '../../context/CartContext.jsx';
 import { API_BASE, apiGet, apiPost, apiDelete } from '../../api';
 import { ImageBadges, PriceBlock } from '../../components/ProductBadges.jsx';
@@ -15,7 +15,7 @@ const layoutCss = `
   gap: 32px;
   align-items: start;
 }
-.pd-left { position: sticky; top: 16px; }
+.pd-left { position: sticky; top: 88px; }
 .pd-right { padding-top: 0; }
 @media (max-width: 760px) {
   .pd-layout { grid-template-columns: 1fr; gap: 0; }
@@ -216,6 +216,8 @@ function ProductDetailInner() {
     <div className="customer-shell">
       <style>{layoutCss}</style>
 
+      <TopBar />
+
       {toast && (
         <div style={{
           position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)',
@@ -225,7 +227,7 @@ function ProductDetailInner() {
         </div>
       )}
 
-      <div style={{ maxWidth: 1000, margin: '0 auto', padding: '12px 16px 130px' }}>
+      <div style={{ maxWidth: 1000, margin: '0 auto', padding: '12px 16px 40px' }}>
         {backButton}
 
         {loadError && (
@@ -440,8 +442,6 @@ function ProductDetailInner() {
           </div>
         )}
       </div>
-
-      <BottomNav />
     </div>
   );
 }

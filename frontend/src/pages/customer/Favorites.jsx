@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import BottomNav from '../../components/BottomNav.jsx';
+import TopBar from '../../components/TopBar.jsx';
 import { CartProvider } from '../../context/CartContext.jsx';
 import { API_BASE, apiGet, apiDelete } from '../../api';
 
@@ -33,7 +33,9 @@ function FavoritesInner() {
 
   return (
     <div className="customer-shell">
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '20px 16px 130px' }}>
+      <TopBar />
+
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: '20px 16px 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16 }}>
           <button
             onClick={() => navigate('/menu/profile')}
@@ -73,8 +75,6 @@ function FavoritesInner() {
           </div>
         )}
       </div>
-
-      <BottomNav />
     </div>
   );
 }

@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import TopBar from '../../components/TopBar.jsx';
+import { CartProvider } from '../../context/CartContext.jsx';
 import { API_BASE, apiGet, apiPost, apiUpload } from '../../api.js';
 
 const STEP_LABELS = ['ກະຕ່າ ແລະ ທີ່ຢູ່', 'ຊຳລະເງິນ'];
 
-export default function Checkout() {
+function CheckoutInner() {
   const navigate = useNavigate();
   const [items, setItems] = useState(null);
   const [loadError, setLoadError] = useState(false);
@@ -49,11 +51,17 @@ export default function Checkout() {
   }, []);
 
   if (!items && !loadError) {
-    return <div className="customer-shell"><p style={{ padding: 20, color: '#ccc' }}>ກຳລັງໂຫລດ...</p></div>;
+    return (
+      <div className="customer-shell">
+        <TopBar />
+        <p style={{ padding: 20, color: '#ccc' }}>ກຳລັງໂຫລດ...</p>
+      </div>
+    );
   }
   if (loadError) {
     return (
       <div className="customer-shell">
+        <TopBar />
         <div style={{ padding: 20, color: '#ccc' }}>
           <p>ໂຫລດຂໍ້ມູນບໍ່ສຳເລັດ ກະລຸນາລອງໃໝ່</p>
           <button onClick={() => navigate('/menu/cart')}>ກັບໄປກະຕ່າ</button>
@@ -121,6 +129,8 @@ export default function Checkout() {
 
   return (
     <div className="customer-shell">
+      <TopBar />
+
       <div className="checkout-page">
         <div className="steps-bar">
           {STEP_LABELS.map((label, i) => (
@@ -186,5 +196,13 @@ export default function Checkout() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function Checkout() {
+  return (
+    <CartProvider>
+      <CheckoutInner />
+    </CartProvider>
   );
 }

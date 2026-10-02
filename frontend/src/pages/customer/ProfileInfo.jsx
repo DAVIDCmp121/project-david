@@ -1,10 +1,25 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import BottomNav from '../../components/BottomNav.jsx';
+import TopBar from '../../components/TopBar.jsx';
 import { CartProvider } from '../../context/CartContext.jsx';
 import { apiGet, apiPost } from '../../api';
 
 const MAX_NAME = 30;
+
+const css = `
+.pi-input {
+  width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 12px;
+  border: 1px solid #e5e7eb; background: #fff; font-size: 1rem; color: #1f2937;
+}
+.pi-input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(212, 165, 72, 0.15); }
+.pi-save {
+  margin-top: 16px; width: 100%; padding: 13px 10px; border-radius: 12px; border: none;
+  background: var(--gold); color: #fff; font-weight: 700; font-size: 0.98rem; cursor: pointer;
+  box-shadow: 0 6px 16px rgba(201, 162, 39, 0.3);
+}
+.pi-save:hover:not(:disabled) { filter: brightness(1.06); }
+.pi-save:disabled { opacity: 0.6; cursor: default; }
+`;
 
 function ProfileInfoInner() {
   const navigate = useNavigate();
@@ -63,7 +78,10 @@ function ProfileInfoInner() {
 
   return (
     <div className="customer-shell">
-      <div style={{ maxWidth: 720, margin: '0 auto', padding: '20px 16px 130px' }}>
+      <style>{css}</style>
+      <TopBar />
+
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: '20px 16px 24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 16 }}>
           <button
             onClick={() => navigate('/menu/profile')}
@@ -87,32 +105,26 @@ function ProfileInfoInner() {
         ) : (
           <section
             style={{
-              background: 'var(--cust-card)',
+              background: '#fff',
               border: '1px solid var(--cust-border)',
-              borderRadius: 14,
-              padding: '16px 18px',
+              borderRadius: 16,
+              padding: '18px 18px 20px',
+              boxShadow: '0 2px 10px rgba(0, 0, 0, 0.04)',
             }}
           >
             <div style={{ fontSize: '0.85rem', color: 'var(--cust-text-muted)', marginBottom: 4 }}>ເບີໂທ</div>
-            <div style={{ fontWeight: 600, fontSize: '1.05rem', color: 'var(--cust-text)', marginBottom: 18 }}>
+            <div style={{ fontWeight: 700, fontSize: '1.05rem', color: 'var(--cust-text)', marginBottom: 18 }}>
               {phone}
             </div>
 
             <div style={{ fontSize: '0.85rem', color: 'var(--cust-text-muted)', marginBottom: 6 }}>ຊື່</div>
             <input
+              className="pi-input"
               type="text"
               value={name}
               maxLength={MAX_NAME}
               placeholder="ຍັງບໍ່ໄດ້ຕັ້ງຊື່"
               onChange={(e) => setName(e.target.value)}
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                padding: '11px 12px',
-                borderRadius: 10,
-                border: '1px solid var(--cust-border)',
-                fontSize: '1rem',
-              }}
             />
 
             {message && (
@@ -121,30 +133,12 @@ function ProfileInfoInner() {
               </p>
             )}
 
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              style={{
-                marginTop: 16,
-                width: '100%',
-                padding: '13px 10px',
-                borderRadius: 10,
-                border: 'none',
-                background: '#111',
-                color: '#fff',
-                fontWeight: 'bold',
-                fontSize: '0.95rem',
-                cursor: saving ? 'default' : 'pointer',
-                opacity: saving ? 0.6 : 1,
-              }}
-            >
+            <button className="pi-save" onClick={handleSave} disabled={saving}>
               {saving ? 'ກຳລັງບັນທຶກ...' : 'ບັນທຶກ'}
             </button>
           </section>
         )}
       </div>
-
-      <BottomNav />
     </div>
   );
 }
