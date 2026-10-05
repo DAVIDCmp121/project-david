@@ -29,6 +29,19 @@ const SLIP_KEYWORDS = [
 
 const VALID_STATUSES = ['awaiting_review', 'confirmed', 'shipped', 'delivered'];
 
+// ຂົນສົ່ງ ແລະ ວິທີຊຳລະທີ່ຮອງຮັບ (key ຕ້ອງກົງກັບ Checkout.jsx)
+const VALID_CARRIERS = ['anousith', 'hal', 'mixay'];
+const VALID_PAYMENT_METHODS = ['transfer', 'cod'];
+
+function removeUploadedFile(file) {
+  if (!file) return;
+  try {
+    fs.unlinkSync(path.join(__dirname, '../public/uploads', file.filename));
+  } catch (e) {
+    // ບໍ່ມີໄຟລ໌ກໍ່ຂ້າມໄປ
+  }
+}
+
 function extractAmounts(text) {
   const matches = text.match(/\d[\d,.\s]{2,}\d/g) || [];
   return matches
@@ -64,7 +77,7 @@ function extractBillNumber(text) {
   return null;
 }
 
-// ✅ ຍັງເກັບໄວ້ໃຫ້ /verify-slip ໃຊ້ (ອາດເອົາໄປໃຊ້ເປັນເຄື່ອງມືຊ່ວຍແອັດມິນພາຍຫຼັງ) — checkout ໃໝ່ບໍ່ເອີ້ນໃຊ້ຟັງຊັນນີ້ອີກຕໍ່ໄປ
+// ✅ ຍັງເກັບໄວ້ໃຫ້ /verify-slip ໃຊ້ (ອາດເອົາໄປໃຊ້ເປັນເຄື່ອງມືຊ່ວຍແອດມິນພາຍຫຼັງ) — checkout ໃໝ່ບໍ່ເອີ້ນໃຊ້ຟັງຊັນນີ້ອີກຕໍ່ໄປ
 async function checkSlip(buffer, expectedAmount) {
   try {
     const processedBuffer = await sharp(buffer)
@@ -177,22 +190,39 @@ router.post('/verify-slip', requireCustomerAuth, uploadMemory.single('slip'), as
   }
 });
 
-// ✅ ລູກຄ້າສັ່ງຊື້ — ສ້າງ order ຈາກ cart_items ທັງໝົດ, ບໍ່ກວດ OCR ອີກຕໍ່ໄປ (ແອັດມິນກວດສະລິບເອງພາຍຫຼັງ)
+// ✅ ລູກຄ້າສັ່ງຊື້ — ສ້າງ order ຈາກ cart_items ທັງໝົດ
+// ຮອງຮັບ: ເລືອກຂົນສົ່ງ (carrier) + ວິທີຊຳລະ (transfer = ໂອນເງິນຕ້ອງມີສະລິບ / cod = ເກັບເງິນປາຍທາງ ບໍ່ຕ້ອງມີສະລິບ)
 router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) => {
   const connection = await pool.getConnection();
   try {
-    const { customer_phone, customer_address } = req.body;
+    const customer_phone = String(req.body.customer_phone || '').trim();
+    const customer_address = String(req.body.customer_address || '').trim();
+    const carrier = req.body.carrier;
+    const payment_method = req.body.payment_method || 'transfer';
 
     if (!customer_phone || !customer_address) {
+      removeUploadedFile(req.file);
       return res.status(400).json({ error: 'ກະລຸນາໃສ່ເບີໂທ ແລະ ທີ່ຢູ່' });
     }
-    if (!req.file) {
+    if (!VALID_CARRIERS.includes(carrier)) {
+      removeUploadedFile(req.file);
+      return res.status(400).json({ error: 'ກະລຸນາເລືອກຂົນສົ່ງ' });
+    }
+    if (!VALID_PAYMENT_METHODS.includes(payment_method)) {
+      removeUploadedFile(req.file);
+      return res.status(400).json({ error: 'ວິທີຊຳລະບໍ່ຖືກຕ້ອງ' });
+    }
+    if (payment_method === 'transfer' && !req.file) {
       return res.status(400).json({ error: 'ກະລຸນາອັບໂຫລດຮູບສະລິບໂອນເງິນ' });
+    }
+    if (payment_method === 'cod') {
+      // COD ບໍ່ໃຊ້ສະລິບ — ຖ້າມີໄຟລ໌ຕິດມາ ໃຫ້ລຶບທິ້ງ
+      removeUploadedFile(req.file);
     }
 
     const { items } = await getCartWithTotal(req.customerId);
     if (items.length === 0) {
-      fs.unlinkSync(path.join(__dirname, '../public/uploads', req.file.filename));
+      removeUploadedFile(req.file);
       return res.status(400).json({ error: 'ກະຕ່າສິນຄ້າຫວ່າງເປົ່າ' });
     }
 
@@ -202,18 +232,18 @@ router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) =>
     }
     const outOfStock = items.find(item => item.stock < totalByProduct[item.product_id]);
     if (outOfStock) {
-      fs.unlinkSync(path.join(__dirname, '../public/uploads', req.file.filename));
+      removeUploadedFile(req.file);
       return res.status(400).json({ error: `ສິນຄ້າ "${outOfStock.name}" ບໍ່ພໍ` });
     }
 
-    const slipImage = '/uploads/' + req.file.filename;
+    const slipImage = payment_method === 'transfer' ? '/uploads/' + req.file.filename : null;
 
     await connection.beginTransaction();
 
     const [insertResult] = await connection.query(
-      `INSERT INTO orders (customer_phone, customer_address, slip_image, customer_id, order_status)
-       VALUES (?, ?, ?, ?, 'awaiting_review')`,
-      [customer_phone, customer_address, slipImage, req.customerId]
+      `INSERT INTO orders (customer_phone, customer_address, slip_image, customer_id, order_status, carrier, payment_method)
+       VALUES (?, ?, ?, ?, 'awaiting_review', ?, ?)`,
+      [customer_phone, customer_address, slipImage, req.customerId, carrier, payment_method]
     );
     const orderId = insertResult.insertId;
 
@@ -232,6 +262,7 @@ router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) =>
     res.json({ id: orderId, message: 'ສັ່ງຊື້ສຳເລັດ' });
   } catch (err) {
     await connection.rollback();
+    removeUploadedFile(req.file);
     console.error(err);
     res.status(500).json({ error: 'ສັ່ງຊື້ບໍ່ສຳເລັດ' });
   } finally {

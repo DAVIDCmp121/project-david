@@ -128,6 +128,21 @@ async function initDb() {
     )
   `);
   await addColumnIfMissing('customers', 'birth_date', 'DATE NULL');
+  await addColumnIfMissing('customers', 'deleted_at', 'DATETIME NULL');
+
+  // ທີ່ຢູ່ຈັດສົ່ງທີ່ລູກຄ້າບັນທຶກໄວ້ (ສູງສຸດ 5 ທີ່ຢູ່ຕໍ່ຄົນ, ຄວບຄຸມໃນ route)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS customer_addresses (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      customer_id INT NOT NULL,
+      label VARCHAR(50) NULL,
+      address TEXT NOT NULL,
+      is_default TINYINT DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_addr_customer (customer_id),
+      FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+    )
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS orders (
@@ -147,6 +162,10 @@ async function initDb() {
       FOREIGN KEY (customer_id) REFERENCES customers(id)
     )
   `);
+
+  // ຂົນສົ່ງທີ່ລູກຄ້າເລືອກ (anousith / hal / mixay) ແລະ ວິທີຊຳລະ (transfer = ໂອນເງິນ / cod = ເກັບເງິນປາຍທາງ)
+  await addColumnIfMissing('orders', 'carrier', 'VARCHAR(30) NULL');
+  await addColumnIfMissing('orders', 'payment_method', "VARCHAR(20) NOT NULL DEFAULT 'transfer'");
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS settings (
@@ -192,7 +211,7 @@ async function initDb() {
   await addColumnIfMissing('banners', 'slot', "VARCHAR(20) DEFAULT 'main'");
 
   await migrateSizes();
-  
+
   console.log('✅ MySQL tables checked/created');
 }
 

@@ -9,6 +9,8 @@ import CustomerOrders from './pages/customer/Orders.jsx';
 import CustomerChat from './pages/customer/Chat.jsx';
 import Profile from './pages/customer/Profile.jsx';
 import ProfileInfo from './pages/customer/ProfileInfo.jsx';
+import Addresses from './pages/customer/Addresses.jsx';
+import AccountSecurity from './pages/customer/AccountSecurity.jsx';
 import Favorites from './pages/customer/Favorites.jsx';
 
 import AdminLogin from './pages/admin/AdminLogin.jsx';
@@ -38,7 +40,9 @@ export default function App() {
       <Route path="/menu/chat" element={<CustomerChat />} />
       <Route path="/menu/profile" element={<Profile />} />
       <Route path="/menu/profile/info" element={<ProfileInfo />} />
-<Route path="/menu/favorites" element={<Favorites />} />
+      <Route path="/menu/profile/addresses" element={<Addresses />} />
+      <Route path="/menu/profile/security" element={<AccountSecurity />} />
+      <Route path="/menu/favorites" element={<Favorites />} />
 
       {/* ---------- ຝັ່ງພະນັກງານ ---------- */}
       <Route path="/staff/login" element={<StaffLogin />} />

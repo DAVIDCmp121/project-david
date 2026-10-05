@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getAuthHeader } from '../../api.js';
 import ConfirmModal from '../../components/ConfirmModal.jsx';
+import DateField from '../../components/DateField.jsx';
 
 const MAX_IMAGES = 6;
 const NEW_CATEGORY = '__new__';
@@ -261,6 +262,12 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
     if (pct > 0 && pct < 100 && base > 0) {
       setPromoPrice(String(Math.round(base * (1 - pct / 100))));
     }
+  }
+
+  // ຖ້າວັນເລີ່ມໂປຣເລື່ອນໄປເກີນວັນສິ້ນສຸດ ໃຫ້ລ້າງວັນສິ້ນສຸດ (ບໍ່ໃຫ້ຄ້າງຄ່າຜິດ)
+  function handlePromoStartChange(v) {
+    setPromoStart(v);
+    if (v && promoEnd && promoEnd < v) setPromoEnd('');
   }
 
   function handleClearDefaults() {
@@ -605,7 +612,7 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
                 onClick={() => setShowMore((v) => !v)}
                 style={{ ...plainBtnStyle, width: '100%', textAlign: 'left', padding: '9px 12px', marginBottom: 10 }}
               >
-                {showMore ? '▼' : '▶'} ຕົວເລືອກເພີ່ມເຕີມ (ລາຍລະອຽດ, ຕາຕະລາງຂະໜາດ, ໂປຣໂມຊັນ, ປ້າຍຂາຍດີ)
+                {showMore ? '▼' : '▶️'} ຕົວເລືອກເພີ່ມເຕີມ (ລາຍລະອຽດ, ຕາຕະລາງຂະໜາດ, ໂປຣໂມຊັນ, ປ້າຍຂາຍດີ)
                 {!showMore && hasRememberedMore && (
                   <span style={{ display: 'block', fontSize: '0.78rem', color: '#6b7280', marginTop: 2 }}>
                     ມີລາຍລະອຽດ / ຕາຕະລາງຂະໜາດຈາກຊິ້ນກ່ອນໄວ້ໃຫ້ແລ້ວ
@@ -685,13 +692,22 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
                             <div style={{ fontSize: '0.8rem', color: '#6b7280', margin: '0 0 2px' }}>
                               ວັນເລີ່ມໂປຣ (ເວັ້ນວ່າງ = ເລີ່ມທັນທີ)
                             </div>
-                            <input type="date" value={promoStart} onChange={(e) => setPromoStart(e.target.value)} style={{ margin: 0 }} />
+                            <DateField
+                              value={promoStart}
+                              onChange={handlePromoStartChange}
+                              style={{ margin: 0 }}
+                            />
                           </div>
                           <div>
                             <div style={{ fontSize: '0.8rem', color: '#6b7280', margin: '0 0 2px' }}>
                               ວັນສິ້ນສຸດໂປຣ (ເວັ້ນວ່າງ = ບໍ່ມີກຳນົດ)
                             </div>
-                            <input type="date" value={promoEnd} onChange={(e) => setPromoEnd(e.target.value)} style={{ margin: 0 }} />
+                            <DateField
+                              value={promoEnd}
+                              onChange={setPromoEnd}
+                              min={promoStart}
+                              style={{ margin: 0 }}
+                            />
                           </div>
                         </div>
                       </>

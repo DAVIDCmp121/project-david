@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { apiPost, apiPut, getAuthHeader } from '../../api.js';
 import ConfirmModal from '../../components/ConfirmModal.jsx';
+import DateField from '../../components/DateField.jsx';
 
 // ลำดับขั้นตอนของออเดอร์
 const FLOW = ['awaiting_review', 'confirmed', 'shipped', 'delivered'];
@@ -11,6 +12,29 @@ const statusLabels = {
   shipped: 'ຈັດສົ່ງແລ້ວ',
   delivered: 'ຮອດແລ້ວ',
 };
+
+// key ຕ້ອງກົງກັບ Checkout.jsx / backend (VALID_CARRIERS)
+const CARRIERS = {
+  anousith: { name: 'Anousith Express', color: '#c62828' },
+  hal: { name: 'HAL Express', color: '#d32f2f' },
+  mixay: { name: 'Mixay Express', color: '#b71c1c' },
+};
+
+function isCod(o) {
+  return o.payment_method === 'cod';
+}
+
+// ป้ายสถานะ: COD ไม่มีสลิป จึงใช้คำว่า "ລໍຖ້າຢືນຢັນ" แทน
+function statusText(o) {
+  const st = o.order_status || 'awaiting_review';
+  if (st === 'awaiting_review' && isCod(o)) return 'ລໍຖ້າຢືນຢັນ';
+  return statusLabels[st] || st;
+}
+
+function stepLabel(s, o) {
+  if (s === 'awaiting_review' && o && isCod(o)) return 'ລໍຖ້າຢືນຢັນ';
+  return statusLabels[s];
+}
 
 // ปุ่มหลักที่จะขึ้นในแต่ละสถานะ (ขั้นถัดไป)
 const NEXT = {
@@ -49,7 +73,7 @@ const CSS = `
 .ao-tab.cancel.active{color:#fff}
 
 .ao-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-.ao-filters input{margin:0;width:auto;padding:9px 14px;border-radius:999px;border:1px solid #e5e7eb;background:#fff;box-sizing:border-box;font-size:.88rem;font-family:inherit}
+.ao-filters input,.ao-filters select{margin:0;width:auto;padding:9px 14px;border-radius:999px;border:1px solid #e5e7eb;background:#fff;box-sizing:border-box;font-size:.88rem;font-family:inherit;color:#1f2937}
 .ao-filters .grow{flex:1 1 200px;min-width:0}
 .ao-ghost{border:1px solid #e5e7eb;background:#fff;border-radius:999px;padding:0 14px;height:38px;cursor:pointer;color:#374151;font-family:inherit}
 .ao-count{font-size:.82rem;color:#6b7280;margin:0 2px 8px}
@@ -62,7 +86,16 @@ const CSS = `
 .ao-items{font-weight:600;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ao-sub{font-size:.8rem;color:#6b7280;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ao-total{font-weight:700;text-align:right;white-space:nowrap}
+.ao-collect{font-size:.72rem;font-weight:700;color:#c2410c;margin-top:2px}
 .ao-actions{display:flex;gap:6px;justify-content:flex-end;align-items:center}
+
+.ao-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center}
+.ao-chip{display:inline-flex;align-items:center;gap:5px;padding:2px 9px 2px 3px;border-radius:999px;background:#f3f4f6;font-size:.76rem;font-weight:600;color:#374151;white-space:nowrap}
+.ao-clogo{border-radius:5px;object-fit:cover;background:#f4f4f2;flex:0 0 auto}
+.ao-clogo-fb{border-radius:5px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-weight:800;flex:0 0 auto}
+.ao-pay{display:inline-block;padding:2px 9px;border-radius:999px;font-size:.74rem;font-weight:700;white-space:nowrap}
+.ao-pay.transfer{background:#e0f2fe;color:#0369a1}
+.ao-pay.cod{background:#ffedd5;color:#c2410c}
 
 .ao-badge{display:inline-block;padding:3px 10px;border-radius:999px;font-size:.78rem;font-weight:700;white-space:nowrap}
 .ao-st-awaiting_review{background:#fef3c7;color:#b45309}
@@ -86,6 +119,8 @@ const CSS = `
 .ao-by{font-size:.78rem;color:#6b7280}
 
 .ao-detail{border-top:1px solid #f0f0f0;padding:14px 16px 16px;background:#fcfcfd;border-radius:0 0 12px 12px;cursor:default}
+.ao-codbox{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:.88rem}
+.ao-codbox b{font-size:1.05rem}
 .ao-steps{display:flex;margin-bottom:18px}
 .ao-step{flex:1;position:relative;text-align:center;font-size:.76rem;color:#9ca3af}
 .ao-step:not(:first-child)::before{content:'';position:absolute;top:11px;left:-50%;width:100%;height:2px;background:#e5e7eb}
@@ -159,14 +194,53 @@ function itemsSummary(o) {
   return items.length > 1 ? `${first} +${items.length - 1} ລາຍການ` : first;
 }
 
-function Steps({ status }) {
+// ---------- ໂລໂກ້ຂົນສົ່ງ (ໄຟລ໌ຢູ່ frontend/public/carriers/<key>.png) ----------
+function CarrierLogo({ carrierKey, size = 20 }) {
+  const [failed, setFailed] = useState(false);
+  const c = CARRIERS[carrierKey];
+  if (!c) return null;
+  if (failed) {
+    return (
+      <span className="ao-clogo-fb" style={{ width: size, height: size, fontSize: size * 0.5, background: c.color }}>
+        {c.name[0]}
+      </span>
+    );
+  }
+  return (
+    <img
+      className="ao-clogo"
+      style={{ width: size, height: size }}
+      src={`/carriers/${carrierKey}.png`}
+      alt={c.name}
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
+function CarrierChip({ carrierKey }) {
+  if (!CARRIERS[carrierKey]) return null;
+  return (
+    <span className="ao-chip">
+      <CarrierLogo carrierKey={carrierKey} />
+      {CARRIERS[carrierKey].name}
+    </span>
+  );
+}
+
+function PayBadge({ order }) {
+  const cod = isCod(order);
+  return <span className={`ao-pay ${cod ? 'cod' : 'transfer'}`}>{cod ? 'COD' : 'ໂອນເງິນ'}</span>;
+}
+
+function Steps({ order }) {
+  const status = order.order_status || 'awaiting_review';
   const idx = FLOW.indexOf(status);
   return (
     <div className="ao-steps">
       {FLOW.map((s, i) => (
         <div key={s} className={`ao-step ${i <= idx ? 'done' : ''} ${i === idx ? 'now' : ''}`}>
           <span className="ao-dot">{i < idx ? '✓' : i + 1}</span>
-          <span className="ao-slabel">{statusLabels[s]}</span>
+          <span className="ao-slabel">{stepLabel(s, order)}</span>
         </div>
       ))}
     </div>
@@ -175,11 +249,24 @@ function Steps({ status }) {
 
 const EMPTY_TEXT = {
   all: 'ຍັງບໍ່ມີອໍເດີ',
-  awaiting_review: 'ບໍ່ມີອໍເດີທີ່ລໍຖ້າກວດສະລິບ 🎉',
+  awaiting_review: 'ບໍ່ມີອໍເດີທີ່ລໍຖ້າກວດສອບ 🎉',
   confirmed: 'ບໍ່ມີອໍເດີທີ່ລໍຖ້າຈັດສົ່ງ',
   shipped: 'ບໍ່ມີອໍເດີທີ່ກຳລັງຈັດສົ່ງ',
   delivered: 'ຍັງບໍ່ມີອໍເດີທີ່ຮອດແລ້ວ',
   cancelled: 'ບໍ່ມີອໍເດີທີ່ຍົກເລີກ',
+};
+
+// ສະໄຕລ໌ຂອງຊ່ອງເລືອກວັນທີໃນແຖບຕົວກອງ (ທົງກົມຄືຊ່ອງອື່ນ)
+const dateFilterStyle = {
+  width: 'auto',
+  minWidth: 160,
+  margin: 0,
+  padding: '9px 14px',
+  borderRadius: 999,
+  border: '1px solid #e5e7eb',
+  background: '#fff',
+  fontSize: '.88rem',
+  color: '#1f2937',
 };
 
 // ---------- หน้าออเดอร์ ----------
@@ -188,6 +275,8 @@ export default function AdminOrders() {
   const [tab, setTab] = useState('all');
   const [searchPhone, setSearchPhone] = useState('');
   const [filterDate, setFilterDate] = useState('');
+  const [filterCarrier, setFilterCarrier] = useState('');
+  const [filterPay, setFilterPay] = useState('');
   const [limit, setLimit] = useState(PAGE_SIZE);
   const [expandedId, setExpandedId] = useState(null);
   const [menuId, setMenuId] = useState(null);
@@ -219,7 +308,7 @@ export default function AdminOrders() {
   useEffect(() => {
     setLimit(PAGE_SIZE);
     setExpandedId(null);
-  }, [tab, searchPhone, filterDate]);
+  }, [tab, searchPhone, filterDate, filterCarrier, filterPay]);
 
   // ปิดเมนู "⋯" เมื่อกดที่อื่น
   useEffect(() => {
@@ -250,6 +339,12 @@ export default function AdminOrders() {
   if (filterDate) {
     filtered = filtered.filter((o) => localDateKey(o.created_at) === filterDate);
   }
+  if (filterCarrier) {
+    filtered = filtered.filter((o) => o.carrier === filterCarrier);
+  }
+  if (filterPay) {
+    filtered = filtered.filter((o) => (o.payment_method || 'transfer') === filterPay);
+  }
 
   const active = filtered.filter((o) => o.order_status !== 'cancelled');
   const cancelled = filtered.filter((o) => o.order_status === 'cancelled');
@@ -265,6 +360,8 @@ export default function AdminOrders() {
   else list = active.filter((o) => (o.order_status || 'awaiting_review') === tab);
 
   const visible = list.slice(0, limit);
+
+  const hasFilter = !!(searchPhone || filterDate || filterCarrier || filterPay);
 
   // ---------- การทำงาน ----------
   async function changeStatus(id, to, okMsg) {
@@ -295,7 +392,11 @@ export default function AdminOrders() {
   function askNext(o, st) {
     const cfg = NEXT[st];
     const n = orderNumbers[o.id];
-    setStatusConfirm({ id: o.id, to: cfg.to, message: cfg.ask(n), okMsg: cfg.done(n) });
+    const message =
+      st === 'shipped' && isCod(o)
+        ? `ຢືນຢັນວ່າລູກຄ້າໄດ້ຮັບອໍເດີ #${n} ແລະ ເກັບເງິນປາຍທາງແລ້ວ?`
+        : cfg.ask(n);
+    setStatusConfirm({ id: o.id, to: cfg.to, message, okMsg: cfg.done(n) });
   }
 
   function doStatusConfirm() {
@@ -308,8 +409,13 @@ export default function AdminOrders() {
     setCancelConfirm({ id, message: 'ຢືນຢັນຍົກເລີກອໍເດີ? ສະຕັອກສິນຄ້າຈະຄືນກັບຄືນ' });
   }
 
-  function rejectSlip(id) {
-    setCancelConfirm({ id, message: 'ສະລິບບໍ່ຖືກຕ້ອງ ຢືນຢັນຍົກເລີກອໍເດີ? ສະຕັອກສິນຄ້າຈະຄືນກັບຄືນ' });
+  function rejectSlip(o) {
+    setCancelConfirm({
+      id: o.id,
+      message: isCod(o)
+        ? 'ຢືນຢັນຍົກເລີກອໍເດີ? ສະຕັອກສິນຄ້າຈະຄືນກັບຄືນ'
+        : 'ສະລິບບໍ່ຖືກຕ້ອງ ຢືນຢັນຍົກເລີກອໍເດີ? ສະຕັອກສິນຄ້າຈະຄືນກັບຄືນ',
+    });
   }
 
   async function confirmCancelOrder() {
@@ -335,12 +441,15 @@ export default function AdminOrders() {
   function clearFilters() {
     setSearchPhone('');
     setFilterDate('');
+    setFilterCarrier('');
+    setFilterPay('');
   }
 
   // ---------- แสดงผลแถว ----------
   function renderRow(o) {
     const st = o.order_status || 'awaiting_review';
     const isCancelled = st === 'cancelled';
+    const cod = isCod(o);
     const open = expandedId === o.id;
     const n = orderNumbers[o.id];
     const qty = (o.items || []).reduce((s, it) => s + it.quantity, 0);
@@ -356,13 +465,20 @@ export default function AdminOrders() {
             <div className="ao-sub">
               {o.customer_phone || '-'} · {qty} ຊິ້ນ · {whenText(o.created_at)}
             </div>
+            <div className="ao-chips">
+              <CarrierChip carrierKey={o.carrier} />
+              <PayBadge order={o} />
+            </div>
           </div>
 
-          <div className="ao-total">{fmtMoney(o.total)}</div>
+          <div className="ao-total">
+            {fmtMoney(o.total)}
+            {cod && !isCancelled && <div className="ao-collect">ເກັບປາຍທາງ</div>}
+          </div>
 
           <div className="ao-status">
             <span className={`ao-badge ao-st-${st}`}>
-              {isCancelled ? 'ຍົກເລີກແລ້ວ' : statusLabels[st] || st}
+              {isCancelled ? 'ຍົກເລີກແລ້ວ' : statusText(o)}
             </span>
           </div>
 
@@ -371,7 +487,7 @@ export default function AdminOrders() {
 
             {st === 'awaiting_review' && (
               <button className="ao-btn review" disabled={busy} onClick={() => setReviewOrder(o)}>
-                ກວດສອບ
+                {cod ? 'ຢືນຢັນ' : 'ກວດສອບ'}
               </button>
             )}
             {NEXT[st] && (
@@ -401,7 +517,7 @@ export default function AdminOrders() {
                         setReviewOrder(o);
                       }}
                     >
-                      🔍 ເບິ່ງສະລິບ / ລາຍລະອຽດ
+                      {cod ? '🔍 ເບິ່ງລາຍລະອຽດ' : '🔍 ເບິ່ງສະລິບ / ລາຍລະອຽດ'}
                     </button>
                     {st !== 'delivered' && (
                       <button
@@ -423,7 +539,12 @@ export default function AdminOrders() {
 
         {open && (
           <div className="ao-detail">
-            {!isCancelled && <Steps status={st} />}
+            {cod && !isCancelled && (
+              <div className="ao-codbox">
+                ເກັບເງິນປາຍທາງ (COD): <b>{fmtMoney(o.total)}</b>
+              </div>
+            )}
+            {!isCancelled && <Steps order={o} />}
             <div className="ao-dgrid">
               <div>
                 <div className="ao-dlabel">ສິນຄ້າ</div>
@@ -442,6 +563,12 @@ export default function AdminOrders() {
                 </div>
               </div>
               <div>
+                <div className="ao-dlabel">ຂົນສົ່ງ</div>
+                <div className="ao-dval">
+                  {CARRIERS[o.carrier] ? <CarrierChip carrierKey={o.carrier} /> : '-'}
+                </div>
+                <div className="ao-dlabel">ວິທີຊຳລະ</div>
+                <div className="ao-dval"><PayBadge order={o} /></div>
                 <div className="ao-dlabel">ເບີໂທ</div>
                 <div className="ao-dval">{o.customer_phone || '-'}</div>
                 <div className="ao-dlabel">ທີ່ຢູ່ຈັດສົ່ງ</div>
@@ -462,10 +589,14 @@ export default function AdminOrders() {
 
   const tabs = [
     { key: 'all', label: 'ທັງໝົດ' },
-    ...FLOW.map((s) => ({ key: s, label: statusLabels[s] })),
+    ...FLOW.map((s) => ({
+      key: s,
+      label: s === 'awaiting_review' ? 'ລໍຖ້າກວດສອບ' : statusLabels[s],
+    })),
   ];
 
   const reviewStatus = reviewOrder ? reviewOrder.order_status || 'awaiting_review' : '';
+  const reviewCod = reviewOrder ? isCod(reviewOrder) : false;
 
   return (
     <div className="ao-root">
@@ -503,8 +634,24 @@ export default function AdminOrders() {
           value={searchPhone}
           onChange={(e) => setSearchPhone(e.target.value)}
         />
-        <input type="date" value={filterDate} onChange={(e) => setFilterDate(e.target.value)} />
-        {(searchPhone || filterDate) && (
+        <DateField
+          value={filterDate}
+          onChange={setFilterDate}
+          placeholder="ກອງຕາມວັນທີ"
+          style={dateFilterStyle}
+        />
+        <select value={filterCarrier} onChange={(e) => setFilterCarrier(e.target.value)}>
+          <option value="">ທຸກຂົນສົ່ງ</option>
+          {Object.entries(CARRIERS).map(([k, c]) => (
+            <option key={k} value={k}>{c.name}</option>
+          ))}
+        </select>
+        <select value={filterPay} onChange={(e) => setFilterPay(e.target.value)}>
+          <option value="">ທຸກວິທີຊຳລະ</option>
+          <option value="transfer">ໂອນເງິນ</option>
+          <option value="cod">COD</option>
+        </select>
+        {hasFilter && (
           <button className="ao-ghost" onClick={clearFilters}>ລ້າງຕົວກອງ</button>
         )}
         <button className="ao-ghost" onClick={loadOrders} title="ໂຫລດໃໝ່">↻</button>
@@ -514,7 +661,7 @@ export default function AdminOrders() {
       {/* ---------- รายการ ---------- */}
       {list.length === 0 ? (
         <div className="ao-empty">
-          {searchPhone || filterDate ? 'ບໍ່ພົບອໍເດີທີ່ຕົງກັບການຄົ້ນຫາ' : EMPTY_TEXT[tab]}
+          {hasFilter ? 'ບໍ່ພົບອໍເດີທີ່ຕົງກັບການຄົ້ນຫາ' : EMPTY_TEXT[tab]}
         </div>
       ) : (
         <>
@@ -533,8 +680,15 @@ export default function AdminOrders() {
           <div className="modal-box" style={{ background: '#fff', color: '#1f2937', maxWidth: 380, maxHeight: '85vh', overflowY: 'auto' }}>
             <button className="modal-close" style={{ color: '#1f2937' }} onClick={() => setReviewOrder(null)}>✕</button>
             <h2 style={{ color: 'var(--navy)', fontSize: '1.1rem' }}>
-              {reviewStatus === 'awaiting_review' ? 'ກວດສອບສະລິບ' : 'ລາຍລະອຽດອໍເດີ'} #{orderNumbers[reviewOrder.id]}
+              {reviewStatus === 'awaiting_review'
+                ? (reviewCod ? 'ຢືນຢັນອໍເດີ COD' : 'ກວດສອບສະລິບ')
+                : 'ລາຍລະອຽດອໍເດີ'} #{orderNumbers[reviewOrder.id]}
             </h2>
+
+            <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+              <CarrierChip carrierKey={reviewOrder.carrier} />
+              <PayBadge order={reviewOrder} />
+            </div>
 
             <p style={{ marginBottom: 4, fontSize: '0.9rem' }}><strong>ເບີໂທ:</strong> {reviewOrder.customer_phone || '-'}</p>
             <p style={{ marginBottom: 10, fontSize: '0.9rem' }}><strong>ທີ່ຢູ່ຈັດສົ່ງ:</strong> {reviewOrder.customer_address || '-'}</p>
@@ -544,7 +698,9 @@ export default function AdminOrders() {
                 <div key={i}>{itemLabel(it)}</div>
               ))}
             </div>
-            <p style={{ marginBottom: 10, fontSize: '0.9rem' }}><strong>ລາຄາລວມ:</strong> {fmtMoney(reviewOrder.total)}</p>
+            <p style={{ marginBottom: 10, fontSize: '0.9rem' }}>
+              <strong>{reviewCod ? 'ຍອດທີ່ຕ້ອງເກັບປາຍທາງ:' : 'ລາຄາລວມ:'}</strong> {fmtMoney(reviewOrder.total)}
+            </p>
 
             {reviewOrder.slip_image && (
               <img
@@ -556,8 +712,12 @@ export default function AdminOrders() {
 
             {reviewStatus === 'awaiting_review' && (
               <div style={{ display: 'flex', gap: 10, justifyContent: 'center', position: 'sticky', bottom: 0, background: '#fff', paddingTop: 8 }}>
-                <button className="cancel-btn" onClick={() => rejectSlip(reviewOrder.id)}>❌ ບໍ່ຖືກຕ້ອງ</button>
-                <button className="primary" disabled={busyId === reviewOrder.id} onClick={() => confirmSlip(reviewOrder)}>✅ ຖືກຕ້ອງ</button>
+                <button className="cancel-btn" onClick={() => rejectSlip(reviewOrder)}>
+                  {reviewCod ? '❌ ຍົກເລີກອໍເດີ' : '❌ ບໍ່ຖືກຕ້ອງ'}
+                </button>
+                <button className="primary" disabled={busyId === reviewOrder.id} onClick={() => confirmSlip(reviewOrder)}>
+                  {reviewCod ? '✅ ຢືນຢັນອໍເດີ' : '✅ ຖືກຕ້ອງ'}
+                </button>
               </div>
             )}
           </div>

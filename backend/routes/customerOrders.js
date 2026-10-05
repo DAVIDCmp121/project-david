@@ -15,7 +15,9 @@ router.get('/orders', requireCustomerAuth, async (req, res) => {
         orders.order_status,
         orders.bill_number,
         orders.customer_phone,
-        orders.customer_address
+        orders.customer_address,
+        orders.carrier,
+        orders.payment_method
       FROM orders
       WHERE orders.customer_id = ?
       ORDER BY orders.created_at DESC

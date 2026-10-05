@@ -1,11 +1,24 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../../components/TopBar.jsx';
-import { CartProvider, useCart } from '../../context/CartContext.jsx';
+import { CartProvider } from '../../context/CartContext.jsx';
 import { PersonCircle, HeartCircle, Chevron } from '../../components/SettingsIcons.jsx';
 import { apiGet, apiPost, clearToken } from '../../api';
 
-/* ---------- ໄອຄອນເພີ່ມໃໝ່ (ສະໄຕລ໌ດຽວກັບ SettingsIcons) ---------- */
+/* ---------- ເກນລະດັບສະມາຊິກ (ຍອດຊື້ສະສົມ ກີບ, ນັບສະເພາະອໍເດີ "ຮອດແລ້ວ") ---------- */
+const TIERS = [
+  { name: 'Member', min: 0 },
+  { name: 'Silver', min: 2000000 },
+  { name: 'Gold', min: 5000000 },
+  { name: 'Platinum', min: 10000000 },
+];
+
+// ສະຖານະທີ່ນັບວ່າ "ກຳລັງດຳເນີນການ" — key ຕ້ອງກົງກັບ order_status ໃນ Orders.jsx
+const IN_PROGRESS = ['awaiting_review', 'confirmed', 'shipped'];
+
+const fmt = (n) => Number(n || 0).toLocaleString('en-US');
+
+/* ---------- ໄອຄອນ ---------- */
 const sv = {
   fill: 'none',
   strokeLinecap: 'round',
@@ -34,47 +47,22 @@ function Circle({ size = 42, children }) {
   );
 }
 
-const IconReceipt = ({ color = '#111', size = 21 }) => (
+const IconPin = ({ color = '#111', size = 21 }) => (
   <svg {...sv} width={size} height={size} stroke={color}>
-    <path d="M6 3h12v18l-3-2-3 2-3-2-3 2z" />
-    <path d="M9 8h6M9 12h6" />
+    <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" />
+    <circle cx="12" cy="10" r="2.5" />
   </svg>
 );
-const IconClock = ({ color = '#111', size = 24 }) => (
+const IconShield = ({ color = '#111', size = 21 }) => (
   <svg {...sv} width={size} height={size} stroke={color}>
-    <circle cx="12" cy="12" r="9" />
-    <path d="M12 7v5l3 2" />
+    <path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6z" />
+    <path d="m9 12 2 2 4-4" />
   </svg>
 );
-const IconCheck = ({ color = '#111', size = 24 }) => (
+const IconLogout = ({ color = 'currentColor', size = 18 }) => (
   <svg {...sv} width={size} height={size} stroke={color}>
-    <circle cx="12" cy="12" r="9" />
-    <path d="m8 12.5 3 3 5-6" />
-  </svg>
-);
-const IconTruck = ({ color = '#111', size = 24 }) => (
-  <svg {...sv} width={size} height={size} stroke={color}>
-    <path d="M2 6h11v10H2zM13 10h4l3 3v3h-7" />
-    <circle cx="6.5" cy="17.5" r="1.8" />
-    <circle cx="16.5" cy="17.5" r="1.8" />
-  </svg>
-);
-const IconBox = ({ color = '#111', size = 24 }) => (
-  <svg {...sv} width={size} height={size} stroke={color}>
-    <path d="M21 8 12 3 3 8v8l9 5 9-5z" />
-    <path d="m3 8 9 5 9-5M12 13v8" />
-  </svg>
-);
-const IconCart = ({ color = '#111', size = 21 }) => (
-  <svg {...sv} width={size} height={size} stroke={color}>
-    <circle cx="9" cy="20" r="1" />
-    <circle cx="18" cy="20" r="1" />
-    <path d="M2 3h3l2.7 12.4a2 2 0 0 0 2 1.6h8.1a2 2 0 0 0 2-1.5L21 7H6" />
-  </svg>
-);
-const IconChat = ({ color = '#111', size = 21 }) => (
-  <svg {...sv} width={size} height={size} stroke={color}>
-    <path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z" />
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <path d="m16 17 5-5-5-5M21 12H9" />
   </svg>
 );
 
@@ -113,34 +101,32 @@ const css = `
 }
 .pf-user:hover .pf-edit { background: var(--gold); color: #fff; }
 
-/* หัวข้อ section */
-.pf-sec-head {
-  display: flex; align-items: center; justify-content: space-between;
-  margin: 22px 2px 10px;
+/* ລະດັບສະມາຊິກ */
+.pf-tier { border-top: 1px solid var(--cust-border); padding: 14px 18px; }
+.pf-tier-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pf-tier-badge {
+  padding: 3px 12px; border-radius: 999px; background: #faf0cf; color: #9a7412;
+  font-size: 0.8rem; font-weight: 800;
 }
-.pf-sec-title { font-size: 1rem; font-weight: 700; color: var(--cust-text); margin: 0; }
-.pf-sec-link {
-  display: flex; align-items: center; gap: 2px; border: none; background: none; padding: 0;
-  color: #b8862b; font-size: 0.85rem; font-weight: 600; cursor: pointer; font-family: inherit;
-}
+.pf-tier-spent { font-size: 0.85rem; color: var(--cust-text-muted); }
+.pf-bar { height: 6px; border-radius: 999px; background: #f1ece0; margin-top: 10px; overflow: hidden; }
+.pf-bar-fill { height: 100%; border-radius: 999px; background: var(--gold); }
+.pf-tier-note { margin-top: 6px; font-size: 0.78rem; color: var(--cust-text-muted); line-height: 1.4; }
 
-/* ທາງລັດສະຖານະອໍເດີ */
-.pf-status { display: grid; grid-template-columns: repeat(4, 1fr); padding: 14px 6px; }
-.pf-st {
-  position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px;
-  padding: 6px 2px; border: none; background: none; cursor: pointer; font-family: inherit;
-  color: var(--cust-text); border-radius: 12px;
+/* ສະຖິຕິສະຫຼຸບ */
+.pf-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  border-top: 1px solid var(--cust-border); padding: 14px 6px;
 }
-.pf-st:hover { background: #faf8f2; }
-.pf-st-ic {
-  position: relative; width: 46px; height: 46px; border-radius: 14px; background: #faf6ea;
-  display: flex; align-items: center; justify-content: center;
-}
-.pf-st-lb { font-size: 0.74rem; line-height: 1.25; text-align: center; font-weight: 500; }
-.pf-badge {
-  position: absolute; top: -5px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px;
-  border-radius: 999px; background: #e53935; color: #fff; font-size: 0.68rem; font-weight: 700;
-  display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px #fff;
+.pf-stat { text-align: center; padding: 0 4px; }
+.pf-stat + .pf-stat { border-left: 1px solid var(--cust-border); }
+.pf-stat-num { font-size: 1.25rem; font-weight: 800; color: #b8862b; line-height: 1.2; }
+.pf-stat-lb { margin-top: 2px; font-size: 0.74rem; color: var(--cust-text-muted); line-height: 1.3; }
+
+/* ຫົວຂໍ້ກຸ່ມເມນູ */
+.pf-sec-title {
+  font-size: 0.85rem; font-weight: 700; color: var(--cust-text-muted);
+  margin: 22px 4px 8px;
 }
 
 /* ແຖວເມນູ */
@@ -151,45 +137,69 @@ const css = `
 }
 .pf-row:last-child { border-bottom: none; }
 .pf-row:hover { background: #faf8f2; }
-.pf-row-lb { flex: 1; font-size: 1rem; color: var(--cust-text); }
-.pf-row-tag {
-  min-width: 22px; height: 22px; padding: 0 7px; border-radius: 999px; background: #fdecea;
-  color: #e53935; font-size: 0.75rem; font-weight: 700; display: flex; align-items: center; justify-content: center;
-}
+.pf-row:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
+.pf-row-text { flex: 1; min-width: 0; }
+.pf-row-lb { display: block; font-size: 1rem; color: var(--cust-text); }
+.pf-row-sub { display: block; margin-top: 2px; font-size: 0.78rem; color: var(--cust-text-muted); }
 
 .pf-logout {
   margin-top: 28px; width: 100%; padding: 13px 10px; border-radius: 12px;
   border: 1px solid #dc2626; background: #fff; color: #dc2626; font-weight: bold;
   font-size: 0.95rem; cursor: pointer; font-family: inherit;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
 }
 .pf-logout:hover { background: #dc2626; color: #fff; }
+
+.pf-footer {
+  margin-top: 14px; text-align: center; font-size: 0.75rem; color: var(--cust-text-muted);
+}
 `;
 
 /* ---------- ສ່ວນຍ່ອຍ ---------- */
-function Row({ icon, label, onClick, tag }) {
+function Row({ icon, label, sub, onClick }) {
   return (
     <button className="pf-row" onClick={onClick}>
       {icon}
-      <span className="pf-row-lb">{label}</span>
-      {tag ? <span className="pf-row-tag">{tag}</span> : null}
+      <span className="pf-row-text">
+        <span className="pf-row-lb">{label}</span>
+        {sub ? <span className="pf-row-sub">{sub}</span> : null}
+      </span>
       <Chevron />
     </button>
   );
 }
 
-// ສະຖານະອໍເດີ — key ຕ້ອງກົງກັບ order_status ໃນ Orders.jsx
-const STATUS_SHORTCUTS = [
-  { key: 'awaiting_review', label: 'ລໍຖ້າກວດສະລິບ', Icon: IconClock, badge: true },
-  { key: 'confirmed', label: 'ຢືນຢັນແລ້ວ', Icon: IconCheck, badge: true },
-  { key: 'shipped', label: 'ຈັດສົ່ງແລ້ວ', Icon: IconTruck, badge: true },
-  { key: 'delivered', label: 'ຮອດແລ້ວ', Icon: IconBox, badge: false },
-];
+function TierBlock({ spent }) {
+  let idx = 0;
+  TIERS.forEach((t, i) => {
+    if (spent >= t.min) idx = i;
+  });
+  const current = TIERS[idx];
+  const next = TIERS[idx + 1];
+  const pct = next ? Math.min(100, Math.round(((spent - current.min) / (next.min - current.min)) * 100)) : 100;
+
+  return (
+    <div className="pf-tier">
+      <div className="pf-tier-head">
+        <span className="pf-tier-badge">{current.name}</span>
+        <span className="pf-tier-spent">ຍອດສະສົມ {fmt(spent)} ກີບ</span>
+      </div>
+      <div className="pf-bar">
+        <div className="pf-bar-fill" style={{ width: `${pct}%` }} />
+      </div>
+      <div className="pf-tier-note">
+        {next
+          ? `ຍັງຂາດ ${fmt(next.min - spent)} ກີບ ເພື່ອເປັນ ${next.name}`
+          : 'ທ່ານຢູ່ລະດັບສູງສຸດແລ້ວ'}
+      </div>
+    </div>
+  );
+}
 
 function ProfileInner() {
   const navigate = useNavigate();
-  const { cartCount } = useCart();
   const [user, setUser] = useState(null); // { name, phone }
-  const [counts, setCounts] = useState({});
+  const [stats, setStats] = useState(null); // { total, inProgress, delivered, spent }
 
   useEffect(() => {
     (async () => {
@@ -204,12 +214,14 @@ function ProfileInner() {
         }
         if (me.ok) setUser({ name: me.data.name || '', phone: me.data.phone || '' });
         if (ord.ok && Array.isArray(ord.data.orders)) {
-          const c = {};
-          ord.data.orders.forEach((o) => {
-            const k = o.order_status || 'awaiting_review';
-            c[k] = (c[k] || 0) + 1;
+          const list = ord.data.orders;
+          const delivered = list.filter((o) => o.order_status === 'delivered');
+          setStats({
+            total: list.length,
+            inProgress: list.filter((o) => IN_PROGRESS.includes(o.order_status)).length,
+            delivered: delivered.length,
+            spent: delivered.reduce((sum, o) => sum + (Number(o.total) || 0), 0),
           });
-          setCounts(c);
         }
       } catch (err) {
         console.error(err);
@@ -229,6 +241,44 @@ function ProfileInner() {
 
   const name = user?.name || '';
   const initial = name ? Array.from(name)[0].toUpperCase() : null;
+  const show = (n) => (stats ? n : '–');
+
+  // ເພີ່ມເມນູໃໝ່ໃນອະນາຄົດ: ເພີ່ມລາຍການໃສ່ໃນ items ຂອງກຸ່ມທີ່ຕ້ອງການ
+  const MENU_GROUPS = [
+    {
+      title: 'ບັນຊີ',
+      items: [
+        {
+          icon: <PersonCircle />,
+          label: 'ຂໍ້ມູນສ່ວນຕົວ',
+          sub: 'ຊື່ ແລະ ເບີໂທ',
+          to: '/menu/profile/info',
+        },
+        {
+          icon: <Circle><IconPin /></Circle>,
+          label: 'ທີ່ຢູ່ຈັດສົ່ງ',
+          sub: 'ບັນທຶກໄວ້ໃຊ້ຕອນສັ່ງຊື້',
+          to: '/menu/profile/addresses',
+        },
+        {
+          icon: <HeartCircle />,
+          label: 'ສິນຄ້າທີ່ຖືກໃຈ',
+          to: '/menu/favorites',
+        },
+      ],
+    },
+    {
+      title: 'ຄວາມປອດໄພ',
+      items: [
+        {
+          icon: <Circle><IconShield /></Circle>,
+          label: 'ຄວາມປອດໄພ',
+          sub: 'ປ່ຽນ PIN, ວັນເກີດ ແລະ ລຶບບັນຊີ',
+          to: '/menu/profile/security',
+        },
+      ],
+    },
+  ];
 
   return (
     <div className="customer-shell">
@@ -238,7 +288,7 @@ function ProfileInner() {
       <div className="pf-wrap">
         <h1 className="pf-title">ບັນຊີຂອງຂ້ອຍ</h1>
 
-        {/* 1. ການ໌ໂປຣໄຟລ໌ */}
+        {/* 1. ການ໌ໂປຣໄຟລ໌ + ລະດັບ + ສະຖິຕິ */}
         <section className="pf-card">
           <button className="pf-user" onClick={() => navigate('/menu/profile/info')}>
             <span className="pf-avatar">
@@ -255,66 +305,50 @@ function ProfileInner() {
             </span>
             <span className="pf-edit">ແກ້ໄຂ</span>
           </button>
+
+          {stats && <TierBlock spent={stats.spent} />}
+
+          <div className="pf-stats">
+            <div className="pf-stat">
+              <div className="pf-stat-num">{show(stats?.total)}</div>
+              <div className="pf-stat-lb">ອໍເດີທັງໝົດ</div>
+            </div>
+            <div className="pf-stat">
+              <div className="pf-stat-num">{show(stats?.inProgress)}</div>
+              <div className="pf-stat-lb">ກຳລັງດຳເນີນການ</div>
+            </div>
+            <div className="pf-stat">
+              <div className="pf-stat-num">{show(stats?.delivered)}</div>
+              <div className="pf-stat-lb">ຮອດແລ້ວ</div>
+            </div>
+          </div>
         </section>
 
-        {/* 2. ທາງລັດສະຖານະອໍເດີ */}
-        <div className="pf-sec-head">
-          <h2 className="pf-sec-title">ອໍເດີຂອງຂ້ອຍ</h2>
-          <button className="pf-sec-link" onClick={() => navigate('/menu/orders')}>
-            ເບິ່ງທັງໝົດ <Chevron />
-          </button>
-        </div>
-        <section className="pf-card pf-status">
-          {STATUS_SHORTCUTS.map(({ key, label, Icon, badge }) => {
-            const n = counts[key] || 0;
-            return (
-              <button key={key} className="pf-st" onClick={() => navigate(`/menu/orders?status=${key}`)}>
-                <span className="pf-st-ic">
-                  <Icon color="#b8862b" />
-                  {badge && n > 0 && <span className="pf-badge">{n}</span>}
-                </span>
-                <span className="pf-st-lb">{label}</span>
-              </button>
-            );
-          })}
-        </section>
+        {/* 2. ກຸ່ມເມນູ */}
+        {MENU_GROUPS.map((group) => (
+          <div key={group.title}>
+            <h2 className="pf-sec-title">{group.title}</h2>
+            <section className="pf-card">
+              {group.items.map((it) => (
+                <Row
+                  key={it.to}
+                  icon={it.icon}
+                  label={it.label}
+                  sub={it.sub}
+                  onClick={() => navigate(it.to)}
+                />
+              ))}
+            </section>
+          </div>
+        ))}
 
-        {/* 3. ເມນູ */}
-        <div className="pf-sec-head">
-          <h2 className="pf-sec-title">ເມນູ</h2>
-        </div>
-        <section className="pf-card">
-          <Row
-            icon={<PersonCircle />}
-            label="ຂໍ້ມູນສ່ວນຕົວ"
-            onClick={() => navigate('/menu/profile/info')}
-          />
-          <Row
-            icon={<HeartCircle />}
-            label="ສິນຄ້າທີ່ຖືກໃຈ"
-            onClick={() => navigate('/menu/favorites')}
-          />
-          <Row
-            icon={<Circle><IconReceipt /></Circle>}
-            label="ປະຫວັດການສັ່ງຊື້"
-            onClick={() => navigate('/menu/orders')}
-          />
-          <Row
-            icon={<Circle><IconCart /></Circle>}
-            label="ກະຕ່າສິນຄ້າ"
-            tag={cartCount > 0 ? cartCount : null}
-            onClick={() => navigate('/menu/cart')}
-          />
-          <Row
-            icon={<Circle><IconChat /></Circle>}
-            label="ແຊັດກັບຮ້ານ"
-            onClick={() => navigate('/menu/chat')}
-          />
-        </section>
-
+        {/* 3. ອອກຈາກລະບົບ */}
         <button className="pf-logout" onClick={handleLogout}>
+          <IconLogout />
           ອອກຈາກລະບົບ
         </button>
+
+        <div className="pf-footer">POLO SHOP v1.0.0</div>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { API_BASE, apiPost, getAuthHeader } from '../../api.js';
 import TopBar from '../../components/TopBar.jsx';
 import { CartProvider } from '../../context/CartContext.jsx';
@@ -14,12 +14,19 @@ const STATUS = {
 
 const TABS = [
   { key: 'all', label: 'ທັງໝົດ' },
-  { key: 'awaiting_review', label: 'ລໍຖ້າກວດສະລິບ' },
+  { key: 'awaiting_review', label: 'ລໍຖ້າກວດສອບ' },
   { key: 'confirmed', label: 'ຢືນຢັນແລ້ວ' },
   { key: 'shipped', label: 'ຈັດສົ່ງແລ້ວ' },
   { key: 'delivered', label: 'ຮອດແລ້ວ' },
   { key: 'cancelled', label: 'ຍົກເລີກແລ້ວ' },
 ];
+
+// key ຕ້ອງກົງກັບ Checkout.jsx / backend (VALID_CARRIERS)
+const CARRIERS = {
+  anousith: { name: 'Anousith Express', color: '#c62828' },
+  hal: { name: 'HAL Express', color: '#d32f2f' },
+  mixay: { name: 'Mixay Express', color: '#b71c1c' },
+};
 
 const MAX_ITEMS_COLLAPSED = 3;
 
@@ -55,6 +62,23 @@ const css = `
 .od-date { font-size: 0.92rem; font-weight: 700; color: var(--cust-text, #1f2937); }
 .od-sub { font-size: 0.76rem; color: var(--cust-text-muted, #6b7280); margin-top: 2px; }
 .od-badge { padding: 5px 12px; border-radius: 999px; font-size: 0.8rem; font-weight: 700; white-space: nowrap; }
+
+.od-meta {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 10px 16px 0;
+}
+.od-chip {
+  display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px 3px 4px; border-radius: 999px;
+  background: #f3f4f6; font-size: 0.8rem; font-weight: 600; color: #374151; white-space: nowrap;
+}
+.od-clogo { border-radius: 6px; object-fit: cover; background: #f4f4f2; flex: 0 0 auto; }
+.od-clogo-fb {
+  border-radius: 6px; display: inline-flex; align-items: center; justify-content: center;
+  color: #fff; font-weight: 800; flex: 0 0 auto;
+}
+.od-pay { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 0.78rem; font-weight: 700; white-space: nowrap; }
+.od-pay.transfer { background: #e0f2fe; color: #0369a1; }
+.od-pay.cod { background: #ffedd5; color: #c2410c; }
 
 .od-items { padding: 6px 16px; }
 .od-item { display: flex; align-items: center; gap: 12px; padding: 10px 0; }
@@ -117,13 +141,43 @@ function imgSrc(path) {
   return /^https?:\/\//.test(path) ? path : `${API_BASE}${path}`;
 }
 
+// ໂລໂກ້ຂົນສົ່ງ (ໄຟລ໌ຢູ່ frontend/public/carriers/<key>.png)
+function CarrierChip({ carrierKey }) {
+  const [failed, setFailed] = useState(false);
+  const c = CARRIERS[carrierKey];
+  if (!c) return null;
+  const size = 24;
+  return (
+    <span className="od-chip">
+      {failed ? (
+        <span className="od-clogo-fb" style={{ width: size, height: size, fontSize: 12, background: c.color }}>
+          {c.name[0]}
+        </span>
+      ) : (
+        <img
+          className="od-clogo"
+          style={{ width: size, height: size }}
+          src={`/carriers/${carrierKey}.png`}
+          alt={c.name}
+          onError={() => setFailed(true)}
+        />
+      )}
+      {c.name}
+    </span>
+  );
+}
+
 function OrderCard({ order, onCancel, onChat }) {
   const [expanded, setExpanded] = useState(false);
   const statusKey = order.order_status || 'awaiting_review';
-  const st = STATUS[statusKey] || { label: statusKey, bg: '#f3f4f6', color: '#6b7280' };
+  const cod = order.payment_method === 'cod';
+  const base = STATUS[statusKey] || { label: statusKey, bg: '#f3f4f6', color: '#6b7280' };
+  // COD ບໍ່ມີສະລິບໃຫ້ກວດ → ໃຊ້ຄຳວ່າ "ລໍຖ້າຢືນຢັນ"
+  const st = statusKey === 'awaiting_review' && cod ? { ...base, label: 'ລໍຖ້າຢືນຢັນ' } : base;
   const items = order.items || [];
   const shown = expanded ? items : items.slice(0, MAX_ITEMS_COLLAPSED);
   const hidden = items.length - MAX_ITEMS_COLLAPSED;
+  const showCodTotal = cod && statusKey !== 'cancelled' && statusKey !== 'delivered';
 
   return (
     <div className="od-card">
@@ -136,6 +190,13 @@ function OrderCard({ order, onCancel, onChat }) {
           </div>
         </div>
         <span className="od-badge" style={{ background: st.bg, color: st.color }}>{st.label}</span>
+      </div>
+
+      <div className="od-meta">
+        <CarrierChip carrierKey={order.carrier} />
+        <span className={`od-pay ${cod ? 'cod' : 'transfer'}`}>
+          {cod ? 'ເກັບເງິນປາຍທາງ (COD)' : 'ໂອນເງິນ'}
+        </span>
       </div>
 
       <div className="od-items">
@@ -165,7 +226,7 @@ function OrderCard({ order, onCancel, onChat }) {
 
       <div className="od-foot">
         <div>
-          <div className="od-total-label">ລວມທັງໝົດ</div>
+          <div className="od-total-label">{showCodTotal ? 'ຍອດທີ່ຕ້ອງຈ່າຍປາຍທາງ' : 'ລວມທັງໝົດ'}</div>
           <div className="od-total">{fmt(order.total)} ກີບ</div>
         </div>
         <div className="od-actions">
@@ -182,7 +243,12 @@ function OrderCard({ order, onCancel, onChat }) {
 function CustomerOrdersInner() {
   const [orders, setOrders] = useState(null);
   const [loggedIn, setLoggedIn] = useState(true);
-  const [filter, setFilter] = useState('all');
+  const [searchParams] = useSearchParams();
+  // ຮອງຮັບລິງກ໌ຈາກໜ້າບັນຊີ: /menu/orders?status=shipped
+  const initialStatus = searchParams.get('status');
+  const [filter, setFilter] = useState(
+    TABS.some((t) => t.key === initialStatus) ? initialStatus : 'all'
+  );
   const navigate = useNavigate();
 
   async function load() {
