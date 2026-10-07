@@ -1,0 +1,1066 @@
+/* ===== ຕົວແປສີ ໂໝດສະຫວ່າງ (ຄ່າເລີ່ມຕົ້ນ) ===== */
+:root {
+  --cust-surface: #fff;
+  --cust-surface-soft: #f9fafb;
+  --cust-hover: #faf8f2;
+  --cust-grad-from: #fffaf0;
+  --cust-badge-bg: #faf0cf;
+  --cust-badge-text: #9a7412;
+  --cust-bar-bg: #f1ece0;
+  --cust-gold-text: #b8862b;
+}
+
+/* ===== ສີປ່ຽນແບບນຸ່ມນວນຕອນສະລັບໂໝດ ===== */
+.customer-shell,
+.pf-card,
+.pf-row,
+.pf-user,
+.pf-edit,
+.pf-logout,
+.pf-bar,
+.pf-tier-badge,
+.tb,
+.tb-search input,
+.product-card,
+.modal-box,
+.auth-modal,
+.checkout-page input,
+.checkout-page textarea,
+.ct-item,
+.ct-bar,
+.od-card,
+.od-tab,
+.od-head,
+.cc-page,
+.cc-shell,
+.cc-header,
+.cc-bubble,
+.cc-input,
+.hm-card,
+.sz-box {
+  transition: background-color 0.35s ease, color 0.35s ease,
+    border-color 0.35s ease, box-shadow 0.35s ease, transform 0.2s ease;
+}
+
+/* ===== ໂໝດມືດ: ຕົວແປຫຼັກ (ທັບຄ່າໃນ global.css) ===== */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --cust-bg: #0d0d0f;
+  --cust-card: #19191d;
+  --cust-text: #f4f4f5;
+  --cust-text-muted: #9a9aa3;
+  --cust-border: rgba(255, 255, 255, 0.08);
+  --cust-input-bg: #1f1f24;
+
+  --cust-surface: #19191d;
+  --cust-surface-soft: #232328;
+  --cust-hover: rgba(201, 162, 39, 0.09);
+  --cust-grad-from: rgba(201, 162, 39, 0.16);
+  --cust-badge-bg: linear-gradient(135deg, #f0d77a, #c9a227);
+  --cust-badge-text: #2a2008;
+  --cust-bar-bg: #2a2a30;
+  --cust-gold-text: #e8c25a;
+}
+
+:root[data-theme='dark'] body {
+  background: #0d0d0f;
+}
+
+/* ພື້ນຫຼັງ: ດຳອົມເທົາ + ແສງທອງຈາງໆດ້ານເທິງ */
+:root[data-theme='dark'] .customer-shell {
+  min-height: 100vh;
+  color: var(--cust-text);
+  background:
+    radial-gradient(900px 420px at 50% -140px, rgba(201, 162, 39, 0.18), transparent 70%),
+    radial-gradient(600px 300px at 100% 100%, rgba(201, 162, 39, 0.06), transparent 70%),
+    #0d0d0f;
+}
+
+/* =====================================================
+   ແຖບເທິງ (TopBar)
+   ===================================================== */
+:root[data-theme='dark'] .tb {
+  background: rgba(13, 13, 15, 0.82);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border-bottom: 1px solid rgba(201, 162, 39, 0.22);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+}
+:root[data-theme='dark'] .tb-brand h1 {
+  background: linear-gradient(180deg, #f6e08e, #c9a227);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+:root[data-theme='dark'] .tb-search input {
+  background: #1a1a1e;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: #f4f4f5;
+}
+:root[data-theme='dark'] .tb-search input::placeholder {
+  color: #7d7d86;
+}
+:root[data-theme='dark'] .tb-search input:focus {
+  background: #202026;
+  border-color: #c9a227;
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.18), 0 0 18px rgba(201, 162, 39, 0.18);
+}
+:root[data-theme='dark'] .tb-clear {
+  background: #2e2e34;
+  color: #b4b4bc;
+}
+:root[data-theme='dark'] .tb-btn {
+  color: #9a9aa3;
+}
+:root[data-theme='dark'] .tb-btn:hover {
+  color: #e8c25a;
+  background: rgba(201, 162, 39, 0.08);
+}
+:root[data-theme='dark'] .tb-btn.active {
+  background: linear-gradient(160deg, rgba(201, 162, 39, 0.28), rgba(201, 162, 39, 0.1));
+  color: #f0d77a;
+  box-shadow: 0 0 16px rgba(201, 162, 39, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+:root[data-theme='dark'] .tb-btn.active svg {
+  filter: drop-shadow(0 0 6px rgba(232, 194, 90, 0.7));
+}
+:root[data-theme='dark'] .tb-badge {
+  box-shadow: 0 0 0 2px #0d0d0f;
+}
+
+/* ປຸ່ມໂປຣໄຟລ໌ (CustomerHeader) */
+:root[data-theme='dark'] .tb-profile button,
+:root[data-theme='dark'] .tb-profile a {
+  background: #232328 !important;
+  border-color: rgba(201, 162, 39, 0.35) !important;
+  color: #e8c25a !important;
+}
+
+/* =====================================================
+   ໜ້າຫຼັກ: ການ໌ສິນຄ້າ (hm-*)  ມາຈາກ home.css
+   ===================================================== */
+:root[data-theme='dark'] .hm-section-title {
+  color: var(--cust-text);
+}
+:root[data-theme='dark'] .hm-card {
+  background: linear-gradient(160deg, #1f1f24 0%, #151518 100%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+:root[data-theme='dark'] .hm-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(201, 162, 39, 0.4);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.6), 0 0 22px rgba(201, 162, 39, 0.15);
+}
+:root[data-theme='dark'] .hm-card-img {
+  background: #26262b;
+}
+:root[data-theme='dark'] .hm-name {
+  color: var(--cust-text);
+}
+:root[data-theme='dark'] .hm-meta,
+:root[data-theme='dark'] .hm-stockrow {
+  color: var(--cust-text-muted);
+}
+:root[data-theme='dark'] .hm-fav {
+  background: rgba(25, 25, 29, 0.85);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+:root[data-theme='dark'] .hm-buy {
+  background: linear-gradient(135deg, #f0d77a, #c9a227);
+  color: #1c1505;
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(201, 162, 39, 0.3);
+}
+:root[data-theme='dark'] .hm-cart {
+  background: transparent;
+  color: #e8c25a;
+  border-color: rgba(201, 162, 39, 0.6);
+}
+:root[data-theme='dark'] .hm-cart:hover:not(:disabled) {
+  background: rgba(201, 162, 39, 0.15);
+}
+:root[data-theme='dark'] .hm-cart-badge {
+  box-shadow: 0 0 0 2px #19191d;
+}
+
+/* ປ໊ອບອັບເລືອກໄຊສ໌ */
+:root[data-theme='dark'] .sz-overlay {
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+:root[data-theme='dark'] .sz-box {
+  background: linear-gradient(160deg, #1f1f24, #151518);
+  border: 1px solid rgba(201, 162, 39, 0.4);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(201, 162, 39, 0.08);
+}
+:root[data-theme='dark'] .sz-head img {
+  background: #26262b;
+}
+:root[data-theme='dark'] .sz-size,
+:root[data-theme='dark'] .sz-qty button {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.16);
+  color: var(--cust-text);
+}
+:root[data-theme='dark'] .sz-size:hover {
+  border-color: rgba(201, 162, 39, 0.6);
+}
+:root[data-theme='dark'] .sz-size.active {
+  background: linear-gradient(135deg, #f0d77a, #c9a227);
+  border-color: transparent;
+  color: #1c1505;
+  box-shadow: 0 4px 14px rgba(201, 162, 39, 0.3);
+}
+:root[data-theme='dark'] .sz-cancel {
+  background: #232328;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #d4d4d8;
+}
+:root[data-theme='dark'] .sz-confirm {
+  background: linear-gradient(135deg, #f0d77a, #c9a227);
+  border-color: transparent;
+  color: #1c1505;
+  box-shadow: 0 6px 18px rgba(201, 162, 39, 0.3);
+}
+
+/* =====================================================
+   ການ໌ສິນຄ້າແບບເກົ່າ (.product-card)
+   ===================================================== */
+:root[data-theme='dark'] .product-card {
+  background: linear-gradient(160deg, #1f1f24 0%, #151518 100%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+:root[data-theme='dark'] .product-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(201, 162, 39, 0.4);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.6), 0 0 22px rgba(201, 162, 39, 0.15);
+}
+:root[data-theme='dark'] .product-card .price {
+  color: #e8c25a;
+}
+:root[data-theme='dark'] .product-card button {
+  background: transparent;
+  color: #e8c25a;
+  border-color: rgba(201, 162, 39, 0.6);
+}
+:root[data-theme='dark'] .product-card button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f0d77a, #c9a227);
+  color: #1c1505;
+}
+
+/* =====================================================
+   ກະຕ່າສິນຄ້າ (ct-*)
+   ===================================================== */
+:root[data-theme='dark'] .ct-item {
+  background: linear-gradient(160deg, #1f1f24 0%, #151518 100%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+:root[data-theme='dark'] .ct-img {
+  background: #26262b;
+}
+:root[data-theme='dark'] .ct-price,
+:root[data-theme='dark'] .ct-total {
+  color: #e8c25a;
+}
+:root[data-theme='dark'] .ct-qty button {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.16);
+  color: var(--cust-text);
+}
+:root[data-theme='dark'] .ct-qty button:hover:not(:disabled) {
+  border-color: #c9a227;
+  color: #e8c25a;
+}
+:root[data-theme='dark'] .ct-del {
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #f87171;
+}
+:root[data-theme='dark'] .ct-del:hover:not(:disabled) {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
+}
+:root[data-theme='dark'] .ct-empty button,
+:root[data-theme='dark'] .ct-retry {
+  background: transparent;
+  color: #e8c25a;
+  border-color: rgba(201, 162, 39, 0.6);
+}
+:root[data-theme='dark'] .ct-bar {
+  background: rgba(13, 13, 15, 0.88);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border-top: 1px solid rgba(201, 162, 39, 0.25);
+  box-shadow: 0 -8px 28px rgba(0, 0, 0, 0.6);
+}
+:root[data-theme='dark'] .ct-pay {
+  background: linear-gradient(135deg, #f0d77a, #c9a227);
+  color: #1c1505;
+  box-shadow: 0 6px 20px rgba(201, 162, 39, 0.35);
+}
+
+/* =====================================================
+   ອໍເດີຂອງຂ້ອຍ (od-*)
+   ===================================================== */
+:root[data-theme='dark'] .od-tab {
+  background: #1c1c20;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #b4b4bc;
+}
+:root[data-theme='dark'] .od-tab:hover {
+  border-color: rgba(201, 162, 39, 0.6);
+  color: #e8c25a;
+}
+:root[data-theme='dark'] .od-tab.active {
+  background: linear-gradient(135deg, #f0d77a, #c9a227);
+  border-color: transparent;
+  color: #1c1505;
+  box-shadow: 0 4px 14px rgba(201, 162, 39, 0.35);
+}
+:root[data-theme='dark'] .od-tab-count {
+  background: #2a2a30;
+  color: #b4b4bc;
+}
+:root[data-theme='dark'] .od-tab.active .od-tab-count {
+  background: rgba(0, 0, 0, 0.18);
+  color: #2a2008;
+}
+:root[data-theme='dark'] .od-card {
+  background: linear-gradient(160deg, #1f1f24 0%, #151518 100%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+:root[data-theme='dark'] .od-head {
+  background: linear-gradient(90deg, rgba(201, 162, 39, 0.14), transparent 80%);
+}
+:root[data-theme='dark'] .od-chip {
+  background: #26262b;
+  color: #e4e4e7;
+}
+:root[data-theme='dark'] .od-clogo {
+  background: #2e2e34;
+}
+:root[data-theme='dark'] .od-pay.transfer {
+  background: rgba(14, 165, 233, 0.15);
+  color: #7dd3fc;
+}
+:root[data-theme='dark'] .od-pay.cod {
+  background: rgba(249, 115, 22, 0.15);
+  color: #fdba74;
+}
+:root[data-theme='dark'] .od-item + .od-item {
+  border-top-color: rgba(255, 255, 255, 0.1);
+}
+:root[data-theme='dark'] .od-thumb {
+  background: #26262b;
+  border-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme='dark'] .od-size {
+  background: #2a2a30;
+  color: #c4c4cc;
+}
+:root[data-theme='dark'] .od-qty,
+:root[data-theme='dark'] .od-more,
+:root[data-theme='dark'] .od-total {
+  color: #e8c25a;
+}
+:root[data-theme='dark'] .od-btn {
+  background: transparent;
+}
+:root[data-theme='dark'] .od-chat {
+  border-color: rgba(201, 162, 39, 0.6);
+  color: #e8c25a;
+}
+:root[data-theme='dark'] .od-chat:hover {
+  background: linear-gradient(135deg, #f0d77a, #c9a227);
+  color: #1c1505;
+}
+:root[data-theme='dark'] .od-cancel {
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #f87171;
+  background: rgba(220, 38, 38, 0.1);
+}
+:root[data-theme='dark'] .od-cancel:hover {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
+}
+
+/* =====================================================
+   ແຊັດ (cc-*) ໜ້າແຊັດຫຼັກ
+   ===================================================== */
+:root[data-theme='dark'] .cc-page {
+  background: #0d0d0f;
+  color: var(--cust-text);
+}
+:root[data-theme='dark'] .cc-shell {
+  background: #0d0d0f;
+  border-color: rgba(255, 255, 255, 0.07);
+}
+:root[data-theme='dark'] .cc-header,
+:root[data-theme='dark'] .cc-quick,
+:root[data-theme='dark'] .cc-input {
+  background: #151518;
+  border-color: rgba(255, 255, 255, 0.07);
+}
+:root[data-theme='dark'] .cc-title {
+  color: #e8c25a;
+}
+:root[data-theme='dark'] .cc-sub,
+:root[data-theme='dark'] .cc-welcome {
+  color: var(--cust-text-muted);
+}
+:root[data-theme='dark'] .cc-logo,
+:root[data-theme='dark'] .cc-avatar {
+  background: #232328;
+  border-color: rgba(201, 162, 39, 0.5);
+}
+:root[data-theme='dark'] .cc-date {
+  background: #232328;
+  color: #9a9aa3;
+}
+:root[data-theme='dark'] .cc-time {
+  color: #7d7d86;
+}
+:root[data-theme='dark'] .cc-row.me .cc-bubble {
+  background: linear-gradient(135deg, #f0d77a, #c9a227);
+  color: #1c1505;
+  box-shadow: 0 4px 14px rgba(201, 162, 39, 0.25);
+}
+:root[data-theme='dark'] .cc-row.shop .cc-bubble {
+  background: #1f1f24;
+  color: var(--cust-text);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
+}
+:root[data-theme='dark'] .cc-bubble.img-only {
+  background: transparent;
+  box-shadow: none;
+}
+
+/* ການ໌ອໍເດີໃນແຊັດ */
+:root[data-theme='dark'] .cc-order {
+  background: #1c1c20;
+  border-color: rgba(255, 255, 255, 0.08);
+  color: var(--cust-text);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+:root[data-theme='dark'] .cc-order-head {
+  background: linear-gradient(90deg, rgba(201, 162, 39, 0.22), rgba(201, 162, 39, 0.06));
+  color: #e8c25a;
+}
+:root[data-theme='dark'] .cc-oi {
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+:root[data-theme='dark'] .cc-oi-name {
+  color: var(--cust-text);
+}
+:root[data-theme='dark'] .cc-oi-sub {
+  color: var(--cust-text-muted);
+}
+:root[data-theme='dark'] .cc-size {
+  background: #2a2a30;
+  color: #d4d4d8;
+}
+:root[data-theme='dark'] .cc-total {
+  background: #19191d;
+}
+:root[data-theme='dark'] .cc-total span:last-child {
+  color: #e8c25a;
+}
+:root[data-theme='dark'] .cc-addr {
+  border-top-color: rgba(255, 255, 255, 0.08);
+  color: #d4d4d8;
+}
+:root[data-theme='dark'] .cc-addr b {
+  color: var(--cust-text-muted);
+}
+
+/* ປຸ່ມຕອບດ່ວນ + ຊ່ອງພິມ */
+:root[data-theme='dark'] .cc-chip {
+  background: #1f1f24;
+  border-color: rgba(201, 162, 39, 0.4);
+  color: #e8c25a;
+}
+:root[data-theme='dark'] .cc-chip:hover:not(:disabled) {
+  background: rgba(201, 162, 39, 0.15);
+}
+:root[data-theme='dark'] .cc-attach {
+  background: #26262b;
+}
+:root[data-theme='dark'] .cc-input input[type='text'] {
+  background: #1f1f24;
+  border-color: rgba(255, 255, 255, 0.09);
+  color: var(--cust-text);
+}
+:root[data-theme='dark'] .cc-input input[type='text']::placeholder {
+  color: #7d7d86;
+}
+:root[data-theme='dark'] .cc-input input[type='text']:focus {
+  outline: none;
+  background: #26262c;
+  border-color: #c9a227;
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.18);
+}
+:root[data-theme='dark'] .cc-send {
+  background: linear-gradient(135deg, #f0d77a, #c9a227);
+  color: #1c1505;
+  box-shadow: 0 4px 14px rgba(201, 162, 39, 0.35);
+}
+
+/* =====================================================
+   ແຊັດແບບເກົ່າ + ກ່ອງເຂົ້າສູ່ລະບົບແຊັດ (menuchat-*)
+   ===================================================== */
+:root[data-theme='dark'] .menuchat-shell {
+  background: #0d0d0f;
+  color: var(--cust-text);
+  border-color: rgba(255, 255, 255, 0.07);
+}
+:root[data-theme='dark'] .menuchat-header,
+:root[data-theme='dark'] .menuchat-input-bar {
+  background: #151518;
+  border-color: rgba(255, 255, 255, 0.07);
+}
+:root[data-theme='dark'] .menuchat-header h1 {
+  color: #e8c25a;
+}
+:root[data-theme='dark'] .menuchat-box {
+  background: #0d0d0f;
+}
+:root[data-theme='dark'] .menuchat-bubble.customer {
+  background: linear-gradient(135deg, #f0d77a, #c9a227);
+  color: #1c1505;
+}
+:root[data-theme='dark'] .menuchat-bubble.admin {
+  background: #1f1f24;
+  color: var(--cust-text);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme='dark'] .menuchat-input-bar input[type='text'] {
+  background: #1f1f24;
+  border-color: rgba(255, 255, 255, 0.09);
+  color: var(--cust-text);
+}
+:root[data-theme='dark'] .menuchat-input-bar input[type='text']:focus {
+  background: #26262c;
+  border-color: #c9a227;
+}
+:root[data-theme='dark'] .menuchat-input-bar button,
+:root[data-theme='dark'] .menuchat-input-bar label {
+  background: linear-gradient(135deg, #f0d77a, #c9a227);
+  color: #1c1505;
+}
+:root[data-theme='dark'] .menuchat-login-box {
+  background: linear-gradient(160deg, #1f1f24, #151518);
+  border-color: rgba(201, 162, 39, 0.35);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6);
+}
+:root[data-theme='dark'] .menuchat-login-box h2 {
+  color: #e8c25a;
+}
+:root[data-theme='dark'] .menuchat-login-box input {
+  background: #1f1f24;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--cust-text);
+}
+:root[data-theme='dark'] .menuchat-login-box input:focus {
+  outline: none;
+  border-color: #c9a227;
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.18);
+}
+:root[data-theme='dark'] .menuchat-login-box button {
+  background: linear-gradient(135deg, #f0d77a, #c9a227);
+  color: #1c1505;
+}
+
+/* =====================================================
+   ປ໊ອບອັບ / ເມນູ / ຟອມ
+   ===================================================== */
+:root[data-theme='dark'] .modal-overlay {
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+:root[data-theme='dark'] .modal-box,
+:root[data-theme='dark'] .auth-modal,
+:root[data-theme='dark'] .account-dropdown {
+  background: linear-gradient(160deg, #1f1f24, #151518);
+  border-color: rgba(201, 162, 39, 0.4);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 30px rgba(201, 162, 39, 0.08);
+}
+:root[data-theme='dark'] .account-dropdown a:hover,
+:root[data-theme='dark'] .account-dropdown button:hover {
+  background: rgba(201, 162, 39, 0.1);
+}
+:root[data-theme='dark'] .auth-form input:focus,
+:root[data-theme='dark'] .modal-box input:focus,
+:root[data-theme='dark'] .checkout-page input:focus,
+:root[data-theme='dark'] .checkout-page textarea:focus {
+  outline: none;
+  border-color: #c9a227;
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.18);
+}
+:root[data-theme='dark'] .auth-submit,
+:root[data-theme='dark'] .next-btn,
+:root[data-theme='dark'] .confirm-btn {
+  background: linear-gradient(135deg, #f0d77a, #c9a227);
+  color: #1c1505;
+  box-shadow: 0 6px 18px rgba(201, 162, 39, 0.3);
+}
+
+/* =====================================================
+   ຊຳລະເງິນ
+   ===================================================== */
+:root[data-theme='dark'] .summary-product,
+:root[data-theme='dark'] .pay-amount-box {
+  background: #1c1c20;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+:root[data-theme='dark'] .qty-control button {
+  background: transparent;
+  color: #e8c25a;
+  border-color: rgba(201, 162, 39, 0.6);
+}
+:root[data-theme='dark'] .back-btn {
+  background: #232328;
+  color: #f4f4f5;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+:root[data-theme='dark'] .orders-table {
+  color: var(--cust-text);
+}
+:root[data-theme='dark'] .orders-table td {
+  border-color: rgba(255, 255, 255, 0.08);
+}
+:root[data-theme='dark'] .orders-table th {
+  background: linear-gradient(135deg, #c9a227, #8a6a10);
+  color: #fff;
+}
+
+/* =====================================================
+   ໜ້າໂປຣໄຟລ໌
+   ===================================================== */
+:root[data-theme='dark'] .pf-card {
+  background: linear-gradient(160deg, #1f1f24 0%, #151518 100%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+:root[data-theme='dark'] .pf-user {
+  background: linear-gradient(135deg, rgba(201, 162, 39, 0.18) 0%, transparent 65%);
+}
+:root[data-theme='dark'] .pf-avatar {
+  background: linear-gradient(135deg, #f3dc86 0%, #c9a227 55%, #8a6a10 100%);
+  color: #1c1505;
+  box-shadow:
+    0 0 0 3px rgba(201, 162, 39, 0.25),
+    0 8px 28px rgba(201, 162, 39, 0.4);
+}
+:root[data-theme='dark'] .pf-edit {
+  background: transparent;
+  border-color: rgba(201, 162, 39, 0.6);
+  color: #e8c25a;
+}
+:root[data-theme='dark'] .pf-user:hover .pf-edit {
+  background: linear-gradient(135deg, #f0d77a, #c9a227);
+  color: #1c1505;
+  box-shadow: 0 4px 14px rgba(201, 162, 39, 0.4);
+}
+:root[data-theme='dark'] .pf-tier-badge {
+  background: linear-gradient(135deg, #f0d77a, #c9a227);
+  color: #2a2008;
+  box-shadow: 0 2px 10px rgba(201, 162, 39, 0.35);
+}
+:root[data-theme='dark'] .pf-bar-fill {
+  background: linear-gradient(90deg, #a67c10, #e8c25a);
+  box-shadow: 0 0 12px rgba(232, 194, 90, 0.7);
+}
+:root[data-theme='dark'] .pf-stat-num {
+  background: linear-gradient(180deg, #f6e08e, #c9a227);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+:root[data-theme='dark'] .pf-row:hover {
+  background: linear-gradient(90deg, rgba(201, 162, 39, 0.12), transparent 80%);
+  transform: translateX(3px);
+}
+:root[data-theme='dark'] .pf-row:active {
+  transform: translateX(3px) scale(0.99);
+}
+:root[data-theme='dark'] .pf-row span[style*='border-radius: 50%'] {
+  border-color: rgba(201, 162, 39, 0.25) !important;
+  background: linear-gradient(145deg, #2a2a30, #1c1c20) !important;
+  color: #e8c25a;
+}
+:root[data-theme='dark'] .pf-switch {
+  background: #3a3a42;
+}
+:root[data-theme='dark'] .pf-switch.on {
+  background: linear-gradient(90deg, #c9a227, #f0d77a);
+  box-shadow: 0 0 14px rgba(232, 194, 90, 0.6);
+}
+:root[data-theme='dark'] .pf-logout {
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(248, 113, 113, 0.55);
+  color: #f87171;
+}
+:root[data-theme='dark'] .pf-logout:hover {
+  background: #dc2626;
+  color: #fff;
+  box-shadow: 0 6px 20px rgba(220, 38, 38, 0.4);
+}
+/* =====================================================
+   ===== ເພີ່ມຕໍ່ທ້າຍ (ຮອບທີ 2): ໜ້າຫຼັກ / ລາຍລະອຽດ / ຊຳລະເງິນ ...
+   ===================================================== */
+
+.hm-banner,
+.hm-side-item,
+.cb-icon,
+.cb-more-btn,
+.cb-menu,
+.co-card,
+.co-carrier,
+.co-pay-opt,
+.co-dd-btn,
+.co-dd-list,
+.co-bar,
+.co-upload,
+.pi-input {
+  transition: background-color 0.35s ease, color 0.35s ease,
+    border-color 0.35s ease, box-shadow 0.35s ease, transform 0.2s ease;
+}
+
+/* ---------- ແບນເນີ ---------- */
+:root[data-theme='dark'] .hm-banner,
+:root[data-theme='dark'] .hm-side-item {
+  background: #1a1a1e;
+  border: 1px solid rgba(201, 162, 39, 0.2);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55), 0 0 24px rgba(201, 162, 39, 0.07);
+}
+:root[data-theme='dark'] .hm-side-item:hover {
+  border-color: rgba(201, 162, 39, 0.5);
+}
+:root[data-theme='dark'] .hm-banner-arrow {
+  background: rgba(25, 25, 29, 0.82);
+  color: #e8c25a;
+  border: 1px solid rgba(201, 162, 39, 0.35);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+}
+:root[data-theme='dark'] .hm-banner-arrow:hover {
+  background: #c9a227;
+  color: #1c1505;
+}
+:root[data-theme='dark'] .hm-dot {
+  background: rgba(255, 255, 255, 0.35);
+}
+:root[data-theme='dark'] .hm-dot.active {
+  background: linear-gradient(90deg, #f0d77a, #c9a227);
+  box-shadow: 0 0 10px rgba(232, 194, 90, 0.7);
+}
+
+/* ---------- ສິນຄ້າໝົດ / ປຸ່ມຖືກປິດ ---------- */
+:root[data-theme='dark'] .hm-soldout {
+  background: rgba(13, 13, 15, 0.7);
+  color: #9a9aa3;
+}
+:root[data-theme='dark'] .hm-buy:disabled {
+  background: #2a2a30;
+  border-color: #2a2a30;
+  color: #6b6b74;
+  box-shadow: none;
+}
+
+/* ---------- ໝວດສິນຄ້າ (CategoryBar) ---------- */
+:root[data-theme='dark'] .cb-icon {
+  background: linear-gradient(145deg, #2a2a30, #1c1c20);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #b4b4bc;
+}
+:root[data-theme='dark'] .cb-item:hover .cb-icon {
+  border-color: rgba(201, 162, 39, 0.6);
+  color: #e8c25a;
+  transform: translateY(-2px);
+}
+:root[data-theme='dark'] .cb-item.active .cb-icon {
+  background: linear-gradient(135deg, #f0d77a, #c9a227);
+  border-color: transparent;
+  color: #1c1505;
+  box-shadow: 0 0 18px rgba(232, 194, 90, 0.5);
+}
+:root[data-theme='dark'] .cb-item.active .cb-label {
+  color: #e8c25a;
+}
+:root[data-theme='dark'] .cb-more-btn {
+  background: #1c1c20;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #e4e4e7;
+}
+:root[data-theme='dark'] .cb-more-btn:hover {
+  border-color: rgba(201, 162, 39, 0.6);
+}
+:root[data-theme='dark'] .cb-more-btn.active {
+  border-color: rgba(201, 162, 39, 0.7);
+  color: #e8c25a;
+  background: rgba(201, 162, 39, 0.12);
+}
+:root[data-theme='dark'] .cb-menu {
+  background: linear-gradient(160deg, #1f1f24, #151518);
+  border-color: rgba(201, 162, 39, 0.35);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+}
+:root[data-theme='dark'] .cb-menu-item {
+  color: #e4e4e7;
+}
+:root[data-theme='dark'] .cb-menu-item:hover {
+  background: rgba(201, 162, 39, 0.1);
+}
+:root[data-theme='dark'] .cb-menu-item.active {
+  background: rgba(201, 162, 39, 0.18);
+  color: #e8c25a;
+}
+:root[data-theme='dark'] .cb-menu-count {
+  color: #7d7d86;
+}
+
+/* ---------- ລາຍລະອຽດສິນຄ້າ (ProductDetail) ---------- */
+/* ກ່ອງຮູບສິນຄ້າ */
+:root[data-theme='dark'] .pd-left div[style*='border-radius: 16px'] {
+  background: #1a1a1e !important;
+  border-color: rgba(201, 162, 39, 0.2) !important;
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.55);
+}
+/* ປຸ່ມຫົວໃຈ (ໜ້າລາຍລະອຽດ + ການ໌) */
+:root[data-theme='dark'] button[aria-label='ຖືກໃຈ'] {
+  background: rgba(25, 25, 29, 0.85) !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+}
+/* ປຸ່ມໄຊສ໌ທີ່ບໍ່ໄດ້ເລືອກ */
+:root[data-theme='dark'] .pd-right button[type='button'][style*='background: rgb(255, 255, 255)'] {
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
+  color: #f4f4f5 !important;
+}
+:root[data-theme='dark'] .pd-right button[type='button'][style*='background: rgb(255, 255, 255)']:hover {
+  border-color: rgba(201, 162, 39, 0.7) !important;
+}
+/* ປຸ່ມ "ເພີ່ມລົງກະຕ່າ" */
+:root[data-theme='dark'] .pd-right > section:last-child > div:last-child > button:first-child {
+  background: transparent !important;
+  border-color: rgba(201, 162, 39, 0.65) !important;
+  color: #e8c25a !important;
+}
+/* ປຸ່ມ "ຊື້ເລີຍ" */
+:root[data-theme='dark'] .pd-right > section:last-child > div:last-child > button:last-child {
+  background: linear-gradient(135deg, #f0d77a, #c9a227) !important;
+  color: #1c1505 !important;
+  box-shadow: 0 6px 20px rgba(201, 162, 39, 0.35);
+}
+/* ຕາຕະລາງຂະໜາດ */
+:root[data-theme='dark'] .pd-right th[style] {
+  background: rgba(201, 162, 39, 0.16) !important;
+  color: #e8c25a !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+:root[data-theme='dark'] .pd-right td[style] {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+/* ---------- ຊຳລະເງິນ (Checkout) ---------- */
+:root[data-theme='dark'] .co-carrier {
+  background: linear-gradient(160deg, #1f1f24, #151518);
+  border-color: rgba(255, 255, 255, 0.09);
+}
+:root[data-theme='dark'] .co-carrier:hover {
+  border-color: rgba(201, 162, 39, 0.6);
+  transform: translateY(-2px);
+}
+:root[data-theme='dark'] .co-carrier.selected {
+  background: linear-gradient(160deg, rgba(201, 162, 39, 0.2), rgba(201, 162, 39, 0.05));
+  border-color: #c9a227;
+  box-shadow: 0 0 22px rgba(201, 162, 39, 0.25);
+}
+:root[data-theme='dark'] .co-radio {
+  border-color: #3a3a42;
+}
+:root[data-theme='dark'] .co-carrier.selected .co-radio {
+  border-color: #e8c25a;
+}
+:root[data-theme='dark'] .co-carrier.selected .co-radio::after {
+  background: linear-gradient(135deg, #f0d77a, #c9a227);
+  box-shadow: 0 0 8px rgba(232, 194, 90, 0.8);
+}
+:root[data-theme='dark'] .co-logo {
+  background: #2e2e34;
+}
+:root[data-theme='dark'] .co-card {
+  background: linear-gradient(160deg, #1f1f24 0%, #151518 100%);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+:root[data-theme='dark'] .co-change {
+  background: transparent;
+  border-color: rgba(201, 162, 39, 0.6);
+  color: #e8c25a;
+}
+:root[data-theme='dark'] .co-change:hover {
+  background: linear-gradient(135deg, #f0d77a, #c9a227);
+  color: #1c1505;
+}
+:root[data-theme='dark'] .co-addr-chip {
+  background: #1f1f24;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #e4e4e7;
+}
+:root[data-theme='dark'] .co-addr-chip:hover {
+  border-color: rgba(201, 162, 39, 0.6);
+}
+:root[data-theme='dark'] .co-addr-chip.selected {
+  background: rgba(201, 162, 39, 0.16);
+  border-color: #c9a227;
+  color: #e8c25a;
+}
+/* dropdown ແຂວງ / ເມືອງ / ສາຂາ */
+:root[data-theme='dark'] .co-dd-btn {
+  background: #1f1f24;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f4f4f5;
+}
+:root[data-theme='dark'] .co-dd-btn:hover:not(:disabled),
+:root[data-theme='dark'] .co-dd-btn.open {
+  border-color: #c9a227;
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.15);
+}
+:root[data-theme='dark'] .co-dd-btn:disabled {
+  background: #17171a;
+  color: #5c5c64;
+}
+:root[data-theme='dark'] .co-dd-btn .ph {
+  color: #7d7d86;
+}
+:root[data-theme='dark'] .co-dd-list {
+  background: linear-gradient(160deg, #1f1f24, #151518);
+  border-color: rgba(201, 162, 39, 0.35);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+}
+:root[data-theme='dark'] .co-dd-list li {
+  color: #e4e4e7;
+}
+:root[data-theme='dark'] .co-dd-list li:hover {
+  background: rgba(201, 162, 39, 0.1);
+}
+:root[data-theme='dark'] .co-dd-list li.sel {
+  background: rgba(201, 162, 39, 0.18);
+  color: #e8c25a;
+}
+:root[data-theme='dark'] .co-dd-list li.empty:hover {
+  background: transparent;
+}
+:root[data-theme='dark'] .co-branch-info {
+  background: rgba(201, 162, 39, 0.1);
+  border-color: rgba(201, 162, 39, 0.3);
+  color: #e4e4e7;
+}
+/* ວິທີຊຳລະ */
+:root[data-theme='dark'] .co-pay-opt {
+  background: #1f1f24;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #e4e4e7;
+}
+:root[data-theme='dark'] .co-pay-opt:hover {
+  border-color: rgba(201, 162, 39, 0.6);
+}
+:root[data-theme='dark'] .co-pay-opt.selected {
+  background: linear-gradient(160deg, rgba(201, 162, 39, 0.24), rgba(201, 162, 39, 0.06));
+  border-color: #c9a227;
+  color: #f0d77a;
+  box-shadow: 0 0 20px rgba(201, 162, 39, 0.25);
+}
+:root[data-theme='dark'] .co-card .pay-amount-box {
+  background: rgba(201, 162, 39, 0.1);
+  border-color: rgba(201, 162, 39, 0.3);
+}
+:root[data-theme='dark'] .co-card .pay-amount-box span:last-child {
+  color: #e8c25a;
+}
+/* ອັບໂຫລດສະລິບ */
+:root[data-theme='dark'] .co-upload {
+  background: rgba(201, 162, 39, 0.06);
+  border-color: rgba(201, 162, 39, 0.45);
+  color: #e8c25a;
+}
+:root[data-theme='dark'] .co-upload:hover {
+  background: rgba(201, 162, 39, 0.14);
+  border-color: #c9a227;
+}
+:root[data-theme='dark'] .co-slip-row {
+  background: #1f1f24;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+:root[data-theme='dark'] .co-slip-thumb {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+:root[data-theme='dark'] .co-slip-remove {
+  background: rgba(220, 38, 38, 0.1);
+  border-color: rgba(248, 113, 113, 0.5);
+  color: #f87171;
+}
+:root[data-theme='dark'] .co-slip-remove:hover {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
+}
+:root[data-theme='dark'] .co-cod-ic {
+  background: rgba(201, 162, 39, 0.16);
+  color: #e8c25a;
+}
+/* ແຖບຢືນຢັນລຸ່ມຈໍ */
+:root[data-theme='dark'] .co-bar {
+  background: rgba(13, 13, 15, 0.88);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid rgba(201, 162, 39, 0.3);
+  box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.6), 0 0 24px rgba(201, 162, 39, 0.1);
+}
+:root[data-theme='dark'] .co-bar-amount {
+  color: #e8c25a;
+}
+:root[data-theme='dark'] .co-bar-back {
+  background: #232328;
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #f4f4f5;
+}
+:root[data-theme='dark'] .co-bar-confirm {
+  background: linear-gradient(135deg, #f0d77a, #c9a227);
+  color: #1c1505;
+  box-shadow: 0 6px 20px rgba(201, 162, 39, 0.4);
+}
+
+/* ---------- ຂໍ້ມູນສ່ວນຕົວ (ProfileInfo) ---------- */
+:root[data-theme='dark'] .customer-shell section[style*='border-radius: 16px'] {
+  background: linear-gradient(160deg, #1f1f24 0%, #151518 100%) !important;
+  border-color: rgba(255, 255, 255, 0.07) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+:root[data-theme='dark'] .pi-input {
+  background: #1f1f24;
+  border-color: rgba(255, 255, 255, 0.1);
+  color: #f4f4f5;
+}
+:root[data-theme='dark'] .pi-input::placeholder {
+  color: #7d7d86;
+}
+:root[data-theme='dark'] .pi-input:focus {
+  border-color: #c9a227;
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.18);
+}
+:root[data-theme='dark'] .pi-save {
+  background: linear-gradient(135deg, #f0d77a, #c9a227);
+  color: #1c1505;
+  box-shadow: 0 6px 20px rgba(201, 162, 39, 0.35);
+}

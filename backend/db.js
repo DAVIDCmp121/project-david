@@ -144,6 +144,27 @@ async function initDb() {
     )
   `);
 
+  // ສາຂາຂອງຂົນສົ່ງ (ຂໍ້ມູນມາຈາກ scripts/syncAnousith.js) — ໃຊ້ໃນ dropdown ແຂວງ → ເມືອງ → ສາຂາ
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS carrier_branches (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      carrier VARCHAR(30) NOT NULL,
+      branch_id VARCHAR(30) NOT NULL,
+      branch_code VARCHAR(50),
+      name VARCHAR(255),
+      address VARCHAR(500),
+      province_id VARCHAR(10),
+      province_name VARCHAR(100),
+      district_name VARCHAR(100),
+      phone VARCHAR(100),
+      lat VARCHAR(30),
+      lng VARCHAR(30),
+      active TINYINT DEFAULT 1,
+      synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_carrier_branch (carrier, branch_id)
+    ) CHARACTER SET utf8mb4
+  `);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS orders (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -166,6 +187,14 @@ async function initDb() {
   // ຂົນສົ່ງທີ່ລູກຄ້າເລືອກ (anousith / hal / mixay) ແລະ ວິທີຊຳລະ (transfer = ໂອນເງິນ / cod = ເກັບເງິນປາຍທາງ)
   await addColumnIfMissing('orders', 'carrier', 'VARCHAR(30) NULL');
   await addColumnIfMissing('orders', 'payment_method', "VARCHAR(20) NOT NULL DEFAULT 'transfer'");
+
+  // ສາຂາຂົນສົ່ງທີ່ລູກຄ້າເລືອກ (ເກັບເປັນ snapshot ກັນສາຂາຖືກປ່ຽນຊື່/ປິດພາຍຫຼັງ)
+  await addColumnIfMissing('orders', 'branch_id', 'VARCHAR(30) NULL');
+  await addColumnIfMissing('orders', 'branch_code', 'VARCHAR(50) NULL');
+  await addColumnIfMissing('orders', 'branch_name', 'VARCHAR(255) NULL');
+  await addColumnIfMissing('orders', 'branch_phone', 'VARCHAR(100) NULL');
+  await addColumnIfMissing('orders', 'province_name', 'VARCHAR(100) NULL');
+  await addColumnIfMissing('orders', 'district_name', 'VARCHAR(100) NULL');
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS settings (

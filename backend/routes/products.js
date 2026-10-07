@@ -222,18 +222,60 @@ router.post('/', requireAuth, uploadImages, async (req, res) => {
   }
 });
 
+// ລຶບສິນຄ້າ
+// - ຫາທຸກຕາຕະລາງທີ່ອ້າງອີງ products ເອງ (foreign key)
+// - ຕາຕະລາງກະຕ່າ / ສິນຄ້າທີ່ຖືກໃຈ: ລ້າງໃຫ້ອັດຕະໂນມັດ
+// - ຕາຕະລາງອື່ນທີ່ຍັງມີຂໍ້ມູນ: ບໍ່ລຶບ ແລ້ວບອກຊື່ຕາຕະລາງໃຫ້ເຫັນ
+// - ທຸກຢ່າງຢູ່ໃນ transaction ຖ້າພາດຈະບໍ່ລຶບຫຍັງເລີຍ
 router.delete('/:id', requireAuth, async (req, res) => {
+  const conn = await pool.getConnection();
   try {
     const productId = req.params.id;
+    await conn.beginTransaction();
 
-    await pool.query('DELETE FROM orders WHERE product_id = ?', [productId]);
-    await pool.query('DELETE FROM product_images WHERE product_id = ?', [productId]);
-    await pool.query('DELETE FROM products WHERE id = ?', [productId]);
+    const [refs] = await conn.query(
+      `SELECT TABLE_NAME AS tbl, COLUMN_NAME AS col
+       FROM information_schema.KEY_COLUMN_USAGE
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND REFERENCED_TABLE_NAME = 'products'
+         AND REFERENCED_COLUMN_NAME = 'id'`
+    );
 
+    for (const r of refs) {
+      // orders ແລະ product_images ລຶບຢູ່ດ້ານລຸ່ມຢູ່ແລ້ວ
+      if (r.tbl === 'orders' || r.tbl === 'product_images') continue;
+
+      if (/cart|favorite|wish/i.test(r.tbl)) {
+        await conn.query(`DELETE FROM \`${r.tbl}\` WHERE \`${r.col}\` = ?`, [productId]);
+      } else {
+        const [[row]] = await conn.query(
+          `SELECT COUNT(*) AS n FROM \`${r.tbl}\` WHERE \`${r.col}\` = ?`,
+          [productId]
+        );
+        if (row.n > 0) {
+          await conn.rollback();
+          return res.status(409).json({
+            error: `ລຶບບໍ່ໄດ້: ສິນຄ້ານີ້ຍັງຖືກໃຊ້ໃນຕາຕະລາງ ${r.tbl} (${row.n} ແຖວ)`,
+          });
+        }
+      }
+    }
+
+    await conn.query('DELETE FROM orders WHERE product_id = ?', [productId]);
+    await conn.query('DELETE FROM product_images WHERE product_id = ?', [productId]);
+    await conn.query('DELETE FROM products WHERE id = ?', [productId]);
+
+    await conn.commit();
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'ລຶບສິນຄ້າບໍ່ສຳເລັດ' });
+    try { await conn.rollback(); } catch (e) {}
+    console.error('DELETE PRODUCT ERROR:', err.code, err.sqlMessage || err.message);
+    res.status(500).json({
+      error: 'ລຶບສິນຄ້າບໍ່ສຳເລັດ',
+      detail: err.sqlMessage || err.message,
+    });
+  } finally {
+    conn.release();
   }
 });
 

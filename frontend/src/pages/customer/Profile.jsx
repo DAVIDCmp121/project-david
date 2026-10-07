@@ -18,6 +18,22 @@ const IN_PROGRESS = ['awaiting_review', 'confirmed', 'shipped'];
 
 const fmt = (n) => Number(n || 0).toLocaleString('en-US');
 
+/* ---------- ທີມ (ມືດ / ສະຫວ່າງ) ---------- */
+function getSavedTheme() {
+  try {
+    return localStorage.getItem('theme') === 'dark' ? 'dark' : 'light';
+  } catch (err) {
+    return 'light';
+  }
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  try {
+    localStorage.setItem('theme', theme);
+  } catch (err) {}
+}
+
 /* ---------- ໄອຄອນ ---------- */
 const sv = {
   fill: 'none',
@@ -34,8 +50,8 @@ function Circle({ size = 42, children }) {
         width: size,
         height: size,
         borderRadius: '50%',
-        border: '1px solid #e5e7eb',
-        background: '#f9fafb',
+        border: '1px solid var(--cust-border)',
+        background: 'var(--cust-surface-soft)',
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -47,16 +63,21 @@ function Circle({ size = 42, children }) {
   );
 }
 
-const IconPin = ({ color = '#111', size = 21 }) => (
+const IconPin = ({ color = 'currentColor', size = 21 }) => (
   <svg {...sv} width={size} height={size} stroke={color}>
     <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" />
     <circle cx="12" cy="10" r="2.5" />
   </svg>
 );
-const IconShield = ({ color = '#111', size = 21 }) => (
+const IconShield = ({ color = 'currentColor', size = 21 }) => (
   <svg {...sv} width={size} height={size} stroke={color}>
     <path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6z" />
     <path d="m9 12 2 2 4-4" />
+  </svg>
+);
+const IconMoon = ({ color = 'currentColor', size = 21 }) => (
+  <svg {...sv} width={size} height={size} stroke={color}>
+    <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
   </svg>
 );
 const IconLogout = ({ color = 'currentColor', size = 18 }) => (
@@ -72,14 +93,14 @@ const css = `
 .pf-title { font-size: 1.3rem; margin: 0 0 16px; color: var(--cust-text); }
 
 .pf-card {
-  background: #fff; border: 1px solid var(--cust-border); border-radius: 16px;
+  background: var(--cust-surface); border: 1px solid var(--cust-border); border-radius: 16px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04); overflow: hidden;
 }
 
 /* ການ໌ໂປຣໄຟລ໌ */
 .pf-user {
   display: flex; align-items: center; gap: 14px; width: 100%; padding: 18px;
-  background: linear-gradient(135deg, #fffaf0 0%, #fff 70%);
+  background: linear-gradient(135deg, var(--cust-grad-from) 0%, var(--cust-surface) 70%);
   border: none; text-align: left; cursor: pointer; font-family: inherit;
 }
 .pf-avatar {
@@ -97,7 +118,7 @@ const css = `
 .pf-phone { margin-top: 3px; font-size: 0.9rem; color: var(--cust-text-muted); }
 .pf-edit {
   flex: 0 0 auto; padding: 6px 14px; border-radius: 999px; font-size: 0.8rem; font-weight: 700;
-  border: 1px solid var(--gold); color: #b8862b; background: #fff;
+  border: 1px solid var(--gold); color: var(--cust-gold-text); background: var(--cust-surface);
 }
 .pf-user:hover .pf-edit { background: var(--gold); color: #fff; }
 
@@ -105,11 +126,11 @@ const css = `
 .pf-tier { border-top: 1px solid var(--cust-border); padding: 14px 18px; }
 .pf-tier-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .pf-tier-badge {
-  padding: 3px 12px; border-radius: 999px; background: #faf0cf; color: #9a7412;
+  padding: 3px 12px; border-radius: 999px; background: var(--cust-badge-bg); color: var(--cust-badge-text);
   font-size: 0.8rem; font-weight: 800;
 }
 .pf-tier-spent { font-size: 0.85rem; color: var(--cust-text-muted); }
-.pf-bar { height: 6px; border-radius: 999px; background: #f1ece0; margin-top: 10px; overflow: hidden; }
+.pf-bar { height: 6px; border-radius: 999px; background: var(--cust-bar-bg); margin-top: 10px; overflow: hidden; }
 .pf-bar-fill { height: 100%; border-radius: 999px; background: var(--gold); }
 .pf-tier-note { margin-top: 6px; font-size: 0.78rem; color: var(--cust-text-muted); line-height: 1.4; }
 
@@ -120,7 +141,7 @@ const css = `
 }
 .pf-stat { text-align: center; padding: 0 4px; }
 .pf-stat + .pf-stat { border-left: 1px solid var(--cust-border); }
-.pf-stat-num { font-size: 1.25rem; font-weight: 800; color: #b8862b; line-height: 1.2; }
+.pf-stat-num { font-size: 1.25rem; font-weight: 800; color: var(--cust-gold-text); line-height: 1.2; }
 .pf-stat-lb { margin-top: 2px; font-size: 0.74rem; color: var(--cust-text-muted); line-height: 1.3; }
 
 /* ຫົວຂໍ້ກຸ່ມເມນູ */
@@ -134,17 +155,31 @@ const css = `
   width: 100%; display: flex; align-items: center; gap: 14px; padding: 12px 16px;
   background: transparent; border: none; border-bottom: 1px solid var(--cust-border);
   border-radius: 0; cursor: pointer; text-align: left; font-family: inherit;
+  color: var(--cust-text);
 }
 .pf-row:last-child { border-bottom: none; }
-.pf-row:hover { background: #faf8f2; }
+.pf-row:hover { background: var(--cust-hover); }
 .pf-row:focus-visible { outline: 2px solid var(--gold); outline-offset: -2px; }
 .pf-row-text { flex: 1; min-width: 0; }
 .pf-row-lb { display: block; font-size: 1rem; color: var(--cust-text); }
 .pf-row-sub { display: block; margin-top: 2px; font-size: 0.78rem; color: var(--cust-text-muted); }
 
+/* ປຸ່ມສະວິດ ມືດ/ສະຫວ່າງ */
+.pf-switch {
+  position: relative; flex: 0 0 auto; width: 46px; height: 26px; border-radius: 999px;
+  background: #c9c9ce; transition: background 0.2s;
+}
+.pf-switch::after {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px;
+  border-radius: 50%; background: #fff; transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+.pf-switch.on { background: var(--gold); }
+.pf-switch.on::after { transform: translateX(20px); }
+
 .pf-logout {
   margin-top: 28px; width: 100%; padding: 13px 10px; border-radius: 12px;
-  border: 1px solid #dc2626; background: #fff; color: #dc2626; font-weight: bold;
+  border: 1px solid #dc2626; background: var(--cust-surface); color: #dc2626; font-weight: bold;
   font-size: 0.95rem; cursor: pointer; font-family: inherit;
   display: flex; align-items: center; justify-content: center; gap: 8px;
 }
@@ -165,6 +200,27 @@ function Row({ icon, label, sub, onClick }) {
         {sub ? <span className="pf-row-sub">{sub}</span> : null}
       </span>
       <Chevron />
+    </button>
+  );
+}
+
+// ແຖວສະວິດ ເປີດ/ປິດ ໂໝດມືດ
+function ThemeRow({ isDark, onToggle }) {
+  return (
+    <button
+      className="pf-row"
+      onClick={onToggle}
+      role="switch"
+      aria-checked={isDark}
+    >
+      <Circle>
+        <IconMoon />
+      </Circle>
+      <span className="pf-row-text">
+        <span className="pf-row-lb">ໂໝດມືດ</span>
+        <span className="pf-row-sub">{isDark ? 'ກຳລັງໃຊ້: ດຳ' : 'ກຳລັງໃຊ້: ຂາວ'}</span>
+      </span>
+      <span className={`pf-switch${isDark ? ' on' : ''}`} />
     </button>
   );
 }
@@ -200,6 +256,14 @@ function ProfileInner() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null); // { name, phone }
   const [stats, setStats] = useState(null); // { total, inProgress, delivered, spent }
+  const [theme, setTheme] = useState(getSavedTheme); // 'light' | 'dark'
+
+  // ສະລັບທີມ ແລ້ວບັນທຶກໄວ້
+  function toggleTheme() {
+    const next = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    applyTheme(next);
+  }
 
   useEffect(() => {
     (async () => {
@@ -342,7 +406,13 @@ function ProfileInner() {
           </div>
         ))}
 
-        {/* 3. ອອກຈາກລະບົບ */}
+        {/* 3. ການສະແດງຜົນ (ໂໝດມືດ) */}
+        <h2 className="pf-sec-title">ການສະແດງຜົນ</h2>
+        <section className="pf-card">
+          <ThemeRow isDark={theme === 'dark'} onToggle={toggleTheme} />
+        </section>
+
+        {/* 4. ອອກຈາກລະບົບ */}
         <button className="pf-logout" onClick={handleLogout}>
           <IconLogout />
           ອອກຈາກລະບົບ

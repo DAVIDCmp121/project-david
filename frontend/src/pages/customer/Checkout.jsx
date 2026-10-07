@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../../components/TopBar.jsx';
 import { CartProvider } from '../../context/CartContext.jsx';
@@ -14,6 +14,9 @@ const CARRIERS = [
   { key: 'hal', name: 'HAL Express', color: '#d32f2f' },
   { key: 'mixay', name: 'Mixay Express', color: '#b71c1c' },
 ];
+
+// ຂົນສົ່ງທີ່ມີຂໍ້ມູນສາຂາ (ເລືອກ ແຂວງ → ເມືອງ → ສາຂາ) — ຕ້ອງກົງກັບ backend (BRANCH_CARRIERS)
+const BRANCH_CARRIERS = ['anousith', 'hal'];
 
 const ic = {
   width: 20,
@@ -41,7 +44,7 @@ const IconCash = ({ size = 20 }) => (
 );
 
 const css = `
-.checkout-page.co-wide { max-width: 980px; }
+.checkout-page.co-wide { max-width: 980px; padding-bottom: 140px; }
 
 .co-sec-title { font-size: 1rem; font-weight: 700; margin: 20px 0 10px; color: var(--cust-text); }
 
@@ -98,6 +101,36 @@ const css = `
 .co-save-addr {
   display: flex; align-items: center; gap: 8px; margin-top: 10px;
   font-size: 0.85rem; color: var(--cust-text-muted); cursor: pointer;
+}
+
+/* ເລືອກສາຂາຂົນສົ່ງ (ແຂວງ → ເມືອງ → ສາຂາ) — dropdown ທີ່ເປີດລົງດ້ານລຸ່ມສະເໝີ */
+.co-dd { position: relative; margin-bottom: 10px; }
+.co-dd-btn {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 11px 12px; border: 1.5px solid var(--cust-border); border-radius: 10px;
+  background: #fff; font-size: 0.95rem; font-family: inherit; color: var(--cust-text);
+  cursor: pointer; text-align: left;
+}
+.co-dd-btn:hover:not(:disabled), .co-dd-btn.open { border-color: var(--gold); }
+.co-dd-btn:disabled { background: #f6f6f4; color: #aaa; cursor: not-allowed; }
+.co-dd-btn .ph { color: #999; }
+.co-dd-btn svg { flex: 0 0 auto; transition: transform 0.15s; }
+.co-dd-btn.open svg { transform: rotate(180deg); }
+.co-dd-list {
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 60; margin: 4px 0 0; padding: 4px;
+  list-style: none; max-height: 240px; overflow-y: auto; background: #fff;
+  border: 1px solid var(--cust-border); border-radius: 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
+}
+.co-dd-list li { padding: 10px 12px; border-radius: 8px; font-size: 0.92rem; cursor: pointer; color: var(--cust-text); }
+.co-dd-list li:hover { background: #fffaf0; }
+.co-dd-list li.sel { background: #fffaf0; color: #b8862b; font-weight: 700; }
+.co-dd-list li.empty { color: #999; cursor: default; }
+.co-dd-list li.empty:hover { background: transparent; }
+
+.co-branch-info {
+  margin-top: 4px; padding: 10px 12px; border-radius: 10px; background: #fffaf0;
+  border: 1px solid #f1e3b8; font-size: 0.85rem; color: var(--cust-text); line-height: 1.5;
 }
 
 /* ---------- ໜ້າ 2: ສອງຝັ່ງ ---------- */
@@ -223,6 +256,68 @@ function CarrierLogo({ carrier, size = 52 }) {
   );
 }
 
+// dropdown ທີ່ເປີດລົງດ້ານລຸ່ມສະເໝີ (ແທນ <select> ທີ່ browser ອາດເປີດຂຶ້ນດ້ານເທິງ)
+function DropSelect({ value, onChange, options, placeholder, disabled }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function onOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onOutside);
+    document.addEventListener('touchstart', onOutside);
+    return () => {
+      document.removeEventListener('mousedown', onOutside);
+      document.removeEventListener('touchstart', onOutside);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (disabled) setOpen(false);
+  }, [disabled]);
+
+  function toggle() {
+    const next = !open;
+    setOpen(next);
+    // ເລື່ອນໜ້າໃຫ້ເຫັນລາຍການທີ່ເປີດລົງມາຄົບ
+    if (next && ref.current) {
+      setTimeout(() => ref.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }), 50);
+    }
+  }
+
+  const current = options.find((o) => o.value === value);
+
+  return (
+    <div className="co-dd" ref={ref}>
+      <button type="button" className={`co-dd-btn${open ? ' open' : ''}`} disabled={disabled} onClick={toggle}>
+        <span className={current ? '' : 'ph'}>{current ? current.label : placeholder}</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M6 9l6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <ul className="co-dd-list">
+          {options.length === 0 && <li className="empty">ບໍ່ມີຂໍ້ມູນ</li>}
+          {options.map((o) => (
+            <li
+              key={o.value}
+              className={o.value === value ? 'sel' : ''}
+              onClick={() => {
+                onChange(o.value);
+                setOpen(false);
+              }}
+            >
+              {o.label}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function CheckoutInner() {
   const navigate = useNavigate();
   const [items, setItems] = useState(null);
@@ -236,6 +331,15 @@ function CheckoutInner() {
 
   const [savedAddrs, setSavedAddrs] = useState([]);
   const [saveAddr, setSaveAddr] = useState(true);
+
+  // ສາຂາຂົນສົ່ງ: ແຂວງ → ເມືອງ → ສາຂາ
+  const [provinces, setProvinces] = useState([]);
+  const [districts, setDistricts] = useState([]);
+  const [branches, setBranches] = useState([]);
+  const [provinceId, setProvinceId] = useState('');
+  const [district, setDistrict] = useState('');
+  const [branchId, setBranchId] = useState('');
+  const [branchLoading, setBranchLoading] = useState(false);
 
   const [qrImage, setQrImage] = useState('');
   const [qrMissing, setQrMissing] = useState(false);
@@ -283,6 +387,50 @@ function CheckoutInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ປ່ຽນຂົນສົ່ງ → ລ້າງສິ່ງທີ່ເລືອກ ແລ້ວໂຫລດລາຍຊື່ແຂວງ (ສະເພາະຂົນສົ່ງທີ່ມີຂໍ້ມູນສາຂາ)
+  useEffect(() => {
+    setProvinces([]);
+    setDistricts([]);
+    setBranches([]);
+    setProvinceId('');
+    setDistrict('');
+    setBranchId('');
+    if (!BRANCH_CARRIERS.includes(carrier)) return;
+
+    (async () => {
+      setBranchLoading(true);
+      const r = await apiGet(`/api/carriers/${carrier}/provinces`);
+      if (r.ok && Array.isArray(r.data.provinces)) setProvinces(r.data.provinces);
+      setBranchLoading(false);
+    })();
+  }, [carrier]);
+
+  async function onProvinceChange(id) {
+    setProvinceId(id);
+    setDistrict('');
+    setBranchId('');
+    setDistricts([]);
+    setBranches([]);
+    if (!id) return;
+    setBranchLoading(true);
+    const r = await apiGet(`/api/carriers/${carrier}/districts?province=${encodeURIComponent(id)}`);
+    if (r.ok && Array.isArray(r.data.districts)) setDistricts(r.data.districts);
+    setBranchLoading(false);
+  }
+
+  async function onDistrictChange(d) {
+    setDistrict(d);
+    setBranchId('');
+    setBranches([]);
+    if (!d) return;
+    setBranchLoading(true);
+    const r = await apiGet(
+      `/api/carriers/${carrier}/branches?province=${encodeURIComponent(provinceId)}&district=${encodeURIComponent(d)}`
+    );
+    if (r.ok && Array.isArray(r.data.branches)) setBranches(r.data.branches);
+    setBranchLoading(false);
+  }
+
   if (!items && !loadError) {
     return (
       <div className="customer-shell">
@@ -305,6 +453,8 @@ function CheckoutInner() {
 
   const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
   const carrierObj = CARRIERS.find((c) => c.key === carrier);
+  const usesBranch = BRANCH_CARRIERS.includes(carrier);
+  const selectedBranch = branches.find((b) => b.branch_id === branchId);
   const addressIsNew =
     address.trim() !== '' && !savedAddrs.some((a) => a.address.trim() === address.trim());
 
@@ -340,7 +490,20 @@ function CheckoutInner() {
       alert('ກະລຸນາໃສ່ເບີໂທໃຫ້ຖືກຕ້ອງ');
       return;
     }
-    if (!address.trim()) {
+    if (usesBranch) {
+      if (!provinceId) {
+        alert('ກະລຸນາເລືອກແຂວງ');
+        return;
+      }
+      if (!district) {
+        alert('ກະລຸນາເລືອກເມືອງ');
+        return;
+      }
+      if (!branchId) {
+        alert('ກະລຸນາເລືອກສາຂາ');
+        return;
+      }
+    } else if (!address.trim()) {
       alert('ກະລຸນາໃສ່ທີ່ຢູ່ຈັດສົ່ງ');
       return;
     }
@@ -353,14 +516,20 @@ function CheckoutInner() {
     try {
       const formData = new FormData();
       formData.append('customer_phone', cleanPhone);
-      formData.append('customer_address', address.trim());
       formData.append('carrier', carrier);
       formData.append('payment_method', payMethod);
+      if (usesBranch) {
+        formData.append('branch_id', branchId);
+      } else {
+        formData.append('customer_address', address.trim());
+      }
       if (payMethod === 'transfer') formData.append('slip', slipFile);
 
       const { ok, data } = await apiUpload('/api/orders', formData);
 
       if (ok) {
+        // backend ສົ່ງທີ່ຢູ່ (ທີ່ປະກອບຈາກສາຂາແລ້ວ) ກັບມາ
+        const addrText = data.address || address.trim();
         const itemLines = items
           .map((i) => `- ${i.name}${i.chosen_size ? ` (ໄຊສ໌ ${i.chosen_size})` : ''} x${i.quantity} = ${i.price * i.quantity} ກີບ`)
           .join('\n');
@@ -368,7 +537,7 @@ function CheckoutInner() {
         const orderMessage =
           `ສັ່ງຊື້ໃໝ່:\n${itemLines}\nລວມ: ${total} ກີບ\n` +
           `ຂົນສົ່ງ: ${carrierObj.name}\nວິທີຊຳລະ: ${methodText}\n` +
-          `ເບີໂທ: ${cleanPhone}\nທີ່ຢູ່ຈັດສົ່ງ: ${address.trim()}`;
+          `ເບີໂທ: ${cleanPhone}\n${usesBranch ? '' : 'ທີ່ຢູ່ຈັດສົ່ງ: '}${addrText}`;
 
         try {
           await apiPost('/api/messages', { message_text: orderMessage });
@@ -381,8 +550,8 @@ function CheckoutInner() {
           console.error('ສົ່ງຂໍ້ຄວາມ/ຮູບເຂົ້າແຊັດບໍ່ສຳເລັດ:', msgErr);
         }
 
-        // ບັນທຶກທີ່ຢູ່ໃໝ່ໄວ້ໃຊ້ຄັ້ງຕໍ່ໄປ (ຖ້າລູກຄ້າຕິກເລືອກ ແລະ ຍັງບໍ່ເຕັມ 5 ທີ່ຢູ່)
-        if (saveAddr && addressIsNew && savedAddrs.length < MAX_SAVED_ADDRESSES) {
+        // ບັນທຶກທີ່ຢູ່ໃໝ່ໄວ້ໃຊ້ຄັ້ງຕໍ່ໄປ (ສະເພາະຂົນສົ່ງທີ່ພິມທີ່ຢູ່ເອງ ແລະ ຍັງບໍ່ເຕັມ 5 ທີ່ຢູ່)
+        if (!usesBranch && saveAddr && addressIsNew && savedAddrs.length < MAX_SAVED_ADDRESSES) {
           try {
             await apiPost('/api/customer-account/addresses', { label: '', address: address.trim() });
           } catch (addrErr) {
@@ -489,37 +658,80 @@ function CheckoutInner() {
                       onChange={(e) => setPhone(e.target.value)}
                     />
 
-                    <div className="co-label">ທີ່ຢູ່ຈັດສົ່ງ</div>
-                    {savedAddrs.length > 0 && (
-                      <div className="co-addr-chips">
-                        {savedAddrs.map((a) => (
-                          <button
-                            type="button"
-                            key={a.id}
-                            className={`co-addr-chip${address === a.address ? ' selected' : ''}`}
-                            onClick={() => setAddress(a.address)}
-                          >
-                            {a.label || a.address.slice(0, 18)}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    <textarea
-                      placeholder="ທີ່ຢູ່ຈັດສົ່ງ"
-                      value={address}
-                      onChange={(e) => setAddress(e.target.value)}
-                      rows={3}
-                      style={{ marginBottom: 0 }}
-                    />
-                    {addressIsNew && savedAddrs.length < MAX_SAVED_ADDRESSES && (
-                      <label className="co-save-addr">
-                        <input
-                          type="checkbox"
-                          checked={saveAddr}
-                          onChange={(e) => setSaveAddr(e.target.checked)}
+                    {usesBranch ? (
+                      <>
+                        <div className="co-label">ສາຂາທີ່ຈະໄປຮັບສິນຄ້າ</div>
+
+                        <DropSelect
+                          placeholder="ເລືອກແຂວງ"
+                          value={provinceId}
+                          onChange={onProvinceChange}
+                          options={provinces.map((p) => ({ value: p.province_id, label: p.province_name }))}
                         />
-                        ບັນທຶກທີ່ຢູ່ນີ້ໄວ້ໃຊ້ຄັ້ງຕໍ່ໄປ
-                      </label>
+
+                        <DropSelect
+                          placeholder="ເລືອກເມືອງ"
+                          value={district}
+                          disabled={!provinceId}
+                          onChange={onDistrictChange}
+                          options={districts.map((d) => ({ value: d, label: d }))}
+                        />
+
+                        <DropSelect
+                          placeholder="ເລືອກສາຂາ"
+                          value={branchId}
+                          disabled={!district}
+                          onChange={setBranchId}
+                          options={branches.map((b) => ({ value: b.branch_id, label: b.name }))}
+                        />
+
+                        {branchLoading && (
+                          <div style={{ fontSize: '0.85rem', color: 'var(--cust-text-muted)' }}>ກຳລັງໂຫລດ...</div>
+                        )}
+
+                        {selectedBranch && (
+                          <div className="co-branch-info">
+                            <div><b>{selectedBranch.name}</b></div>
+                            {selectedBranch.address && <div>{selectedBranch.address}</div>}
+                            {selectedBranch.phone && <div>ເບີສາຂາ: {selectedBranch.phone}</div>}
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <>
+                        <div className="co-label">ທີ່ຢູ່ຈັດສົ່ງ</div>
+                        {savedAddrs.length > 0 && (
+                          <div className="co-addr-chips">
+                            {savedAddrs.map((a) => (
+                              <button
+                                type="button"
+                                key={a.id}
+                                className={`co-addr-chip${address === a.address ? ' selected' : ''}`}
+                                onClick={() => setAddress(a.address)}
+                              >
+                                {a.label || a.address.slice(0, 18)}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        <textarea
+                          placeholder="ທີ່ຢູ່ຈັດສົ່ງ"
+                          value={address}
+                          onChange={(e) => setAddress(e.target.value)}
+                          rows={3}
+                          style={{ marginBottom: 0 }}
+                        />
+                        {addressIsNew && savedAddrs.length < MAX_SAVED_ADDRESSES && (
+                          <label className="co-save-addr">
+                            <input
+                              type="checkbox"
+                              checked={saveAddr}
+                              onChange={(e) => setSaveAddr(e.target.checked)}
+                            />
+                            ບັນທຶກທີ່ຢູ່ນີ້ໄວ້ໃຊ້ຄັ້ງຕໍ່ໄປ
+                          </label>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

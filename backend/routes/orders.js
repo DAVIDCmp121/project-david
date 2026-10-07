@@ -32,6 +32,8 @@ const VALID_STATUSES = ['awaiting_review', 'confirmed', 'shipped', 'delivered'];
 // ຂົນສົ່ງ ແລະ ວິທີຊຳລະທີ່ຮອງຮັບ (key ຕ້ອງກົງກັບ Checkout.jsx)
 const VALID_CARRIERS = ['anousith', 'hal', 'mixay'];
 const VALID_PAYMENT_METHODS = ['transfer', 'cod'];
+// ຂົນສົ່ງທີ່ມີຂໍ້ມູນສາຂາ (ລູກຄ້າຕ້ອງເລືອກສາຂາ ແທນການພິມທີ່ຢູ່) — ຕ້ອງກົງກັບ routes/carriers.js
+const BRANCH_CARRIERS = ['anousith', 'hal'];
 
 function removeUploadedFile(file) {
   if (!file) return;
@@ -40,6 +42,15 @@ function removeUploadedFile(file) {
   } catch (e) {
     // ບໍ່ມີໄຟລ໌ກໍ່ຂ້າມໄປ
   }
+}
+
+// ສ້າງຂໍ້ຄວາມທີ່ຢູ່ຈາກສາຂາ (ເກັບໃນ customer_address ເພື່ອໃຫ້ໜ້າແອດມິນ/ແຊັດເກົ່າສະແດງໄດ້ເລີຍ)
+function buildBranchAddress(branch) {
+  const lines = [`ຮັບທີ່ສາຂາ: ${branch.name || ''}`];
+  if (branch.district_name) lines.push(`ເມືອງ: ${branch.district_name}`);
+  if (branch.province_name) lines.push(`ແຂວງ: ${branch.province_name}`);
+  if (branch.phone) lines.push(`ເບີສາຂາ: ${branch.phone}`);
+  return lines.join('\n');
 }
 
 function extractAmounts(text) {
@@ -192,17 +203,19 @@ router.post('/verify-slip', requireCustomerAuth, uploadMemory.single('slip'), as
 
 // ✅ ລູກຄ້າສັ່ງຊື້ — ສ້າງ order ຈາກ cart_items ທັງໝົດ
 // ຮອງຮັບ: ເລືອກຂົນສົ່ງ (carrier) + ວິທີຊຳລະ (transfer = ໂອນເງິນຕ້ອງມີສະລິບ / cod = ເກັບເງິນປາຍທາງ ບໍ່ຕ້ອງມີສະລິບ)
+// ຂົນສົ່ງທີ່ມີຂໍ້ມູນສາຂາ (BRANCH_CARRIERS) ຕ້ອງສົ່ງ branch_id ມາ ແລ້ວ backend ຈະປະກອບທີ່ຢູ່ຈາກສາຂາເອງ
 router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) => {
   const connection = await pool.getConnection();
   try {
     const customer_phone = String(req.body.customer_phone || '').trim();
-    const customer_address = String(req.body.customer_address || '').trim();
+    let customer_address = String(req.body.customer_address || '').trim();
     const carrier = req.body.carrier;
     const payment_method = req.body.payment_method || 'transfer';
+    const branch_id = String(req.body.branch_id || '').trim();
 
-    if (!customer_phone || !customer_address) {
+    if (!customer_phone) {
       removeUploadedFile(req.file);
-      return res.status(400).json({ error: 'ກະລຸນາໃສ່ເບີໂທ ແລະ ທີ່ຢູ່' });
+      return res.status(400).json({ error: 'ກະລຸນາໃສ່ເບີໂທ' });
     }
     if (!VALID_CARRIERS.includes(carrier)) {
       removeUploadedFile(req.file);
@@ -212,6 +225,29 @@ router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) =>
       removeUploadedFile(req.file);
       return res.status(400).json({ error: 'ວິທີຊຳລະບໍ່ຖືກຕ້ອງ' });
     }
+
+    // ສາຂາຂົນສົ່ງ: ກວດວ່າສາຂາມີຢູ່ຈິງ ແລະ ຍັງເປີດຢູ່
+    let branch = null;
+    if (BRANCH_CARRIERS.includes(carrier)) {
+      if (!branch_id) {
+        removeUploadedFile(req.file);
+        return res.status(400).json({ error: 'ກະລຸນາເລືອກສາຂາຂົນສົ່ງ' });
+      }
+      const [branchRows] = await pool.query(
+        'SELECT * FROM carrier_branches WHERE carrier = ? AND branch_id = ? AND active = 1',
+        [carrier, branch_id]
+      );
+      branch = branchRows[0];
+      if (!branch) {
+        removeUploadedFile(req.file);
+        return res.status(400).json({ error: 'ສາຂານີ້ບໍ່ມີໃນລະບົບ ກະລຸນາເລືອກສາຂາໃໝ່' });
+      }
+      customer_address = buildBranchAddress(branch);
+    } else if (!customer_address) {
+      removeUploadedFile(req.file);
+      return res.status(400).json({ error: 'ກະລຸນາໃສ່ທີ່ຢູ່' });
+    }
+
     if (payment_method === 'transfer' && !req.file) {
       return res.status(400).json({ error: 'ກະລຸນາອັບໂຫລດຮູບສະລິບໂອນເງິນ' });
     }
@@ -241,9 +277,19 @@ router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) =>
     await connection.beginTransaction();
 
     const [insertResult] = await connection.query(
-      `INSERT INTO orders (customer_phone, customer_address, slip_image, customer_id, order_status, carrier, payment_method)
-       VALUES (?, ?, ?, ?, 'awaiting_review', ?, ?)`,
-      [customer_phone, customer_address, slipImage, req.customerId, carrier, payment_method]
+      `INSERT INTO orders
+        (customer_phone, customer_address, slip_image, customer_id, order_status, carrier, payment_method,
+         branch_id, branch_code, branch_name, branch_phone, province_name, district_name)
+       VALUES (?, ?, ?, ?, 'awaiting_review', ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        customer_phone, customer_address, slipImage, req.customerId, carrier, payment_method,
+        branch ? branch.branch_id : null,
+        branch ? branch.branch_code : null,
+        branch ? branch.name : null,
+        branch ? branch.phone : null,
+        branch ? branch.province_name : null,
+        branch ? branch.district_name : null,
+      ]
     );
     const orderId = insertResult.insertId;
 
@@ -259,7 +305,7 @@ router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) =>
     await connection.query('DELETE FROM cart_items WHERE customer_id = ?', [req.customerId]);
 
     await connection.commit();
-    res.json({ id: orderId, message: 'ສັ່ງຊື້ສຳເລັດ' });
+    res.json({ id: orderId, address: customer_address, message: 'ສັ່ງຊື້ສຳເລັດ' });
   } catch (err) {
     await connection.rollback();
     removeUploadedFile(req.file);
