@@ -10,6 +10,12 @@ const {
   decorateProduct,
   parseMarketingFields,
 } = require('../utils/pricing');
+const {
+  deriveVariantList,
+  adjustStock,
+  saveVariantList,
+  ensureVariantsForSizes,
+} = require('../utils/variants');
 
 const MAX_IMAGES = 6;
 
@@ -108,6 +114,36 @@ async function saveImages(productId, images) {
   await pool.query('UPDATE products SET image = ? WHERE id = ?', [images[0] || '', productId]);
 }
 
+// ອ່ານ body.variants (ເປັນ JSON string ຫຼື array) → array ສະເໝີ; undefined = ບໍ່ໄດ້ສົ່ງມາ
+function parseVariantsBody(raw) {
+  if (raw === undefined) return undefined;
+  if (Array.isArray(raw)) return raw;
+  try {
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+// ແນບລາຍການໄຊສ໌ + ສະຕັອກຕໍ່ໄຊສ໌ ໃສ່ສິນຄ້າ (ສະເພາະໄຊສ໌ທີ່ເປີດໃຊ້ງານ)
+async function attachVariants(products) {
+  if (products.length === 0) return products;
+  const ids = products.map((p) => p.id);
+  const [vs] = await pool.query(
+    `SELECT id, product_id, size, sku, barcode, stock_qty, low_stock_alert
+     FROM product_variants
+     WHERE product_id IN (?) AND active = 1
+     ORDER BY id ASC`,
+    [ids]
+  );
+  const map = {};
+  for (const v of vs) {
+    (map[v.product_id] = map[v.product_id] || []).push(v);
+  }
+  return products.map((p) => ({ ...p, variants: map[p.id] || [] }));
+}
+
 router.get('/', async (req, res) => {
   try {
     const threshold = await getBestsellerThreshold();
@@ -116,7 +152,8 @@ router.get('/', async (req, res) => {
        FROM products
        ORDER BY products.sort_order ASC, products.id ASC`
     );
-    res.json(rows.map((p) => decorateProduct(p, threshold)));
+    const decorated = rows.map((p) => decorateProduct(p, threshold));
+    res.json(await attachVariants(decorated));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'ດຶງຂໍ້ມູນສິນຄ້າບໍ່ສຳເລັດ' });
@@ -179,7 +216,9 @@ router.get('/:id', async (req, res) => {
     let images = imgRows.map((r) => r.image_url);
     if (images.length === 0 && product.image) images = [product.image];
 
-    res.json({ ...product, images, size_chart: parseSizeChart(product.size_chart) });
+    const [withVariants] = await attachVariants([product]);
+
+    res.json({ ...withVariants, images, size_chart: parseSizeChart(product.size_chart) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'ດຶງຂໍ້ມູນສິນຄ້າບໍ່ສຳເລັດ' });
@@ -204,6 +243,8 @@ router.post('/', requireAuth, uploadImages, async (req, res) => {
     if (mk.error) return res.status(400).json({ error: mk.error });
     const m = mk.fields;
 
+    const sizeSelectable = ['1', 'true', 1, true].includes(req.body.size_selectable) ? 1 : 0;
+
     const [result] = await pool.query(
       `INSERT INTO products (name, price, size, color, stock, image, description, size_chart, category,
                              promo_active, promo_price, promo_start, promo_end, bestseller_mode)
@@ -212,8 +253,14 @@ router.post('/', requireAuth, uploadImages, async (req, res) => {
        m.promo_active ?? 0, m.promo_price ?? null, m.promo_start ?? null, m.promo_end ?? null, m.bestseller_mode ?? 'auto']
     );
     await saveImages(result.insertId, images);
-    const sizeSelectable = ['1', 'true', 1, true].includes(req.body.size_selectable) ? 1 : 0;
     await pool.query('UPDATE products SET size_selectable = ? WHERE id = ?', [sizeSelectable, result.insertId]);
+
+    // ສ້າງໄຊສ໌ + ສະຕັອກ: ຖ້າໜ້າແອດມິນສົ່ງ variants ມາໃຫ້ໃຊ້ອັນນັ້ນ ຖ້າບໍ່ມີໃຫ້ສ້າງຈາກຂໍ້ຄວາມໄຊສ໌ + ຊ່ອງ stock ແບບເກົ່າ
+    let variantList = parseVariantsBody(req.body.variants);
+    if (!variantList || variantList.length === 0) {
+      variantList = deriveVariantList(size, sizeSelectable, stock);
+    }
+    await saveVariantList(pool, result.insertId, variantList);
 
     res.json({ id: result.insertId });
   } catch (err) {
@@ -263,6 +310,7 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
     await conn.query('DELETE FROM orders WHERE product_id = ?', [productId]);
     await conn.query('DELETE FROM product_images WHERE product_id = ?', [productId]);
+    await conn.query('DELETE FROM product_variants WHERE product_id = ?', [productId]);
     await conn.query('DELETE FROM products WHERE id = ?', [productId]);
 
     await conn.commit();
@@ -290,7 +338,7 @@ router.put('/:id', requireAuth, uploadImages, async (req, res) => {
     if (price !== undefined) { fields.push('price = ?'); values.push(price); }
     if (size !== undefined) { fields.push('size = ?'); values.push(size); }
     if (color !== undefined) { fields.push('color = ?'); values.push(color); }
-    if (stock !== undefined) { fields.push('stock = ?'); values.push(stock); }
+    // ໝາຍເຫດ: ບໍ່ອັບເດດ products.stock ໂດຍກົງອີກແລ້ວ — ສະຕັອກຢູ່ທີ່ product_variants (ຈັດການດ້ານລຸ່ມ)
     if (description !== undefined) { fields.push('description = ?'); values.push(description); }
     if (req.body.size_selectable !== undefined) {
       fields.push('size_selectable = ?');
@@ -317,7 +365,10 @@ router.put('/:id', requireAuth, uploadImages, async (req, res) => {
       }
     }
 
-    if (fields.length === 0 && images === null) {
+    const variantList = parseVariantsBody(req.body.variants);
+    const hasStockChange = variantList !== undefined || stock !== undefined;
+
+    if (fields.length === 0 && images === null && !hasStockChange) {
       return res.status(400).json({ error: 'ບໍ່ມີຂໍ້ມູນທີ່ຈະອັບເດດ' });
     }
 
@@ -327,6 +378,37 @@ router.put('/:id', requireAuth, uploadImages, async (req, res) => {
     }
     if (images !== null) {
       await saveImages(productId, images);
+    }
+
+    if (variantList !== undefined) {
+      // ຮູບແບບໃໝ່: ໜ້າແອດມິນສົ່ງລາຍການໄຊສ໌ + ຈຳນວນສະຕັອກມາ
+      await saveVariantList(pool, productId, variantList);
+    } else {
+      // ຮູບແບບເກົ່າ: ແກ້ຂໍ້ຄວາມໄຊສ໌ ແລະ/ຫຼື ຊ່ອງ stock
+      if (size !== undefined || req.body.size_selectable !== undefined) {
+        const [[cur]] = await pool.query('SELECT size, size_selectable FROM products WHERE id = ?', [productId]);
+        if (cur) await ensureVariantsForSizes(pool, productId, cur.size, cur.size_selectable);
+      }
+      if (stock !== undefined) {
+        // ໃຊ້ໄດ້ສະເພາະສິນຄ້າທີ່ມີໄຊສ໌ດຽວ (ຫຼາຍໄຊສ໌ຕ້ອງໃຊ້ໜ້າແອດມິນແບບໃໝ່ທີ່ແຍກຈຳນວນຕໍ່ໄຊສ໌)
+        const [vs] = await pool.query(
+          'SELECT id, stock_qty FROM product_variants WHERE product_id = ? AND active = 1',
+          [productId]
+        );
+        if (vs.length === 1) {
+          const newQty = Math.max(0, parseInt(stock, 10) || 0);
+          const diff = newQty - vs[0].stock_qty;
+          if (diff !== 0) {
+            await adjustStock(pool, {
+              variantId: vs[0].id,
+              productId: Number(productId),
+              change: diff,
+              reason: 'adjust',
+              channel: 'admin',
+            });
+          }
+        }
+      }
     }
 
     res.json({ success: true });

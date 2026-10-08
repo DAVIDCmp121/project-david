@@ -17,6 +17,8 @@ const cartRouter = require('./routes/cart');
 const settingsRouter = require('./routes/settings');
 const carriersRouter = require('./routes/carriers');
 const couponsRouter = require('./routes/coupons');
+const posRouter = require('./routes/pos');
+const reportsRouter = require('./routes/reports');
 const requireAuth = require('./middleware/requireAuth');
 
 const app = express();
@@ -64,6 +66,8 @@ app.use('/api/staff', staffRouter);
 app.use('/api/cart', cartRouter);
 app.use('/api/carriers', carriersRouter);
 app.use('/api/coupons', couponsRouter);
+app.use('/api/pos', posRouter); // ຂາຍໜ້າຮ້ານ (POS)
+app.use('/api/reports', reportsRouter); // ລາຍງານຍອດຂາຍ (ສະເພາະແອດມິນ)
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server ກຳລັງເຮັດວຽກຢູ່' });

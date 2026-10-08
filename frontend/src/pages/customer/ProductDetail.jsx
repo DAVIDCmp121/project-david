@@ -6,6 +6,7 @@ import { API_BASE, apiGet, apiPost, apiDelete } from '../../api';
 import { ImageBadges, PriceBlock } from '../../components/ProductBadges.jsx';
 
 const AUTO_SLIDE_MS = 3000;
+const LOW_STOCK_SHOW = 3; // ເຫຼືອບໍ່ເກີນນີ້ ຈະສະແດງ "ເຫຼືອ N ອັນ"
 
 const layoutCss = `
 .pd-track::-webkit-scrollbar { display: none; }
@@ -85,7 +86,20 @@ function ProductDetailInner() {
   const sizeChart = product && Array.isArray(product.size_chart) ? product.size_chart : [];
   const sizeOptions = product ? (product.size_options || []) : [];
   const needSize = sizeOptions.length > 0;
-  const soldOut = product ? product.stock <= 0 : false;
+  const variants = product ? (product.variants || []) : [];
+
+  // ສະຕັອກຂອງໄຊສ໌ໜຶ່ງ (null = ບໍ່ຮູ້ / ບໍ່ມີຂໍ້ມູນ variant)
+  function stockOfSize(s) {
+    const v = variants.find((x) => x.size === s);
+    return v ? Number(v.stock_qty) : null;
+  }
+
+  const selectedStock = needSize && selectedSize ? stockOfSize(selectedSize) : null;
+  const totalStock = product ? Number(product.stock) : 0;
+  const maxQty = selectedStock !== null ? selectedStock : totalStock;
+  const shownStock = selectedStock !== null ? selectedStock : totalStock;
+  const soldOut = product ? totalStock <= 0 : false;
+  const selectedSoldOut = needSize && !!selectedSize && selectedStock === 0;
 
   function handleScroll() {
     const el = trackRef.current;
@@ -127,8 +141,12 @@ function ProductDetailInner() {
   }
 
   function pickSize(s) {
+    const st = stockOfSize(s);
+    if (st === 0) return; // ໄຊສ໌ໝົດ ກົດບໍ່ໄດ້
     setSelectedSize(s);
     setSizeError(false);
+    // ຖ້າຈຳນວນທີ່ເລືອກໄວ້ເກີນສະຕັອກຂອງໄຊສ໌ໃໝ່ ໃຫ້ຫຼຸດລົງ
+    setQty((q) => (st !== null ? Math.max(1, Math.min(q, st)) : q));
   }
 
   // ກວດວ່າເລືອກໄຊສ໌ແລ້ວບໍ (ສິນຄ້າທີ່ຕ້ອງເລືອກ) ແລ້ວສ້າງຂໍ້ມູນສົ່ງເຂົ້າຕະກຣ້າ
@@ -153,7 +171,7 @@ function ProductDetailInner() {
         refreshCartCount();
         showToast('ເພີ່ມລົງກະຕ່າແລ້ວ');
       } else {
-        showToast(data.error || 'ເພີ່ມລົງກະຕ່າບໍ່ສຳເລັດ', 2200);
+        showToast(data.error || 'ເພີ່ມລົງກະຕ່າບໍ່ສຳເລັດ', 2600);
       }
     } catch (err) {
       console.error(err);
@@ -170,7 +188,7 @@ function ProductDetailInner() {
     try {
       const { ok, data } = await apiPost('/api/cart', payload);
       if (!ok) {
-        showToast(data.error || 'ເພີ່ມສິນຄ້າບໍ່ສຳເລັດ', 2200);
+        showToast(data.error || 'ເພີ່ມສິນຄ້າບໍ່ສຳເລັດ', 2600);
         return;
       }
       refreshCartCount();
@@ -199,18 +217,22 @@ function ProductDetailInner() {
     boxShadow: '0 2px 8px rgba(0,0,0,0.15)', cursor: 'pointer', padding: 0,
   });
 
-  const sizeBtnStyle = (active) => ({
+  // ປຸ່ມໄຊສ໌: active = ເລືອກຢູ່, out = ໝົດສະຕັອກ (ສີເທົາ ກົດບໍ່ໄດ້)
+  const sizeBtnStyle = (active, out) => ({
     minWidth: 54,
     padding: '9px 16px',
     borderRadius: 10,
-    border: `1px solid ${active ? 'var(--gold)' : (sizeError ? '#dc2626' : '#d1d5db')}`,
-    background: active ? 'var(--gold)' : '#fff',
-    color: active ? '#fff' : 'var(--cust-text)',
+    border: `1px solid ${out ? '#e5e7eb' : active ? 'var(--gold)' : (sizeError ? '#dc2626' : '#d1d5db')}`,
+    background: out ? '#f3f4f6' : active ? 'var(--gold)' : '#fff',
+    color: out ? '#9ca3af' : active ? '#fff' : 'var(--cust-text)',
+    textDecoration: out ? 'line-through' : 'none',
     fontWeight: 600,
     fontSize: '0.92rem',
-    cursor: 'pointer',
+    cursor: out ? 'not-allowed' : 'pointer',
     transition: 'all 0.15s',
   });
+
+  const actionDisabled = soldOut || selectedSoldOut || busy;
 
   return (
     <div className="customer-shell">
@@ -278,6 +300,17 @@ function ProductDetailInner() {
                   </div>
                 )}
 
+                {soldOut && (
+                  <div style={{
+                    position: 'absolute', inset: 0, background: 'rgba(255,255,255,0.55)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
+                  }}>
+                    <span style={{ background: '#374151', color: '#fff', padding: '8px 22px', borderRadius: 999, fontWeight: 700 }}>
+                      ສິນຄ້າໝົດ
+                    </span>
+                  </div>
+                )}
+
                 {images.length > 1 && slide > 0 && (
                   <button aria-label="ກ່ອນໜ້າ" onClick={() => goToSlide(slide - 1)} style={arrowStyle('left')}>‹</button>
                 )}
@@ -338,7 +371,18 @@ function ProductDetailInner() {
                 {product.category && <span style={chipStyle}>ໝວດ: {product.category}</span>}
                 {!needSize && product.size && <span style={chipStyle}>ໄຊສ໌: {product.size}</span>}
                 {product.color && <span style={chipStyle}>ສີ: {product.color}</span>}
-                <span style={chipStyle}>ເຫຼືອ: {product.stock} ອັນ</span>
+                <span
+                  style={{
+                    ...chipStyle,
+                    ...(shownStock <= 0
+                      ? { color: '#dc2626', borderColor: '#fecaca' }
+                      : shownStock <= LOW_STOCK_SHOW
+                        ? { color: '#d97706', borderColor: '#fde68a' }
+                        : {}),
+                  }}
+                >
+                  {shownStock <= 0 ? 'ໝົດ' : `ເຫຼືອ: ${shownStock} ອັນ`}
+                </span>
               </div>
 
               {product.description && (
@@ -384,20 +428,31 @@ function ProductDetailInner() {
                     )}
                   </h3>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                    {sizeOptions.map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => pickSize(s)}
-                        style={sizeBtnStyle(selectedSize === s)}
-                      >
-                        {s}
-                      </button>
-                    ))}
+                    {sizeOptions.map((s) => {
+                      const st = stockOfSize(s);
+                      const out = st === 0;
+                      return (
+                        <button
+                          key={s}
+                          type="button"
+                          disabled={out}
+                          title={out ? 'ໄຊສ໌ນີ້ໝົດແລ້ວ' : undefined}
+                          onClick={() => pickSize(s)}
+                          style={sizeBtnStyle(selectedSize === s, out)}
+                        >
+                          {s}
+                        </button>
+                      );
+                    })}
                   </div>
                   {sizeError && (
                     <div style={{ color: '#dc2626', fontSize: '0.85rem', marginTop: 8 }}>
                       ກະລຸນາເລືອກໄຊສ໌ກ່ອນ
+                    </div>
+                  )}
+                  {selectedStock !== null && selectedStock > 0 && selectedStock <= LOW_STOCK_SHOW && (
+                    <div style={{ color: '#d97706', fontSize: '0.85rem', marginTop: 8 }}>
+                      ໄຊສ໌ {selectedSize} ເຫຼືອພຽງ {selectedStock} ອັນ
                     </div>
                   )}
                 </section>
@@ -409,29 +464,29 @@ function ProductDetailInner() {
                   <div className="qty-control" style={{ margin: 0 }}>
                     <button disabled={qty <= 1 || soldOut} onClick={() => setQty((q) => Math.max(1, q - 1))}>−</button>
                     <span style={{ minWidth: 24, textAlign: 'center', fontWeight: 600 }}>{qty}</span>
-                    <button disabled={qty >= product.stock || soldOut} onClick={() => setQty((q) => Math.min(product.stock, q + 1))}>+</button>
+                    <button disabled={qty >= maxQty || soldOut} onClick={() => setQty((q) => Math.min(maxQty, q + 1))}>+</button>
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button
-                    disabled={soldOut || busy}
+                    disabled={actionDisabled}
                     onClick={addToCart}
                     style={{
                       flex: 1, padding: '13px 10px', borderRadius: 10, border: '1px solid var(--gold)',
                       background: '#fff', color: 'var(--gold)', fontWeight: 'bold', fontSize: '0.95rem',
-                      cursor: 'pointer', opacity: soldOut || busy ? 0.5 : 1,
+                      cursor: 'pointer', opacity: actionDisabled ? 0.5 : 1,
                     }}
                   >
                     ເພີ່ມລົງກະຕ່າ
                   </button>
                   <button
-                    disabled={soldOut || busy}
+                    disabled={actionDisabled}
                     onClick={buyNow}
                     style={{
                       flex: 1, padding: '13px 10px', borderRadius: 10, border: 'none',
                       background: 'var(--gold)', color: '#fff', fontWeight: 'bold', fontSize: '0.95rem',
-                      cursor: 'pointer', opacity: soldOut || busy ? 0.5 : 1,
+                      cursor: 'pointer', opacity: actionDisabled ? 0.5 : 1,
                     }}
                   >
                     {soldOut ? 'ສິນຄ້າໝົດ' : 'ຊື້ເລີຍ'}

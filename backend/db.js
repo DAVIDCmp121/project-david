@@ -1,5 +1,6 @@
 require('dotenv').config();
 const mysql = require('mysql2/promise');
+const { deriveVariantList, makeSku } = require('./utils/variants');
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -71,6 +72,78 @@ async function migrateSizes() {
     }
   } catch (err) {
     console.warn('⚠️ migrateSizes:', err.message);
+  }
+}
+
+// ===== ສະຕັອກຕາມໄຊສ໌ (product_variants) + ປະຫວັດສະຕັອກ (stock_movements) =====
+// 1 ແຖວ variant = 1 ໄຊສ໌ຂອງສິນຄ້າ; products.stock ຍັງເກັບໄວ້ ແຕ່ເປັນຜົນລວມທີ່ລະບົບຄຳນວນໃຫ້
+async function migrateVariants() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS product_variants (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      product_id INT NOT NULL,
+      size VARCHAR(50) NOT NULL DEFAULT '',
+      sku VARCHAR(80) NULL,
+      barcode VARCHAR(50) NULL,
+      stock_qty INT NOT NULL DEFAULT 0,
+      low_stock_alert INT NOT NULL DEFAULT 2,
+      active TINYINT NOT NULL DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_variant_prod_size (product_id, size),
+      INDEX idx_variant_barcode (barcode)
+    ) CHARACTER SET utf8mb4
+  `);
+
+  // ບັນທຶກທຸກຄັ້ງທີ່ສະຕັອກປ່ຽນ (change_qty: + ເພີ່ມ / - ຫຼຸດ)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS stock_movements (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      variant_id INT NULL,
+      product_id INT NOT NULL,
+      change_qty INT NOT NULL,
+      reason VARCHAR(30) NOT NULL,
+      channel VARCHAR(10) NOT NULL DEFAULT 'online',
+      order_id INT NULL,
+      staff_id INT NULL,
+      note VARCHAR(255) NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_sm_variant (variant_id),
+      INDEX idx_sm_product (product_id),
+      INDEX idx_sm_created (created_at)
+    ) CHARACTER SET utf8mb4
+  `);
+
+  if (await tableExists('order_items')) {
+    await addColumnIfMissing('order_items', 'variant_id', 'INT NULL');
+  }
+  // ຊ່ອງທາງຂາຍ: online = ເວັບ, store = ໜ້າຮ້ານ (ໃຊ້ໃນເຟສຕໍ່ໄປ)
+  await addColumnIfMissing('orders', 'channel', "VARCHAR(10) NOT NULL DEFAULT 'online'");
+
+  // ສ້າງ variant ໃຫ້ສິນຄ້າທີ່ຍັງບໍ່ມີ (ເຮັດຄັ້ງດຽວ — ຮອບຕໍ່ໄປຂ້າມເພາະມີແລ້ວ)
+  try {
+    const [prods] = await pool.query(
+      `SELECT p.id, p.size, p.size_selectable, p.stock
+       FROM products p
+       WHERE NOT EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = p.id)`
+    );
+    for (const p of prods) {
+      const list = deriveVariantList(p.size, p.size_selectable, p.stock);
+      for (const v of list) {
+        const [ins] = await pool.query(
+          'INSERT IGNORE INTO product_variants (product_id, size, sku, stock_qty) VALUES (?, ?, ?, ?)',
+          [p.id, v.size, makeSku(p.id, v.size), v.stock_qty]
+        );
+        if (ins.insertId && v.stock_qty > 0) {
+          await pool.query(
+            `INSERT INTO stock_movements (variant_id, product_id, change_qty, reason, channel, note)
+             VALUES (?, ?, ?, 'migrate', 'system', 'ຍ້າຍຈາກສະຕັອກເກົ່າ')`,
+            [ins.insertId, p.id, v.stock_qty]
+          );
+        }
+      }
+    }
+  } catch (err) {
+    console.error('❌ migrateVariants:', err.message);
   }
 }
 
@@ -300,6 +373,7 @@ async function initDb() {
   await addColumnIfMissing('banners', 'slot', "VARCHAR(20) DEFAULT 'main'");
 
   await migrateSizes();
+  await migrateVariants();
 
   console.log('✅ MySQL tables checked/created');
 }

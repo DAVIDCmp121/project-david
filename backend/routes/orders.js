@@ -10,6 +10,7 @@ const requireCustomerAuth = require('../middleware/requireCustomerAuth');
 const sharp = require('sharp');
 const { EFFECTIVE_PRICE_SQL } = require('../utils/pricing');
 const { computeDiscount, awardPointsForOrder, reverseOrderBenefits } = require('../utils/loyalty');
+const { findVariant, adjustStock } = require('../utils/variants');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -219,6 +220,7 @@ router.post('/verify-slip', requireCustomerAuth, uploadMemory.single('slip'), as
 // ຮອງຮັບ: ເລືອກຂົນສົ່ງ (carrier) + ວິທີຊຳລະ (transfer = ໂອນເງິນຕ້ອງມີສະລິບ / cod = ເກັບເງິນປາຍທາງ ບໍ່ຕ້ອງມີສະລິບ)
 // ຂົນສົ່ງທີ່ມີຂໍ້ມູນສາຂາ (BRANCH_CARRIERS) ຕ້ອງສົ່ງ branch_id ມາ ແລ້ວ backend ຈະປະກອບທີ່ຢູ່ຈາກສາຂາເອງ
 // ຄູປອງ (user_coupon_id, ບໍ່ບັງຄັບ): backend ກວດ + ຄຳນວນສ່ວນລົດເອງ ບໍ່ເຊື່ອຕົວເລກຈາກ frontend
+// ສະຕັອກ: ຕັດຕາມໄຊສ໌ (product_variants) ພາຍໃນ transaction ດຽວກັນ — ຖ້າໄຊສ໌ໃດບໍ່ພໍ ທັງອໍເດີຈະຖືກຍົກເລີກ
 router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) => {
   const connection = await pool.getConnection();
   try {
@@ -277,15 +279,7 @@ router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) =>
       return res.status(400).json({ error: 'ກະຕ່າສິນຄ້າຫວ່າງເປົ່າ' });
     }
 
-    const totalByProduct = {};
-    for (const item of items) {
-      totalByProduct[item.product_id] = (totalByProduct[item.product_id] || 0) + item.quantity;
-    }
-    const outOfStock = items.find(item => item.stock < totalByProduct[item.product_id]);
-    if (outOfStock) {
-      removeUploadedFile(req.file);
-      return res.status(400).json({ error: `ສິນຄ້າ "${outOfStock.name}" ບໍ່ພໍ` });
-    }
+    // ໝາຍເຫດ: ການກວດສະຕັອກຍ້າຍໄປເຮັດໃນ transaction ຂ້າງລຸ່ມ (ຕາມໄຊສ໌) ເພື່ອກັນຄົນສັ່ງພ້ອມກັນ
 
     const slipImage = payment_method === 'transfer' ? '/uploads/' + req.file.filename : null;
 
@@ -332,12 +326,30 @@ router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) =>
     const orderId = insertResult.insertId;
 
     for (const item of items) {
+      const sizeLabel = item.size ? ` ໄຊສ໌ ${item.size}` : '';
+
+      // ຫາ variant ຂອງໄຊສ໌ນີ້ ແລ້ວຕັດສະຕັອກ (ຖ້າບໍ່ພໍ adjustStock ຈະ return false ແລະ ບໍ່ຫັກ)
+      const variant = await findVariant(connection, item.product_id, item.size);
+      if (!variant) {
+        throw userError(`ສິນຄ້າ "${item.name}"${sizeLabel} ບໍ່ມີໃນລະບົບ ກະລຸນາລຶບອອກຈາກກະຕ່າ`);
+      }
+      const ok = await adjustStock(connection, {
+        variantId: variant.id,
+        productId: item.product_id,
+        change: -item.quantity,
+        reason: 'sale',
+        channel: 'online',
+        orderId,
+      });
+      if (!ok) {
+        throw userError(`ສິນຄ້າ "${item.name}"${sizeLabel} ບໍ່ພໍ`);
+      }
+
       await connection.query(
-        `INSERT INTO order_items (order_id, product_id, quantity, price_at_order, size)
-         VALUES (?, ?, ?, ?, ?)`,
-        [orderId, item.product_id, item.quantity, item.price, item.size || '']
+        `INSERT INTO order_items (order_id, product_id, quantity, price_at_order, size, variant_id)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [orderId, item.product_id, item.quantity, item.price, item.size || '', variant.id]
       );
-      await connection.query('UPDATE products SET stock = stock - ? WHERE id = ?', [item.quantity, item.product_id]);
     }
 
     await connection.query('DELETE FROM cart_items WHERE customer_id = ?', [req.customerId]);
@@ -406,10 +418,45 @@ router.put('/:id', requireAuth, async (req, res) => {
   }
 });
 
+// ຄືນສະຕັອກຕອນຍົກເລີກອໍເດີ — ຄືນເຂົ້າໄຊສ໌ທີ່ຖືກຕັດໄປ (ອໍເດີເກົ່າທີ່ບໍ່ມີ variant_id ຈະຫາຈາກໄຊສ໌)
 async function restoreStockForOrder(orderId) {
-  const [itemRows] = await pool.query('SELECT product_id, quantity FROM order_items WHERE order_id = ?', [orderId]);
-  for (const item of itemRows) {
-    await pool.query('UPDATE products SET stock = stock + ? WHERE id = ?', [item.quantity, item.product_id]);
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [orderRows] = await conn.query('SELECT channel FROM orders WHERE id = ?', [orderId]);
+    const channel = (orderRows[0] && orderRows[0].channel) || 'online';
+
+    const [itemRows] = await conn.query(
+      'SELECT product_id, quantity, size, variant_id FROM order_items WHERE order_id = ?',
+      [orderId]
+    );
+    for (const item of itemRows) {
+      let variantId = item.variant_id;
+      if (!variantId) {
+        const v = await findVariant(conn, item.product_id, item.size);
+        variantId = v ? v.id : null;
+      }
+      if (!variantId) {
+        console.warn(`⚠️ ຄືນສະຕັອກບໍ່ໄດ້: ບໍ່ພົບໄຊສ໌ (order ${orderId}, product ${item.product_id}, size "${item.size}")`);
+        continue;
+      }
+      await adjustStock(conn, {
+        variantId,
+        productId: item.product_id,
+        change: item.quantity,
+        reason: 'cancel',
+        channel,
+        orderId,
+      });
+    }
+
+    await conn.commit();
+  } catch (err) {
+    try { await conn.rollback(); } catch (e) {}
+    throw err;
+  } finally {
+    conn.release();
   }
 }
 
@@ -431,7 +478,15 @@ router.post('/:id/cancel', requireCustomerAuth, async (req, res) => {
       });
     }
 
-    await pool.query(`UPDATE orders SET order_status = 'cancelled', cancelled_by = 'customer' WHERE id = ?`, [id]);
+    // ປ່ຽນສະຖານະພ້ອມເງື່ອນໄຂ — ກັນກົດຍົກເລີກຊ້ຳ (ຖ້າຖືກຍົກເລີກໄປແລ້ວ affectedRows = 0 ຈະບໍ່ຄືນສະຕັອກຊ້ຳ)
+    const [upd] = await pool.query(
+      `UPDATE orders SET order_status = 'cancelled', cancelled_by = 'customer'
+       WHERE id = ? AND order_status = 'awaiting_review'`,
+      [id]
+    );
+    if (upd.affectedRows === 0) {
+      return res.status(400).json({ error: 'ອໍເດີນີ້ຖືກປ່ຽນສະຖານະແລ້ວ ກະລຸນາໂຫຼດໜ້າໃໝ່' });
+    }
     await restoreStockForOrder(id);
     await reverseOrderBenefits(id);
 
@@ -455,7 +510,14 @@ router.post('/:id/admin-cancel', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'ອໍເດີນີ້ຖືກຍົກເລີກໄປແລ້ວ' });
     }
 
-    await pool.query(`UPDATE orders SET order_status = 'cancelled', cancelled_by = 'staff' WHERE id = ?`, [id]);
+    const [upd] = await pool.query(
+      `UPDATE orders SET order_status = 'cancelled', cancelled_by = 'staff'
+       WHERE id = ? AND order_status <> 'cancelled'`,
+      [id]
+    );
+    if (upd.affectedRows === 0) {
+      return res.status(400).json({ error: 'ອໍເດີນີ້ຖືກຍົກເລີກໄປແລ້ວ' });
+    }
     await restoreStockForOrder(id);
     await reverseOrderBenefits(id);
 

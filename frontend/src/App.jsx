@@ -23,6 +23,8 @@ import AdminCustomers from './pages/admin/AdminCustomers.jsx';
 import AdminStaff from './pages/admin/AdminStaff.jsx';
 import AdminBanners from './pages/admin/AdminBanners.jsx';
 import AdminCoupons from './pages/admin/AdminCoupons.jsx';
+import AdminPOS from './pages/admin/AdminPOS.jsx';
+import AdminDashboard from './pages/admin/AdminDashboard.jsx';
 import AdminLayout from './components/AdminLayout.jsx';
 
 import StaffLogin from './pages/staff/StaffLogin.jsx';
@@ -57,6 +59,22 @@ export default function App() {
         element={
           <AdminLayout active="products">
             <AdminProducts />
+          </AdminLayout>
+        }
+      />
+      <Route
+        path="/admin/pos"
+        element={
+          <AdminLayout active="pos">
+            <AdminPOS />
+          </AdminLayout>
+        }
+      />
+      <Route
+        path="/admin/dashboard"
+        element={
+          <AdminLayout active="dashboard">
+            <AdminDashboard />
           </AdminLayout>
         }
       />

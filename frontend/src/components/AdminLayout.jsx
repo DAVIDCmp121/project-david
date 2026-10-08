@@ -7,6 +7,8 @@ import { apiGet, apiPost } from '../api.js';
 
 const NAV_ITEMS = [
   { key: 'products', label: 'ສິນຄ້າ', href: '/admin' },
+  { key: 'pos', label: 'POS ໜ້າຮ້ານ', href: '/admin/pos' },
+  { key: 'dashboard', label: 'ລາຍງານຍອດຂາຍ', href: '/admin/dashboard', adminOnly: true },
   { key: 'orders', label: 'ຄຳສັ່ງຊື້', href: '/admin/orders' },
   { key: 'qrcode', label: 'QR Code', href: '/admin/qrcode' },
   { key: 'banners', label: 'ແບນເນີ', href: '/admin/banners' },
