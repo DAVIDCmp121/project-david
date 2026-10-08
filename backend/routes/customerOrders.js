@@ -4,6 +4,7 @@ const { pool } = require('../db');
 const requireCustomerAuth = require('../middleware/requireCustomerAuth');
 
 // GET /api/customer/orders - ດຶງອໍເດີທັງໝົດຂອງລູກຄ້າທີ່ login ຢູ່ (ຮອງຮັບຫຼາຍສິນຄ້າຕໍ່ 1 ອໍເດີ)
+// total = ຍອດສິນຄ້າ − ສ່ວນຫຼຸດຄູປອງ (ຍອດທີ່ຈ່າຍຈິງ), subtotal = ຍອດກ່ອນຫຼຸດ
 router.get('/orders', requireCustomerAuth, async (req, res) => {
   try {
     const customerId = req.customerId;
@@ -17,8 +18,14 @@ router.get('/orders', requireCustomerAuth, async (req, res) => {
         orders.customer_phone,
         orders.customer_address,
         orders.carrier,
-        orders.payment_method
+        orders.payment_method,
+        orders.discount_amount,
+        coupons.name AS coupon_name,
+        (SELECT COALESCE(SUM(pl.points), 0) FROM points_ledger pl
+          WHERE pl.order_id = orders.id AND pl.type IN ('earn', 'adjust')) AS points_earned
       FROM orders
+      LEFT JOIN user_coupons uc ON uc.id = orders.user_coupon_id
+      LEFT JOIN coupons ON coupons.id = uc.coupon_id
       WHERE orders.customer_id = ?
       ORDER BY orders.created_at DESC
     `, [customerId]);
@@ -57,11 +64,15 @@ router.get('/orders', requireCustomerAuth, async (req, res) => {
 
     const ordersWithItems = orders.map(order => {
       const orderItems = itemsByOrder[order.id] || [];
-      const total = orderItems.reduce((sum, i) => sum + i.price_at_order * i.quantity, 0);
+      const subtotal = orderItems.reduce((sum, i) => sum + i.price_at_order * i.quantity, 0);
+      const discount = Number(order.discount_amount || 0);
       return {
         ...order,
         items: orderItems,
-        total
+        subtotal,
+        discount_amount: discount,
+        points_earned: Number(order.points_earned || 0),
+        total: subtotal - discount
       };
     });
 

@@ -102,6 +102,8 @@ const css = `
   display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   padding: 12px 16px 14px; border-top: 1px solid var(--cust-border, #ececec);
 }
+.od-disc { font-size: 0.78rem; color: #15803d; font-weight: 600; margin-bottom: 4px; }
+.od-pts { font-size: 0.78rem; color: #b8862b; font-weight: 700; margin-top: 2px; }
 .od-total-label { font-size: 0.76rem; color: var(--cust-text-muted, #6b7280); }
 .od-total { font-size: 1.15rem; font-weight: 800; color: #b8862b; }
 .od-actions { display: flex; gap: 8px; }
@@ -178,6 +180,8 @@ function OrderCard({ order, onCancel, onChat }) {
   const shown = expanded ? items : items.slice(0, MAX_ITEMS_COLLAPSED);
   const hidden = items.length - MAX_ITEMS_COLLAPSED;
   const showCodTotal = cod && statusKey !== 'cancelled' && statusKey !== 'delivered';
+  const discount = Number(order.discount_amount || 0);
+  const pointsEarned = Number(order.points_earned || 0);
 
   return (
     <div className="od-card">
@@ -226,8 +230,16 @@ function OrderCard({ order, onCancel, onChat }) {
 
       <div className="od-foot">
         <div>
+          {discount > 0 && (
+            <div className="od-disc">
+              ຄູປອງ{order.coupon_name ? ` ${order.coupon_name}` : ''}: −{fmt(discount)} ກີບ
+            </div>
+          )}
           <div className="od-total-label">{showCodTotal ? 'ຍອດທີ່ຕ້ອງຈ່າຍປາຍທາງ' : 'ລວມທັງໝົດ'}</div>
           <div className="od-total">{fmt(order.total)} ກີບ</div>
+          {statusKey === 'delivered' && pointsEarned > 0 && (
+            <div className="od-pts">ໄດ້ຮັບ +{fmt(pointsEarned)} ແຕ້ມ</div>
+          )}
         </div>
         <div className="od-actions">
           {statusKey === 'awaiting_review' && (

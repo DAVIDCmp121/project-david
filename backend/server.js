@@ -16,6 +16,7 @@ const messagesRouter = require('./routes/messages');
 const cartRouter = require('./routes/cart');
 const settingsRouter = require('./routes/settings');
 const carriersRouter = require('./routes/carriers');
+const couponsRouter = require('./routes/coupons');
 const requireAuth = require('./middleware/requireAuth');
 
 const app = express();
@@ -62,6 +63,7 @@ app.use('/api/customers', customersRouter);
 app.use('/api/staff', staffRouter);
 app.use('/api/cart', cartRouter);
 app.use('/api/carriers', carriersRouter);
+app.use('/api/coupons', couponsRouter);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'Server ກຳລັງເຮັດວຽກຢູ່' });

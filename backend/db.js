@@ -196,6 +196,66 @@ async function initDb() {
   await addColumnIfMissing('orders', 'province_name', 'VARCHAR(100) NULL');
   await addColumnIfMissing('orders', 'district_name', 'VARCHAR(100) NULL');
 
+  // ===== ຄູປອງ + ແຕ້ມສະສົມ =====
+  // ລາຍການຄູປອງທີ່ລູກຄ້າແລກດ້ວຍແຕ້ມໄດ້ (ຮ້ານເປັນຄົນກຳນົດ)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS coupons (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      type VARCHAR(10) NOT NULL,
+      value INT NOT NULL,
+      min_order INT NOT NULL DEFAULT 0,
+      max_discount INT NULL,
+      points_cost INT NOT NULL,
+      valid_days INT NOT NULL DEFAULT 30,
+      active TINYINT DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) CHARACTER SET utf8mb4
+  `);
+
+  // ຄູປອງໃນກະເປົາຂອງລູກຄ້າແຕ່ລະຄົນ
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_coupons (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      customer_id INT NOT NULL,
+      coupon_id INT NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'available',
+      expires_at DATETIME NOT NULL,
+      used_order_id INT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_uc_customer (customer_id, status)
+    )
+  `);
+
+  // ບັນທຶກແຕ້ມທຸກຄັ້ງ (+ໄດ້ / -ແລກ) ແຕ້ມຄົງເຫຼືອ = SUM(points)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS points_ledger (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      customer_id INT NOT NULL,
+      order_id INT NULL,
+      points INT NOT NULL,
+      type VARCHAR(20) NOT NULL,
+      note VARCHAR(255) NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_pl_customer (customer_id),
+      UNIQUE KEY uq_pl_order_type (order_id, type)
+    ) CHARACTER SET utf8mb4
+  `);
+
+  await addColumnIfMissing('orders', 'user_coupon_id', 'INT NULL');
+  await addColumnIfMissing('orders', 'discount_amount', 'INT NOT NULL DEFAULT 0');
+
+  // ໃສ່ຄູປອງຕົວຢ່າງຄັ້ງທຳອິດເທົ່ານັ້ນ (ປັບຕົວເລກໄດ້ຕາມຕ້ອງການ)
+  const [cnt] = await pool.query('SELECT COUNT(*) AS c FROM coupons');
+  if (Number(cnt[0].c) === 0) {
+    await pool.query(
+      `INSERT INTO coupons (name, type, value, min_order, max_discount, points_cost, valid_days) VALUES
+       ('ລົດ 10,000 ກີບ', 'fixed', 10000, 100000, NULL, 20, 30),
+       ('ລົດ 50,000 ກີບ', 'fixed', 50000, 500000, NULL, 100, 30),
+       ('ລົດ 10%', 'percent', 10, 1000000, 200000, 300, 30)`
+    );
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS settings (
       \`key\` VARCHAR(100) PRIMARY KEY,

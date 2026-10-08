@@ -241,7 +241,7 @@ router.post('/change-pin', async (req, res) => {
 });
 
 /* ---------- ລຶບບັນຊີ ---------- */
-// ລຶບຂໍ້ມູນສ່ວນຕົວ (ທີ່ຢູ່, ຖືກໃຈ, ກະຕ່າ, ແຊັດ) ແລະ ປ່ຽນແຖວລູກຄ້າເປັນບັນຊີວ່າງ
+// ລຶບຂໍ້ມູນສ່ວນຕົວ (ທີ່ຢູ່, ຖືກໃຈ, ກະຕ່າ, ແຊັດ, ຄູປອງ, ແຕ້ມ) ແລະ ປ່ຽນແຖວລູກຄ້າເປັນບັນຊີວ່າງ
 // ແຕ່ຍັງເກັບປະຫວັດອໍເດີໄວ້ໃຫ້ຮ້ານ
 router.post('/delete', async (req, res) => {
   try {
@@ -266,6 +266,8 @@ router.post('/delete', async (req, res) => {
       await conn.query('DELETE FROM favorites WHERE customer_id = ?', [id]);
       await conn.query('DELETE FROM cart_items WHERE customer_id = ?', [id]);
       await conn.query('DELETE FROM messages WHERE customer_id = ?', [id]);
+      await conn.query('DELETE FROM user_coupons WHERE customer_id = ?', [id]);
+      await conn.query('DELETE FROM points_ledger WHERE customer_id = ?', [id]);
       await conn.query(
         `UPDATE customers
          SET phone = ?, pin_hash = ?, name = NULL, birth_date = NULL, deleted_at = NOW()

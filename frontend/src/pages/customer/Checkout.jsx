@@ -141,6 +141,22 @@ const css = `
 .co-col h2 { margin: 0 0 14px; font-size: 1.5em; }
 .co-stack { display: flex; flex-direction: column; gap: 12px; }
 
+/* ຄູປອງສ່ວນລົດ */
+.co-coupon {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+  padding: 11px 12px; margin-bottom: 8px; border: 1.5px solid var(--cust-border); border-radius: 12px;
+  background: #fff; cursor: pointer; text-align: left; font-family: inherit; color: var(--cust-text);
+}
+.co-coupon:last-child { margin-bottom: 0; }
+.co-coupon:hover:not(:disabled) { border-color: var(--gold); }
+.co-coupon.selected {
+  border-color: var(--gold); background: #fffaf0; box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.15);
+}
+.co-coupon:disabled { opacity: 0.5; cursor: not-allowed; }
+.co-coupon-name { font-weight: 700; font-size: 0.92rem; }
+.co-coupon-sub { font-size: 0.78rem; color: var(--cust-text-muted); margin-top: 2px; }
+.co-coupon-save { color: #b8862b; font-weight: 800; font-size: 0.9rem; white-space: nowrap; }
+
 /* ປຸ່ມເລືອກວິທີຊຳລະ */
 .co-pay { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
 .co-pay-opt {
@@ -229,6 +245,14 @@ const css = `
 
 function fmt(n) {
   return Number(n || 0).toLocaleString('en-US');
+}
+
+// ຄຳນວນສ່ວນລົດຄູປອງ (ໃຊ້ສະແດງຜົນເທົ່ານັ້ນ — backend ຄຳນວນຈິງຕອນສັ່ງຊື້ອີກຄັ້ງ)
+function calcDiscount(c, subtotal) {
+  if (!c || subtotal < c.min_order) return 0;
+  let d = c.type === 'percent' ? Math.floor((subtotal * c.value) / 100) : c.value;
+  if (c.type === 'percent' && c.max_discount) d = Math.min(d, c.max_discount);
+  return Math.min(d, subtotal);
 }
 
 function CarrierLogo({ carrier, size = 52 }) {
@@ -347,13 +371,18 @@ function CheckoutInner() {
   const [slipPreview, setSlipPreview] = useState('');
   const [confirming, setConfirming] = useState(false);
 
+  // ຄູປອງໃນກະເປົາຂອງລູກຄ້າ + ຄູປອງທີ່ເລືອກໃຊ້
+  const [coupons, setCoupons] = useState([]);
+  const [couponId, setCouponId] = useState(null);
+
   useEffect(() => {
     (async () => {
-      const [cartRes, meRes, qrRes, addrRes] = await Promise.all([
+      const [cartRes, meRes, qrRes, addrRes, cpRes] = await Promise.all([
         apiGet('/api/cart'),
         apiGet('/api/customer-auth/me'),
         apiGet('/api/settings/payment-qr'),
         apiGet('/api/customer-account/addresses'),
+        apiGet('/api/coupons/me'),
       ]);
 
       if (cartRes.ok && Array.isArray(cartRes.data.items)) {
@@ -376,6 +405,10 @@ function CheckoutInner() {
         setSavedAddrs(addrRes.data.addresses);
         const def = addrRes.data.addresses.find((a) => a.is_default) || addrRes.data.addresses[0];
         if (def) setAddress(def.address);
+      }
+
+      if (cpRes.ok && Array.isArray(cpRes.data.coupons)) {
+        setCoupons(cpRes.data.coupons);
       }
 
       if (qrRes.ok && qrRes.data.qrImage) {
@@ -451,7 +484,11 @@ function CheckoutInner() {
     );
   }
 
-  const total = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const selectedCoupon = coupons.find((c) => c.id === couponId);
+  const discount = selectedCoupon ? calcDiscount(selectedCoupon, subtotal) : 0;
+  const total = subtotal - discount; // ຍອດທີ່ຕ້ອງຈ່າຍຈິງ
+
   const carrierObj = CARRIERS.find((c) => c.key === carrier);
   const usesBranch = BRANCH_CARRIERS.includes(carrier);
   const selectedBranch = branches.find((b) => b.branch_id === branchId);
@@ -518,6 +555,7 @@ function CheckoutInner() {
       formData.append('customer_phone', cleanPhone);
       formData.append('carrier', carrier);
       formData.append('payment_method', payMethod);
+      if (couponId) formData.append('user_coupon_id', couponId);
       if (usesBranch) {
         formData.append('branch_id', branchId);
       } else {
@@ -535,7 +573,9 @@ function CheckoutInner() {
           .join('\n');
         const methodText = payMethod === 'cod' ? 'ເກັບເງິນປາຍທາງ (COD)' : 'ໂອນເງິນ';
         const orderMessage =
-          `ສັ່ງຊື້ໃໝ່:\n${itemLines}\nລວມ: ${total} ກີບ\n` +
+          `ສັ່ງຊື້ໃໝ່:\n${itemLines}\n` +
+          (discount > 0 ? `ຄູປອງ: ${selectedCoupon.name} (-${discount} ກີບ)\n` : '') +
+          `ລວມ: ${total} ກີບ\n` +
           `ຂົນສົ່ງ: ${carrierObj.name}\nວິທີຊຳລະ: ${methodText}\n` +
           `ເບີໂທ: ${cleanPhone}\n${usesBranch ? '' : 'ທີ່ຢູ່ຈັດສົ່ງ: '}${addrText}`;
 
@@ -605,7 +645,7 @@ function CheckoutInner() {
             </div>
             <div className="checkout-total">
               <span>ລວມທັງໝົດ</span>
-              <span>{fmt(total)} ກີບ</span>
+              <span>{fmt(subtotal)} ກີບ</span>
             </div>
 
             <div className="co-sec-title">ເລືອກຂົນສົ່ງ</div>
@@ -737,9 +777,41 @@ function CheckoutInner() {
                 </div>
               </div>
 
-              {/* ===== ຝັ່ງຂວາ: ຊຳລະເງິນ ===== */}
+              {/* ===== ຝັ່ງຂວາ: ຄູປອງ + ຊຳລະເງິນ ===== */}
               <div className="co-col">
                 <h2>ຊຳລະເງິນ</h2>
+
+                <div className="co-label" style={{ marginBottom: 8 }}>ຄູປອງສ່ວນລົດ</div>
+                <div className="co-card" style={{ marginBottom: 12 }}>
+                  {coupons.length === 0 ? (
+                    <div style={{ fontSize: '0.88rem', color: 'var(--cust-text-muted)' }}>
+                      ທ່ານຍັງບໍ່ມີຄູປອງ · ແລກແຕ້ມເປັນຄູປອງໄດ້ທີ່ໜ້າບັນຊີ
+                    </div>
+                  ) : (
+                    coupons.map((c) => {
+                      const ok = subtotal >= c.min_order;
+                      return (
+                        <button
+                          type="button"
+                          key={c.id}
+                          disabled={!ok}
+                          className={`co-coupon${couponId === c.id ? ' selected' : ''}`}
+                          onClick={() => setCouponId(couponId === c.id ? null : c.id)}
+                        >
+                          <div>
+                            <div className="co-coupon-name">{c.name}</div>
+                            <div className="co-coupon-sub">
+                              {ok
+                                ? `ໝົດອາຍຸ ${new Date(c.expires_at).toLocaleDateString('en-GB')}`
+                                : `ຕ້ອງສັ່ງຂັ້ນຕ່ຳ ${fmt(c.min_order)} ກີບ`}
+                            </div>
+                          </div>
+                          {ok && <span className="co-coupon-save">-{fmt(calcDiscount(c, subtotal))}</span>}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
 
                 <div className="co-pay">
                   <button
@@ -807,7 +879,9 @@ function CheckoutInner() {
             {/* ===== ແຖບຢືນຢັນ (ຕິດຂອບລຸ່ມຈໍ) ===== */}
             <div className="co-bar">
               <div className="co-bar-total">
-                <span className="co-bar-label">ລວມທັງໝົດ</span>
+                <span className="co-bar-label">
+                  {discount > 0 ? `ລວມ ${fmt(subtotal)} − ຄູປອງ ${fmt(discount)}` : 'ລວມທັງໝົດ'}
+                </span>
                 <span className="co-bar-amount">{fmt(total)} ກີບ</span>
               </div>
               <div className="co-bar-actions">

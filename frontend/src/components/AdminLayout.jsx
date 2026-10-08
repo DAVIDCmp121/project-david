@@ -2,17 +2,18 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { apiGet, apiPost } from '../api.js';
 
-// Layout ຫນາແອດມນ: ເຊັກ login (/api/auth/me), ໂຊວແຖບເທິງ + ເມນູ
-// ເມນູທີ່ມ adminOnly ຈະເຫນສະເພາະ role admin
+// Layout ໜ້າແອດມິນ: ເຊັກ login (/api/auth/me), ໂຊວ໌ແຖບເທິງ + ເມນູ
+// ເມນູທີ່ມີ adminOnly ຈະເຫັນສະເພາະ role admin
 
 const NAV_ITEMS = [
-  { key: 'products', label: 'ສິນຄາ', href: '/admin' },
-  { key: 'orders', label: 'ຄຳສງຊື', href: '/admin/orders' },
+  { key: 'products', label: 'ສິນຄ້າ', href: '/admin' },
+  { key: 'orders', label: 'ຄຳສັ່ງຊື້', href: '/admin/orders' },
   { key: 'qrcode', label: 'QR Code', href: '/admin/qrcode' },
   { key: 'banners', label: 'ແບນເນີ', href: '/admin/banners' },
+  { key: 'coupons', label: 'ຄູປອງ', href: '/admin/coupons' },
   { key: 'chat', label: 'ແຊັດ', href: '/admin/chat' },
   { key: 'customers', label: 'ລູກຄ້າ', href: '/admin/customers' },
-  { key: 'staff', label: 'ພະນກງານ', href: '/admin/staff', adminOnly: true },
+  { key: 'staff', label: 'ພະນັກງານ', href: '/admin/staff', adminOnly: true },
 ];
 
 export default function AdminLayout({ children, active }) {

@@ -12,6 +12,7 @@ import ProfileInfo from './pages/customer/ProfileInfo.jsx';
 import Addresses from './pages/customer/Addresses.jsx';
 import AccountSecurity from './pages/customer/AccountSecurity.jsx';
 import Favorites from './pages/customer/Favorites.jsx';
+import Coupons from './pages/customer/Coupons.jsx';
 
 import AdminLogin from './pages/admin/AdminLogin.jsx';
 import AdminProducts from './pages/admin/AdminProducts.jsx';
@@ -21,6 +22,7 @@ import AdminChat from './pages/admin/AdminChat.jsx';
 import AdminCustomers from './pages/admin/AdminCustomers.jsx';
 import AdminStaff from './pages/admin/AdminStaff.jsx';
 import AdminBanners from './pages/admin/AdminBanners.jsx';
+import AdminCoupons from './pages/admin/AdminCoupons.jsx';
 import AdminLayout from './components/AdminLayout.jsx';
 
 import StaffLogin from './pages/staff/StaffLogin.jsx';
@@ -42,6 +44,7 @@ export default function App() {
       <Route path="/menu/profile/info" element={<ProfileInfo />} />
       <Route path="/menu/profile/addresses" element={<Addresses />} />
       <Route path="/menu/profile/security" element={<AccountSecurity />} />
+      <Route path="/menu/profile/coupons" element={<Coupons />} />
       <Route path="/menu/favorites" element={<Favorites />} />
 
       {/* ---------- ຝັ່ງພະນັກງານ ---------- */}
@@ -78,6 +81,14 @@ export default function App() {
         element={
           <AdminLayout active="banners">
             <AdminBanners />
+          </AdminLayout>
+        }
+      />
+      <Route
+        path="/admin/coupons"
+        element={
+          <AdminLayout active="coupons">
+            <AdminCoupons />
           </AdminLayout>
         }
       />

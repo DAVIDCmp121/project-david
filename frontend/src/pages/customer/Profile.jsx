@@ -75,6 +75,12 @@ const IconShield = ({ color = 'currentColor', size = 21 }) => (
     <path d="m9 12 2 2 4-4" />
   </svg>
 );
+const IconTicket = ({ color = 'currentColor', size = 21 }) => (
+  <svg {...sv} width={size} height={size} stroke={color}>
+    <path d="M3 9a2 2 0 0 0 0 6v3a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-6V6a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1z" />
+    <path d="M14 5v14" strokeDasharray="2 3" />
+  </svg>
+);
 const IconMoon = ({ color = 'currentColor', size = 21 }) => (
   <svg {...sv} width={size} height={size} stroke={color}>
     <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
@@ -133,6 +139,16 @@ const css = `
 .pf-bar { height: 6px; border-radius: 999px; background: var(--cust-bar-bg); margin-top: 10px; overflow: hidden; }
 .pf-bar-fill { height: 100%; border-radius: 999px; background: var(--gold); }
 .pf-tier-note { margin-top: 6px; font-size: 0.78rem; color: var(--cust-text-muted); line-height: 1.4; }
+
+/* ແຕ້ມສະສົມ */
+.pf-points {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
+  margin-top: 12px; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--cust-border);
+  background: var(--cust-surface-soft); cursor: pointer; font-family: inherit; text-align: left;
+}
+.pf-points:hover { border-color: var(--gold); }
+.pf-points-lb { font-size: 0.85rem; color: var(--cust-text-muted); }
+.pf-points-num { font-size: 1.05rem; font-weight: 800; color: var(--cust-gold-text); }
 
 /* ສະຖິຕິສະຫຼຸບ */
 .pf-stats {
@@ -225,7 +241,7 @@ function ThemeRow({ isDark, onToggle }) {
   );
 }
 
-function TierBlock({ spent }) {
+function TierBlock({ spent, points, onOpenPoints }) {
   let idx = 0;
   TIERS.forEach((t, i) => {
     if (spent >= t.min) idx = i;
@@ -248,6 +264,13 @@ function TierBlock({ spent }) {
           ? `ຍັງຂາດ ${fmt(next.min - spent)} ກີບ ເພື່ອເປັນ ${next.name}`
           : 'ທ່ານຢູ່ລະດັບສູງສຸດແລ້ວ'}
       </div>
+
+      {points !== null && (
+        <button className="pf-points" onClick={onOpenPoints}>
+          <span className="pf-points-lb">ແຕ້ມສະສົມ · ແລກເປັນຄູປອງ</span>
+          <span className="pf-points-num">{fmt(points)} ແຕ້ມ</span>
+        </button>
+      )}
     </div>
   );
 }
@@ -256,6 +279,7 @@ function ProfileInner() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null); // { name, phone }
   const [stats, setStats] = useState(null); // { total, inProgress, delivered, spent }
+  const [loyalty, setLoyalty] = useState(null); // { points, coupons }
   const [theme, setTheme] = useState(getSavedTheme); // 'light' | 'dark'
 
   // ສະລັບທີມ ແລ້ວບັນທຶກໄວ້
@@ -268,9 +292,10 @@ function ProfileInner() {
   useEffect(() => {
     (async () => {
       try {
-        const [me, ord] = await Promise.all([
+        const [me, ord, loy] = await Promise.all([
           apiGet('/api/customer-auth/me'),
           apiGet('/api/customer/orders'),
+          apiGet('/api/coupons/me'),
         ]);
         if (me.status === 401) {
           navigate('/menu/login');
@@ -284,7 +309,14 @@ function ProfileInner() {
             total: list.length,
             inProgress: list.filter((o) => IN_PROGRESS.includes(o.order_status)).length,
             delivered: delivered.length,
-            spent: delivered.reduce((sum, o) => sum + (Number(o.total) || 0), 0),
+            // ນັບຍອດກ່ອນຫັກຄູປອງ (subtotal) ເພື່ອບໍ່ໃຫ້ການໃຊ້ຄູປອງເຮັດໃຫ້ເລື່ອນລະດັບຊ້າລົງ
+            spent: delivered.reduce((sum, o) => sum + (Number(o.subtotal ?? o.total) || 0), 0),
+          });
+        }
+        if (loy.ok) {
+          setLoyalty({
+            points: Number(loy.data.points) || 0,
+            coupons: Array.isArray(loy.data.coupons) ? loy.data.coupons.length : 0,
           });
         }
       } catch (err) {
@@ -332,6 +364,19 @@ function ProfileInner() {
       ],
     },
     {
+      title: 'ສິດທິພິເສດ',
+      items: [
+        {
+          icon: <Circle><IconTicket /></Circle>,
+          label: 'ຄູປອງ ແລະ ແຕ້ມ',
+          sub: loyalty
+            ? `ແຕ້ມ ${fmt(loyalty.points)} · ຄູປອງ ${fmt(loyalty.coupons)} ໃບ`
+            : 'ແລກແຕ້ມເປັນຄູປອງສ່ວນຫຼຸດ',
+          to: '/menu/profile/coupons',
+        },
+      ],
+    },
+    {
       title: 'ຄວາມປອດໄພ',
       items: [
         {
@@ -370,7 +415,13 @@ function ProfileInner() {
             <span className="pf-edit">ແກ້ໄຂ</span>
           </button>
 
-          {stats && <TierBlock spent={stats.spent} />}
+          {stats && (
+            <TierBlock
+              spent={stats.spent}
+              points={loyalty ? loyalty.points : null}
+              onOpenPoints={() => navigate('/menu/profile/coupons')}
+            />
+          )}
 
           <div className="pf-stats">
             <div className="pf-stat">
