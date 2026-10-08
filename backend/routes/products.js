@@ -4,10 +4,15 @@ const { pool } = require('../db');
 const multer = require('multer');
 const path = require('path');
 const requireAuth = require('../middleware/requireAuth');
+const {
+  PRODUCT_EXTRA_COLUMNS,
+  getBestsellerThreshold,
+  decorateProduct,
+  parseMarketingFields,
+} = require('../utils/pricing');
 
 const MAX_IMAGES = 6;
 
-// ตั้งค่า multer ให้เก็บไฟล์ที่ public/uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, path.join(__dirname, '../public/uploads'));
@@ -62,6 +67,12 @@ function cleanSizeChart(raw) {
   return JSON.stringify(rows);
 }
 
+function cleanCategory(raw) {
+  if (raw === undefined) return undefined;
+  const v = String(raw).trim().slice(0, 100);
+  return v === '' ? null : v;
+}
+
 function buildImageList(req) {
   const files = req.files || [];
   if (req.body.image_order === undefined) {
@@ -97,19 +108,21 @@ async function saveImages(productId, images) {
   await pool.query('UPDATE products SET image = ? WHERE id = ?', [images[0] || '', productId]);
 }
 
-// ດຶງສິນຄ້າທັງໝົດ (ທຸກຄົນດູໄດ້ ບໍ່ຕ້ອງ login) — ✅ ໃໝ່: ຮຽງຕາມ sort_order
 router.get('/', async (req, res) => {
   try {
-    const [products] = await pool.query('SELECT * FROM products ORDER BY sort_order ASC, id ASC');
-    res.json(products);
+    const threshold = await getBestsellerThreshold();
+    const [rows] = await pool.query(
+      `SELECT products.*, ${PRODUCT_EXTRA_COLUMNS}
+       FROM products
+       ORDER BY products.sort_order ASC, products.id ASC`
+    );
+    res.json(rows.map((p) => decorateProduct(p, threshold)));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'ດຶງຂໍ້ມູນສິນຄ້າບໍ່ສຳເລັດ' });
   }
 });
 
-// ✅ ໃໝ່: ບັນທຶກລຳດັບການສະແດງສິນຄ້າ (ລາກສະຫຼັບໃນໜ້າແອັດມິນ)
-// ຕ້ອງຢູ່ກ່ອນ router.put('/:id', ...) ບໍ່ດັ່ງນັ້ນ Express ຈະຈັບ 'reorder' ເປັນ :id
 router.put('/reorder', requireAuth, async (req, res) => {
   try {
     const { ids } = req.body;
@@ -126,10 +139,35 @@ router.put('/reorder', requireAuth, async (req, res) => {
   }
 });
 
+router.get('/bestseller-threshold', async (req, res) => {
+  res.json({ threshold: await getBestsellerThreshold() });
+});
+
+router.put('/bestseller-threshold', requireAuth, async (req, res) => {
+  try {
+    const n = parseInt(req.body.threshold, 10);
+    if (!Number.isInteger(n) || n < 1 || n > 100000) {
+      return res.status(400).json({ error: 'ຕົວເລກບໍ່ຖືກຕ້ອງ' });
+    }
+    await pool.query(
+      "INSERT INTO settings (`key`, value) VALUES ('bestseller_threshold', ?) ON DUPLICATE KEY UPDATE value = VALUES(value)",
+      [String(n)]
+    );
+    res.json({ success: true, threshold: n });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'ບັນທຶກບໍ່ສຳເລັດ' });
+  }
+});
+
 router.get('/:id', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM products WHERE id = ?', [req.params.id]);
-    const product = rows[0];
+    const threshold = await getBestsellerThreshold();
+    const [rows] = await pool.query(
+      `SELECT products.*, ${PRODUCT_EXTRA_COLUMNS} FROM products WHERE products.id = ?`,
+      [req.params.id]
+    );
+    const product = rows[0] ? decorateProduct(rows[0], threshold) : undefined;
     if (!product) {
       return res.status(404).json({ error: 'ບໍ່ພົບສິນຄ້ານີ້' });
     }
@@ -160,13 +198,22 @@ router.post('/', requireAuth, uploadImages, async (req, res) => {
       return res.status(400).json({ error: `ອັບໂຫລດໄດ້ສູງສຸດ ${MAX_IMAGES} ຮູບ` });
     }
     const sizeChart = cleanSizeChart(req.body.size_chart) || '[]';
+    const category = cleanCategory(req.body.category);
+
+    const mk = parseMarketingFields(req.body, Number(price));
+    if (mk.error) return res.status(400).json({ error: mk.error });
+    const m = mk.fields;
 
     const [result] = await pool.query(
-      `INSERT INTO products (name, price, size, color, stock, image, description, size_chart)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, price, size || '', color || '', stock || 0, images[0] || '', description || '', sizeChart]
+      `INSERT INTO products (name, price, size, color, stock, image, description, size_chart, category,
+                             promo_active, promo_price, promo_start, promo_end, bestseller_mode)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, price, size || '', color || '', stock || 0, images[0] || '', description || '', sizeChart, category ?? null,
+       m.promo_active ?? 0, m.promo_price ?? null, m.promo_start ?? null, m.promo_end ?? null, m.bestseller_mode ?? 'auto']
     );
     await saveImages(result.insertId, images);
+    const sizeSelectable = ['1', 'true', 1, true].includes(req.body.size_selectable) ? 1 : 0;
+    await pool.query('UPDATE products SET size_selectable = ? WHERE id = ?', [sizeSelectable, result.insertId]);
 
     res.json({ id: result.insertId });
   } catch (err) {
@@ -175,18 +222,60 @@ router.post('/', requireAuth, uploadImages, async (req, res) => {
   }
 });
 
+// ລຶບສິນຄ້າ
+// - ຫາທຸກຕາຕະລາງທີ່ອ້າງອີງ products ເອງ (foreign key)
+// - ຕາຕະລາງກະຕ່າ / ສິນຄ້າທີ່ຖືກໃຈ: ລ້າງໃຫ້ອັດຕະໂນມັດ
+// - ຕາຕະລາງອື່ນທີ່ຍັງມີຂໍ້ມູນ: ບໍ່ລຶບ ແລ້ວບອກຊື່ຕາຕະລາງໃຫ້ເຫັນ
+// - ທຸກຢ່າງຢູ່ໃນ transaction ຖ້າພາດຈະບໍ່ລຶບຫຍັງເລີຍ
 router.delete('/:id', requireAuth, async (req, res) => {
+  const conn = await pool.getConnection();
   try {
     const productId = req.params.id;
+    await conn.beginTransaction();
 
-    await pool.query('DELETE FROM orders WHERE product_id = ?', [productId]);
-    await pool.query('DELETE FROM product_images WHERE product_id = ?', [productId]);
-    await pool.query('DELETE FROM products WHERE id = ?', [productId]);
+    const [refs] = await conn.query(
+      `SELECT TABLE_NAME AS tbl, COLUMN_NAME AS col
+       FROM information_schema.KEY_COLUMN_USAGE
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND REFERENCED_TABLE_NAME = 'products'
+         AND REFERENCED_COLUMN_NAME = 'id'`
+    );
 
+    for (const r of refs) {
+      // orders ແລະ product_images ລຶບຢູ່ດ້ານລຸ່ມຢູ່ແລ້ວ
+      if (r.tbl === 'orders' || r.tbl === 'product_images') continue;
+
+      if (/cart|favorite|wish/i.test(r.tbl)) {
+        await conn.query(`DELETE FROM \`${r.tbl}\` WHERE \`${r.col}\` = ?`, [productId]);
+      } else {
+        const [[row]] = await conn.query(
+          `SELECT COUNT(*) AS n FROM \`${r.tbl}\` WHERE \`${r.col}\` = ?`,
+          [productId]
+        );
+        if (row.n > 0) {
+          await conn.rollback();
+          return res.status(409).json({
+            error: `ລຶບບໍ່ໄດ້: ສິນຄ້ານີ້ຍັງຖືກໃຊ້ໃນຕາຕະລາງ ${r.tbl} (${row.n} ແຖວ)`,
+          });
+        }
+      }
+    }
+
+    await conn.query('DELETE FROM orders WHERE product_id = ?', [productId]);
+    await conn.query('DELETE FROM product_images WHERE product_id = ?', [productId]);
+    await conn.query('DELETE FROM products WHERE id = ?', [productId]);
+
+    await conn.commit();
     res.json({ success: true });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'ລຶບສິນຄ້າບໍ່ສຳເລັດ' });
+    try { await conn.rollback(); } catch (e) {}
+    console.error('DELETE PRODUCT ERROR:', err.code, err.sqlMessage || err.message);
+    res.status(500).json({
+      error: 'ລຶບສິນຄ້າບໍ່ສຳເລັດ',
+      detail: err.sqlMessage || err.message,
+    });
+  } finally {
+    conn.release();
   }
 });
 
@@ -203,6 +292,19 @@ router.put('/:id', requireAuth, uploadImages, async (req, res) => {
     if (color !== undefined) { fields.push('color = ?'); values.push(color); }
     if (stock !== undefined) { fields.push('stock = ?'); values.push(stock); }
     if (description !== undefined) { fields.push('description = ?'); values.push(description); }
+    if (req.body.size_selectable !== undefined) {
+      fields.push('size_selectable = ?');
+      values.push(['1', 'true', 1, true].includes(req.body.size_selectable) ? 1 : 0);
+    }
+    const mk = parseMarketingFields(req.body, price !== undefined ? Number(price) : null);
+    if (mk.error) return res.status(400).json({ error: mk.error });
+    for (const [k, v] of Object.entries(mk.fields)) {
+      fields.push(`${k} = ?`);
+      values.push(v);
+    }
+
+    const category = cleanCategory(req.body.category);
+    if (category !== undefined) { fields.push('category = ?'); values.push(category); }
 
     const sizeChart = cleanSizeChart(req.body.size_chart);
     if (sizeChart !== undefined) { fields.push('size_chart = ?'); values.push(sizeChart); }

@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { apiPost, saveToken } from '../../api.js';
+import LoginShell, { UserIcon, LockIcon, EyeIcon } from '../../components/LoginShell.jsx';
 
 export default function AdminLogin() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
   async function login() {
@@ -12,7 +14,7 @@ export default function AdminLogin() {
       const { ok, data } = await apiPost('/api/auth/login', { username, password });
 
       if (ok && data.success) {
-        saveToken(data.token); // ✅ ໃໝ່: ເກັບ token ໄວ້ໃນ localStorage
+        saveToken(data.token);
         window.location.href = '/admin';
       } else {
         setError(data.error || 'ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ');
@@ -24,21 +26,30 @@ export default function AdminLogin() {
   }
 
   return (
-    <div className="admin-login-shell">
-      <main className="admin-login-box">
-        <div className="lock-icon">🔒</div>
-        <h1>ເຂົ້າສູ່ລະບົບແອດມິນ</h1>
+    <LoginShell
+      badge="ສຳລັບແອດມິນ"
+      subtitle="ກະລຸນາເຂົ້າສູ່ລະບົບເພື່ອຈັດການຮ້ານ"
+    >
+      <div className="lg-field">
+        <span className="lg-field-icon"><UserIcon /></span>
         <input type="text" placeholder="ຊື່ຜູ້ໃຊ້" value={username} onChange={(e) => setUsername(e.target.value)} />
+      </div>
+      <div className="lg-field">
+        <span className="lg-field-icon"><LockIcon /></span>
         <input
-          type="password"
+          type={showPassword ? 'text' : 'password'}
           placeholder="ລະຫັດຜ່ານ"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') login(); }}
         />
-        <button onClick={login}>ເຂົ້າສູ່ລະບົບ</button>
-        <p style={{ color: '#7A2039' }}>{error}</p>
-      </main>
-    </div>
+        <button type="button" className="lg-eye-btn" onClick={() => setShowPassword((v) => !v)} aria-label="ສະແດງ/ເຊື່ອງລະຫັດຜ່ານ">
+          <EyeIcon off={showPassword} />
+        </button>
+      </div>
+
+      <button className="lg-submit" onClick={login}>ເຂົ້າສູ່ລະບົບ</button>
+      <div className="lg-error">{error}</div>
+    </LoginShell>
   );
 }

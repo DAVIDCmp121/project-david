@@ -1,16 +1,19 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiGet, apiPost, saveToken } from '../../api.js';
-import BottomNav from '../../components/BottomNav.jsx';
-import { CartProvider } from '../../context/CartContext.jsx';
+import LoginShell, {
+  PhoneIcon, LockIcon, UserIcon, CalendarIcon, EyeIcon,
+} from '../../components/LoginShell.jsx';
 
-function CustomerLoginInner() {
+export default function CustomerLogin() {
   const [tab, setTab] = useState('login');
   const [loginPhone, setLoginPhone] = useState('');
   const [loginPin, setLoginPin] = useState('');
+  const [showLoginPin, setShowLoginPin] = useState(false);
   const [regName, setRegName] = useState('');
   const [regPhone, setRegPhone] = useState('');
   const [regPin, setRegPin] = useState('');
+  const [showRegPin, setShowRegPin] = useState(false);
   const [regBirthDate, setRegBirthDate] = useState('');
   const [authError, setAuthError] = useState('');
 
@@ -35,32 +38,32 @@ function CustomerLoginInner() {
   async function submitLogin() {
     setAuthError('');
     if (!loginPhone || !loginPin) {
-      setAuthError('ກະລຸນາປອນເບໂທ ແລະ PIN');
+      setAuthError('ກະລຸນາປ້ອນເບີໂທ ແລະ PIN');
       return;
     }
     const { data } = await apiPost('/api/customer-auth/login', { phone: loginPhone, pin: loginPin });
     if (data.success) {
-      saveToken(data.token); // ✅ ໃໝ
+      saveToken(data.token);
       navigate('/menu');
     } else {
-      setAuthError(data.error || 'ເຂາສູ່ລະບົບບສເລດ');
+      setAuthError(data.error || 'ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ');
     }
   }
 
   async function submitRegister() {
     setAuthError('');
     if (!regPhone || !regPin || !regBirthDate) {
-      setAuthError('ກະລນາປອນເບໂທ, PIN ແລະ ວນເດອນປເກດ');
+      setAuthError('ກະລຸນາປ້ອນເບີໂທ, PIN ແລະ ວັນເດືອນປີເກີດ');
       return;
     }
     const { data } = await apiPost('/api/customer-auth/register', {
       phone: regPhone, pin: regPin, name: regName, birth_date: regBirthDate,
     });
     if (data.success) {
-      saveToken(data.token); // ✅ ໃໝ່
+      saveToken(data.token);
       navigate('/menu');
     } else {
-      setAuthError(data.error || 'ສະໝກສະມາຊິກບສເລດ');
+      setAuthError(data.error || 'ສະໝັກສະມາຊິກບໍ່ສຳເລັດ');
     }
   }
 
@@ -68,11 +71,11 @@ function CustomerLoginInner() {
     setFpError('');
     setFpSuccess('');
     if (!fpPhone || !fpBirthDate || !fpNewPin || !fpNewPinConfirm) {
-      setFpError('ກະລນາປອນຂມນໃຫຄົບ');
+      setFpError('ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບ');
       return;
     }
     if (fpNewPin !== fpNewPinConfirm) {
-      setFpError('PIN ໃໝ ແລະ ຢນຢນ PIN ບຕງກັນ');
+      setFpError('PIN ໃໝ່ ແລະ ຢືນຢັນ PIN ບໍ່ຕົງກັນ');
       return;
     }
     const res = await fetch('/api/customer-auth/forgot-pin', {
@@ -82,52 +85,86 @@ function CustomerLoginInner() {
     });
     const data = await res.json();
     if (data.success) {
-      setFpSuccess(data.message || 'ຕງ PIN ໃໝສເລັດ');
+      setFpSuccess(data.message || 'ຕັ້ງ PIN ໃໝ່ສຳເລັດ');
       setTimeout(() => {
         setForgotOpen(false);
         setLoginPhone(fpPhone);
       }, 1500);
     } else {
-      setFpError(data.error || 'ຣເຊັດ PIN ບສເລດ');
+      setFpError(data.error || 'ຣີເຊັດ PIN ບໍ່ສຳເລັດ');
     }
   }
 
+  const footer =
+    tab === 'login' ? (
+      <>ຍັງບໍ່ມີບັນຊີ? <button onClick={() => { setTab('register'); setAuthError(''); }}>ສ້າງບັນຊີໃໝ່</button></>
+    ) : (
+      <>ມີບັນຊີແລ້ວ? <button onClick={() => { setTab('login'); setAuthError(''); }}>ເຂົ້າສູ່ລະບົບ</button></>
+    );
+
   return (
-    <div className="customer-shell">
-      <div className="auth-modal">
-        <h1>POLO SHOP</h1>
-        <p className="sub">ກະລຸນາເຂົ້າສູ່ລະບົບເພື່ອເຂົ້າໜ້າຮ້ານ</p>
-
-        <div className="auth-tabs">
-          <button className={`auth-tab ${tab === 'login' ? 'active' : ''}`} onClick={() => { setTab('login'); setAuthError(''); }}>
-            ເຂົ້າສູ່ລະບົບ
-          </button>
-          <button className={`auth-tab ${tab === 'register' ? 'active' : ''}`} onClick={() => { setTab('register'); setAuthError(''); }}>
-            ສະໝັກສະມາຊິກ
-          </button>
-        </div>
-
+    <>
+      <LoginShell
+        badge="ສຳລັບລູກຄ້າ"
+        subtitle={tab === 'login' ? 'ກະລຸນາເຂົ້າສູ່ລະບົບເພື່ອເຂົ້າໜ້າຮ້ານ' : 'ສະໝັກສະມາຊິກໃໝ່ເພື່ອເລີ່ມຊື້ເຄື່ອງ'}
+        footer={footer}
+      >
         {tab === 'login' && (
-          <div className="auth-form">
-            <input type="tel" placeholder="ເບີໂທລະສັບ" value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} />
-            <input type="password" placeholder="ລະຫັດ PIN" value={loginPin} onChange={(e) => setLoginPin(e.target.value)} />
-            <button className="auth-submit" onClick={submitLogin}>ເຂົ້າສູ່ລະບົບ</button>
-            <p className="forgot-link" onClick={() => setForgotOpen(true)}>ລືມ PIN?</p>
-          </div>
+          <>
+            <div className="lg-field">
+              <span className="lg-field-icon"><PhoneIcon /></span>
+              <input type="tel" placeholder="ເບີໂທລະສັບ" value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} />
+            </div>
+            <div className="lg-field">
+              <span className="lg-field-icon"><LockIcon /></span>
+              <input
+                type={showLoginPin ? 'text' : 'password'}
+                placeholder="ລະຫັດ PIN"
+                value={loginPin}
+                onChange={(e) => setLoginPin(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') submitLogin(); }}
+              />
+              <button type="button" className="lg-eye-btn" onClick={() => setShowLoginPin((v) => !v)} aria-label="ສະແດງ/ເຊື່ອງ PIN">
+                <EyeIcon off={showLoginPin} />
+              </button>
+            </div>
+            <button className="lg-submit" onClick={submitLogin}>ເຂົ້າສູ່ລະບົບ</button>
+            <p className="lg-forgot" onClick={() => setForgotOpen(true)}>ລືມ PIN?</p>
+          </>
         )}
 
         {tab === 'register' && (
-          <div className="auth-form">
-            <input type="text" placeholder="ຊື່ (ບໍ່ບັງຄັບ)" value={regName} onChange={(e) => setRegName(e.target.value)} />
-            <input type="tel" placeholder="ເບີໂທລະສັບ" value={regPhone} onChange={(e) => setRegPhone(e.target.value)} />
-            <input type="password" placeholder="ຕັ້ງລະຫັດ PIN (4-6 ໂຕເລກ)" value={regPin} onChange={(e) => setRegPin(e.target.value)} />
-            <input type="text" placeholder="ວັນເດືອນປີເກີດ (ໃຊ້ຢືນຢັນຕົວຕົນ)" value={regBirthDate} onChange={(e) => setRegBirthDate(e.target.value)} />
-            <button className="auth-submit" onClick={submitRegister}>ສະໝັກສະມາຊິກ</button>
-          </div>
+          <>
+            <div className="lg-field">
+              <span className="lg-field-icon"><UserIcon /></span>
+              <input type="text" placeholder="ຊື່ (ບໍ່ບັງຄັບ)" value={regName} onChange={(e) => setRegName(e.target.value)} />
+            </div>
+            <div className="lg-field">
+              <span className="lg-field-icon"><PhoneIcon /></span>
+              <input type="tel" placeholder="ເບີໂທລະສັບ" value={regPhone} onChange={(e) => setRegPhone(e.target.value)} />
+            </div>
+            <div className="lg-field">
+              <span className="lg-field-icon"><LockIcon /></span>
+              <input
+                type={showRegPin ? 'text' : 'password'}
+                placeholder="ຕັ້ງລະຫັດ PIN (4-6 ໂຕເລກ)"
+                value={regPin}
+                onChange={(e) => setRegPin(e.target.value)}
+              />
+              <button type="button" className="lg-eye-btn" onClick={() => setShowRegPin((v) => !v)} aria-label="ສະແດງ/ເຊື່ອງ PIN">
+                <EyeIcon off={showRegPin} />
+              </button>
+            </div>
+            <div className="lg-field">
+              <span className="lg-field-icon"><CalendarIcon /></span>
+              <input type="text" placeholder="ວັນເດືອນປີເກີດ (ໃຊ້ຢືນຢັນຕົວຕົນ)" value={regBirthDate} onChange={(e) => setRegBirthDate(e.target.value)} />
+            </div>
+            <button className="lg-submit" onClick={submitRegister}>ສະໝັກສະມາຊິກ</button>
+          </>
         )}
 
-        <div className="auth-error">{authError}</div>
-      </div>
+        <div className="lg-error">{authError}</div>
+      </LoginShell>
 
       {forgotOpen && (
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setForgotOpen(false); }}>
@@ -145,16 +182,6 @@ function CustomerLoginInner() {
           </div>
         </div>
       )}
-
-      <BottomNav />
-    </div>
-  );
-}
-
-export default function CustomerLogin() {
-  return (
-    <CartProvider>
-      <CustomerLoginInner />
-    </CartProvider>
+    </>
   );
 }

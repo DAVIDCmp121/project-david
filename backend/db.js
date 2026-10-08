@@ -14,7 +14,6 @@ const pool = mysql.createPool({
     : undefined,
 });
 
-// ✅ ໃໝ່: ເພີ່ມຄອລຳໃຫ້ຕາຕະລາງເດີມ ຖ້າຍັງບໍ່ມີ (ໃຊ້ໄດ້ທັງ MySQL ແລະ TiDB)
 async function addColumnIfMissing(table, column, definition) {
   const [rows] = await pool.query(
     `SELECT COUNT(*) AS c FROM information_schema.COLUMNS
@@ -23,6 +22,55 @@ async function addColumnIfMissing(table, column, definition) {
   );
   if (Number(rows[0].c) === 0) {
     await pool.query(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`);
+  }
+}
+async function tableExists(table) {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS c FROM information_schema.TABLES
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
+    [table]
+  );
+  return Number(rows[0].c) > 0;
+}
+
+// ເພີ່ມຄອລຳ size ໃຫ້ cart_items / order_items ແລະ ແກ້ unique key ຂອງຕະກຣ້າ
+// ໃຫ້ສິນຄ້າດຽວກັນແຕ່ຄົນລະໄຊສ໌ ໃສ່ໄດ້ຫຼາຍແຖວ
+async function migrateSizes() {
+  await addColumnIfMissing('products', 'size_selectable', 'TINYINT DEFAULT 0');
+
+  try {
+    if (await tableExists('order_items')) {
+      await addColumnIfMissing('order_items', 'size', "VARCHAR(50) NOT NULL DEFAULT ''");
+    }
+
+    if (await tableExists('cart_items')) {
+      await addColumnIfMissing('cart_items', 'size', "VARCHAR(50) NOT NULL DEFAULT ''");
+
+      const [uniq] = await pool.query(
+        `SELECT INDEX_NAME, GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX) AS cols
+         FROM information_schema.STATISTICS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'cart_items'
+           AND NON_UNIQUE = 0 AND INDEX_NAME <> 'PRIMARY'
+         GROUP BY INDEX_NAME`
+      );
+      const hasNew = uniq.some((u) => String(u.cols) === 'customer_id,product_id,size');
+      const oldOnes = uniq.filter((u) => String(u.cols) === 'customer_id,product_id');
+
+      if (!hasNew && oldOnes.length > 0) {
+        await pool.query(
+          'ALTER TABLE cart_items ADD UNIQUE INDEX uniq_cart_cust_prod_size (customer_id, product_id, size)'
+        );
+      }
+      for (const o of oldOnes) {
+        try {
+          await pool.query(`ALTER TABLE cart_items DROP INDEX \`${o.INDEX_NAME}\``);
+        } catch (e) {
+          console.warn('⚠️ ລຶບ unique key ເກົ່າບໍ່ໄດ້:', e.message);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('⚠️ migrateSizes:', err.message);
   }
 }
 
@@ -39,14 +87,16 @@ async function initDb() {
     )
   `);
 
-  // ✅ ໃໝ່: ລາຍລະອຽດສິນຄ້າ + ຕາຕະລາງຂະໜາດ (ເກັບເປັນ JSON text)
   await addColumnIfMissing('products', 'description', 'TEXT NULL');
   await addColumnIfMissing('products', 'size_chart', 'TEXT NULL');
-
-  // ✅ ໃໝ່: ລຳດັບການສະແດງສິນຄ້າ (ລາກສະຫຼັບໃນໜ້າແອັດມິນ)
   await addColumnIfMissing('products', 'sort_order', 'INT DEFAULT 0');
+  await addColumnIfMissing('products', 'category', 'VARCHAR(100) NULL');
+  await addColumnIfMissing('products', 'promo_price', 'DECIMAL(10,2) NULL');
+  await addColumnIfMissing('products', 'promo_active', 'TINYINT DEFAULT 0');
+  await addColumnIfMissing('products', 'promo_start', 'DATE NULL');
+  await addColumnIfMissing('products', 'promo_end', 'DATE NULL');
+  await addColumnIfMissing('products', 'bestseller_mode', "VARCHAR(10) DEFAULT 'auto'");
 
-  // ✅ ໃໝ່: ຮູບສິນຄ້າຫຼາຍຮູບ
   await pool.query(`
     CREATE TABLE IF NOT EXISTS product_images (
       id INT AUTO_INCREMENT PRIMARY KEY,
@@ -77,6 +127,43 @@ async function initDb() {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+  await addColumnIfMissing('customers', 'birth_date', 'DATE NULL');
+  await addColumnIfMissing('customers', 'deleted_at', 'DATETIME NULL');
+
+  // ທີ່ຢູ່ຈັດສົ່ງທີ່ລູກຄ້າບັນທຶກໄວ້ (ສູງສຸດ 5 ທີ່ຢູ່ຕໍ່ຄົນ, ຄວບຄຸມໃນ route)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS customer_addresses (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      customer_id INT NOT NULL,
+      label VARCHAR(50) NULL,
+      address TEXT NOT NULL,
+      is_default TINYINT DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_addr_customer (customer_id),
+      FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE
+    )
+  `);
+
+  // ສາຂາຂອງຂົນສົ່ງ (ຂໍ້ມູນມາຈາກ scripts/syncAnousith.js) — ໃຊ້ໃນ dropdown ແຂວງ → ເມືອງ → ສາຂາ
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS carrier_branches (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      carrier VARCHAR(30) NOT NULL,
+      branch_id VARCHAR(30) NOT NULL,
+      branch_code VARCHAR(50),
+      name VARCHAR(255),
+      address VARCHAR(500),
+      province_id VARCHAR(10),
+      province_name VARCHAR(100),
+      district_name VARCHAR(100),
+      phone VARCHAR(100),
+      lat VARCHAR(30),
+      lng VARCHAR(30),
+      active TINYINT DEFAULT 1,
+      synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_carrier_branch (carrier, branch_id)
+    ) CHARACTER SET utf8mb4
+  `);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS orders (
@@ -97,6 +184,18 @@ async function initDb() {
     )
   `);
 
+  // ຂົນສົ່ງທີ່ລູກຄ້າເລືອກ (anousith / hal / mixay) ແລະ ວິທີຊຳລະ (transfer = ໂອນເງິນ / cod = ເກັບເງິນປາຍທາງ)
+  await addColumnIfMissing('orders', 'carrier', 'VARCHAR(30) NULL');
+  await addColumnIfMissing('orders', 'payment_method', "VARCHAR(20) NOT NULL DEFAULT 'transfer'");
+
+  // ສາຂາຂົນສົ່ງທີ່ລູກຄ້າເລືອກ (ເກັບເປັນ snapshot ກັນສາຂາຖືກປ່ຽນຊື່/ປິດພາຍຫຼັງ)
+  await addColumnIfMissing('orders', 'branch_id', 'VARCHAR(30) NULL');
+  await addColumnIfMissing('orders', 'branch_code', 'VARCHAR(50) NULL');
+  await addColumnIfMissing('orders', 'branch_name', 'VARCHAR(255) NULL');
+  await addColumnIfMissing('orders', 'branch_phone', 'VARCHAR(100) NULL');
+  await addColumnIfMissing('orders', 'province_name', 'VARCHAR(100) NULL');
+  await addColumnIfMissing('orders', 'district_name', 'VARCHAR(100) NULL');
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS settings (
       \`key\` VARCHAR(100) PRIMARY KEY,
@@ -116,6 +215,31 @@ async function initDb() {
       FOREIGN KEY (customer_id) REFERENCES customers(id)
     )
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS favorites (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      customer_id INT NOT NULL,
+      product_id INT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_customer_product (customer_id, product_id),
+      FOREIGN KEY (customer_id) REFERENCES customers(id),
+      FOREIGN KEY (product_id) REFERENCES products(id)
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS banners (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      image_url VARCHAR(255) NOT NULL,
+      link_product_id INT NULL,
+      sort_order INT DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+  await addColumnIfMissing('banners', 'slot', "VARCHAR(20) DEFAULT 'main'");
+
+  await migrateSizes();
 
   console.log('✅ MySQL tables checked/created');
 }

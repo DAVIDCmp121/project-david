@@ -7,6 +7,11 @@ import Cart from './pages/customer/Cart.jsx';
 import Checkout from './pages/customer/Checkout.jsx';
 import CustomerOrders from './pages/customer/Orders.jsx';
 import CustomerChat from './pages/customer/Chat.jsx';
+import Profile from './pages/customer/Profile.jsx';
+import ProfileInfo from './pages/customer/ProfileInfo.jsx';
+import Addresses from './pages/customer/Addresses.jsx';
+import AccountSecurity from './pages/customer/AccountSecurity.jsx';
+import Favorites from './pages/customer/Favorites.jsx';
 
 import AdminLogin from './pages/admin/AdminLogin.jsx';
 import AdminProducts from './pages/admin/AdminProducts.jsx';
@@ -15,6 +20,7 @@ import AdminQrCode from './pages/admin/AdminQrCode.jsx';
 import AdminChat from './pages/admin/AdminChat.jsx';
 import AdminCustomers from './pages/admin/AdminCustomers.jsx';
 import AdminStaff from './pages/admin/AdminStaff.jsx';
+import AdminBanners from './pages/admin/AdminBanners.jsx';
 import AdminLayout from './components/AdminLayout.jsx';
 
 import StaffLogin from './pages/staff/StaffLogin.jsx';
@@ -32,6 +38,11 @@ export default function App() {
       <Route path="/menu/checkout" element={<Checkout />} />
       <Route path="/menu/orders" element={<CustomerOrders />} />
       <Route path="/menu/chat" element={<CustomerChat />} />
+      <Route path="/menu/profile" element={<Profile />} />
+      <Route path="/menu/profile/info" element={<ProfileInfo />} />
+      <Route path="/menu/profile/addresses" element={<Addresses />} />
+      <Route path="/menu/profile/security" element={<AccountSecurity />} />
+      <Route path="/menu/favorites" element={<Favorites />} />
 
       {/* ---------- ຝັ່ງພະນັກງານ ---------- */}
       <Route path="/staff/login" element={<StaffLogin />} />
@@ -59,6 +70,14 @@ export default function App() {
         element={
           <AdminLayout active="qrcode">
             <AdminQrCode />
+          </AdminLayout>
+        }
+      />
+      <Route
+        path="/admin/banners"
+        element={
+          <AdminLayout active="banners">
+            <AdminBanners />
           </AdminLayout>
         }
       />

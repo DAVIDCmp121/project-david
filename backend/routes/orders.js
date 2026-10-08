@@ -8,6 +8,7 @@ const Tesseract = require('tesseract.js');
 const requireAuth = require('../middleware/requireAuth');
 const requireCustomerAuth = require('../middleware/requireCustomerAuth');
 const sharp = require('sharp');
+const { EFFECTIVE_PRICE_SQL } = require('../utils/pricing');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -27,6 +28,30 @@ const SLIP_KEYWORDS = [
 ];
 
 const VALID_STATUSES = ['awaiting_review', 'confirmed', 'shipped', 'delivered'];
+
+// ຂົນສົ່ງ ແລະ ວິທີຊຳລະທີ່ຮອງຮັບ (key ຕ້ອງກົງກັບ Checkout.jsx)
+const VALID_CARRIERS = ['anousith', 'hal', 'mixay'];
+const VALID_PAYMENT_METHODS = ['transfer', 'cod'];
+// ຂົນສົ່ງທີ່ມີຂໍ້ມູນສາຂາ (ລູກຄ້າຕ້ອງເລືອກສາຂາ ແທນການພິມທີ່ຢູ່) — ຕ້ອງກົງກັບ routes/carriers.js
+const BRANCH_CARRIERS = ['anousith', 'hal'];
+
+function removeUploadedFile(file) {
+  if (!file) return;
+  try {
+    fs.unlinkSync(path.join(__dirname, '../public/uploads', file.filename));
+  } catch (e) {
+    // ບໍ່ມີໄຟລ໌ກໍ່ຂ້າມໄປ
+  }
+}
+
+// ສ້າງຂໍ້ຄວາມທີ່ຢູ່ຈາກສາຂາ (ເກັບໃນ customer_address ເພື່ອໃຫ້ໜ້າແອດມິນ/ແຊັດເກົ່າສະແດງໄດ້ເລີຍ)
+function buildBranchAddress(branch) {
+  const lines = [`ຮັບທີ່ສາຂາ: ${branch.name || ''}`];
+  if (branch.district_name) lines.push(`ເມືອງ: ${branch.district_name}`);
+  if (branch.province_name) lines.push(`ແຂວງ: ${branch.province_name}`);
+  if (branch.phone) lines.push(`ເບີສາຂາ: ${branch.phone}`);
+  return lines.join('\n');
+}
 
 function extractAmounts(text) {
   const matches = text.match(/\d[\d,.\s]{2,}\d/g) || [];
@@ -63,7 +88,7 @@ function extractBillNumber(text) {
   return null;
 }
 
-// ✅ ຍັງເກັບໄວ້ໃຫ້ /verify-slip ໃຊ້ (ອາດເອົາໄປໃຊ້ເປັນເຄື່ອງມືຊ່ວຍແອັດມິນພາຍຫຼັງ) — checkout ໃໝ່ບໍ່ເອີ້ນໃຊ້ຟັງຊັນນີ້ອີກຕໍ່ໄປ
+// ✅ ຍັງເກັບໄວ້ໃຫ້ /verify-slip ໃຊ້ (ອາດເອົາໄປໃຊ້ເປັນເຄື່ອງມືຊ່ວຍແອດມິນພາຍຫຼັງ) — checkout ໃໝ່ບໍ່ເອີ້ນໃຊ້ຟັງຊັນນີ້ອີກຕໍ່ໄປ
 async function checkSlip(buffer, expectedAmount) {
   try {
     const processedBuffer = await sharp(buffer)
@@ -112,7 +137,7 @@ async function checkSlip(buffer, expectedAmount) {
 // ✅ helper: ດຶງ cart ຂອງ customer ພ້ອມຂໍ້ມູນສິນຄ້າ ແລະ ຄຳນວນຍອດລວມ
 async function getCartWithTotal(customerId) {
   const [items] = await pool.query(
-    `SELECT cart_items.product_id, cart_items.quantity, products.price, products.stock, products.name
+    `SELECT cart_items.product_id, cart_items.quantity, cart_items.size, ${EFFECTIVE_PRICE_SQL} AS price, products.stock, products.name
      FROM cart_items
      JOIN products ON cart_items.product_id = products.id
      WHERE cart_items.customer_id = ?`,
@@ -136,7 +161,7 @@ router.get('/', requireAuth, async (req, res) => {
     const orderIds = orders.map(o => o.id);
     const [items] = await pool.query(
       `SELECT order_items.order_id, order_items.product_id, order_items.quantity,
-              order_items.price_at_order, products.name AS product_name
+              order_items.price_at_order, order_items.size, products.name AS product_name
        FROM order_items
        JOIN products ON order_items.product_id = products.id
        WHERE order_items.order_id IN (?)`,
@@ -176,47 +201,103 @@ router.post('/verify-slip', requireCustomerAuth, uploadMemory.single('slip'), as
   }
 });
 
-// ✅ ລູກຄ້າສັ່ງຊື້ — ສ້າງ order ຈາກ cart_items ທັງໝົດ, ບໍ່ກວດ OCR ອີກຕໍ່ໄປ (ແອັດມິນກວດສະລິບເອງພາຍຫຼັງ)
+// ✅ ລູກຄ້າສັ່ງຊື້ — ສ້າງ order ຈາກ cart_items ທັງໝົດ
+// ຮອງຮັບ: ເລືອກຂົນສົ່ງ (carrier) + ວິທີຊຳລະ (transfer = ໂອນເງິນຕ້ອງມີສະລິບ / cod = ເກັບເງິນປາຍທາງ ບໍ່ຕ້ອງມີສະລິບ)
+// ຂົນສົ່ງທີ່ມີຂໍ້ມູນສາຂາ (BRANCH_CARRIERS) ຕ້ອງສົ່ງ branch_id ມາ ແລ້ວ backend ຈະປະກອບທີ່ຢູ່ຈາກສາຂາເອງ
 router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) => {
   const connection = await pool.getConnection();
   try {
-    const { customer_phone, customer_address } = req.body;
+    const customer_phone = String(req.body.customer_phone || '').trim();
+    let customer_address = String(req.body.customer_address || '').trim();
+    const carrier = req.body.carrier;
+    const payment_method = req.body.payment_method || 'transfer';
+    const branch_id = String(req.body.branch_id || '').trim();
 
-    if (!customer_phone || !customer_address) {
-      return res.status(400).json({ error: 'ກະລຸນາໃສ່ເບີໂທ ແລະ ທີ່ຢູ່' });
+    if (!customer_phone) {
+      removeUploadedFile(req.file);
+      return res.status(400).json({ error: 'ກະລຸນາໃສ່ເບີໂທ' });
     }
-    if (!req.file) {
+    if (!VALID_CARRIERS.includes(carrier)) {
+      removeUploadedFile(req.file);
+      return res.status(400).json({ error: 'ກະລຸນາເລືອກຂົນສົ່ງ' });
+    }
+    if (!VALID_PAYMENT_METHODS.includes(payment_method)) {
+      removeUploadedFile(req.file);
+      return res.status(400).json({ error: 'ວິທີຊຳລະບໍ່ຖືກຕ້ອງ' });
+    }
+
+    // ສາຂາຂົນສົ່ງ: ກວດວ່າສາຂາມີຢູ່ຈິງ ແລະ ຍັງເປີດຢູ່
+    let branch = null;
+    if (BRANCH_CARRIERS.includes(carrier)) {
+      if (!branch_id) {
+        removeUploadedFile(req.file);
+        return res.status(400).json({ error: 'ກະລຸນາເລືອກສາຂາຂົນສົ່ງ' });
+      }
+      const [branchRows] = await pool.query(
+        'SELECT * FROM carrier_branches WHERE carrier = ? AND branch_id = ? AND active = 1',
+        [carrier, branch_id]
+      );
+      branch = branchRows[0];
+      if (!branch) {
+        removeUploadedFile(req.file);
+        return res.status(400).json({ error: 'ສາຂານີ້ບໍ່ມີໃນລະບົບ ກະລຸນາເລືອກສາຂາໃໝ່' });
+      }
+      customer_address = buildBranchAddress(branch);
+    } else if (!customer_address) {
+      removeUploadedFile(req.file);
+      return res.status(400).json({ error: 'ກະລຸນາໃສ່ທີ່ຢູ່' });
+    }
+
+    if (payment_method === 'transfer' && !req.file) {
       return res.status(400).json({ error: 'ກະລຸນາອັບໂຫລດຮູບສະລິບໂອນເງິນ' });
+    }
+    if (payment_method === 'cod') {
+      // COD ບໍ່ໃຊ້ສະລິບ — ຖ້າມີໄຟລ໌ຕິດມາ ໃຫ້ລຶບທິ້ງ
+      removeUploadedFile(req.file);
     }
 
     const { items } = await getCartWithTotal(req.customerId);
     if (items.length === 0) {
-      fs.unlinkSync(path.join(__dirname, '../public/uploads', req.file.filename));
+      removeUploadedFile(req.file);
       return res.status(400).json({ error: 'ກະຕ່າສິນຄ້າຫວ່າງເປົ່າ' });
     }
 
-    const outOfStock = items.find(item => item.stock < item.quantity);
+    const totalByProduct = {};
+    for (const item of items) {
+      totalByProduct[item.product_id] = (totalByProduct[item.product_id] || 0) + item.quantity;
+    }
+    const outOfStock = items.find(item => item.stock < totalByProduct[item.product_id]);
     if (outOfStock) {
-      fs.unlinkSync(path.join(__dirname, '../public/uploads', req.file.filename));
+      removeUploadedFile(req.file);
       return res.status(400).json({ error: `ສິນຄ້າ "${outOfStock.name}" ບໍ່ພໍ` });
     }
 
-    const slipImage = '/uploads/' + req.file.filename;
+    const slipImage = payment_method === 'transfer' ? '/uploads/' + req.file.filename : null;
 
     await connection.beginTransaction();
 
     const [insertResult] = await connection.query(
-      `INSERT INTO orders (customer_phone, customer_address, slip_image, customer_id, order_status)
-       VALUES (?, ?, ?, ?, 'awaiting_review')`,
-      [customer_phone, customer_address, slipImage, req.customerId]
+      `INSERT INTO orders
+        (customer_phone, customer_address, slip_image, customer_id, order_status, carrier, payment_method,
+         branch_id, branch_code, branch_name, branch_phone, province_name, district_name)
+       VALUES (?, ?, ?, ?, 'awaiting_review', ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        customer_phone, customer_address, slipImage, req.customerId, carrier, payment_method,
+        branch ? branch.branch_id : null,
+        branch ? branch.branch_code : null,
+        branch ? branch.name : null,
+        branch ? branch.phone : null,
+        branch ? branch.province_name : null,
+        branch ? branch.district_name : null,
+      ]
     );
     const orderId = insertResult.insertId;
 
     for (const item of items) {
       await connection.query(
-        `INSERT INTO order_items (order_id, product_id, quantity, price_at_order)
-         VALUES (?, ?, ?, ?)`,
-        [orderId, item.product_id, item.quantity, item.price]
+        `INSERT INTO order_items (order_id, product_id, quantity, price_at_order, size)
+         VALUES (?, ?, ?, ?, ?)`,
+        [orderId, item.product_id, item.quantity, item.price, item.size || '']
       );
       await connection.query('UPDATE products SET stock = stock - ? WHERE id = ?', [item.quantity, item.product_id]);
     }
@@ -224,9 +305,10 @@ router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) =>
     await connection.query('DELETE FROM cart_items WHERE customer_id = ?', [req.customerId]);
 
     await connection.commit();
-    res.json({ id: orderId, message: 'ສັ່ງຊື້ສຳເລັດ' });
+    res.json({ id: orderId, address: customer_address, message: 'ສັ່ງຊື້ສຳເລັດ' });
   } catch (err) {
     await connection.rollback();
+    removeUploadedFile(req.file);
     console.error(err);
     res.status(500).json({ error: 'ສັ່ງຊື້ບໍ່ສຳເລັດ' });
   } finally {

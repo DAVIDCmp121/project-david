@@ -29,6 +29,17 @@
   --text-mid: #6b7280;
 }
 
+
+
+/* ซ่อน scrollbar ทุกหน้า */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
 * { box-sizing: border-box; }
 
 body {

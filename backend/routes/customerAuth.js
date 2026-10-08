@@ -18,7 +18,7 @@ const COOKIE_OPTIONS = {
 router.post('/check-phone', async (req, res) => {
   const { phone } = req.body;
   if (!phone) {
-    return res.status(400).json({ error: 'ກະລນາປອນເບໂທ' });
+    return res.status(400).json({ error: 'ກະລຸນາປ້ອນເບີໂທ' });
   }
 
   const [rows] = await pool.query('SELECT id FROM customers WHERE phone = ?', [phone]);
@@ -29,18 +29,18 @@ router.post('/register', async (req, res) => {
   const { phone, pin, name, birth_date } = req.body;
 
   if (!phone || !pin) {
-    return res.status(400).json({ error: 'ກະລນາປອນເບໂທ ແລະ PIN' });
+    return res.status(400).json({ error: 'ກະລຸນາປ້ອນເບີໂທ ແລະ PIN' });
   }
   if (pin.length < 4 || pin.length > 6) {
     return res.status(400).json({ error: 'PIN ຕ້ອງມີ 4-6 ໂຕເລກ' });
   }
   if (!birth_date) {
-    return res.status(400).json({ error: 'ກະລຸນາປ້ອນວັນເດືອນປີເກີດ (ໃຊຢນຢນຕວຕນເວລາລມ PIN)' });
+    return res.status(400).json({ error: 'ກະລຸນາປ້ອນວັນເດືອນປີເກີດ (ໃຊ້ຢືນຢັນຕົວຕົນເວລາລືມ PIN)' });
   }
 
   const [existingRows] = await pool.query('SELECT id FROM customers WHERE phone = ?', [phone]);
   if (existingRows.length > 0) {
-    return res.status(409).json({ error: 'ເບໂທນສະໝກແລວ ກະລນາເຂາສລະບບແທນ' });
+    return res.status(409).json({ error: 'ເບີໂທນີ້ສະໝັກແລ້ວ ກະລຸນາເຂົ້າສູ່ລະບົບແທນ' });
   }
 
   const pinHash = await bcrypt.hash(pin, 10);
@@ -57,7 +57,7 @@ router.post('/register', async (req, res) => {
     maxAge: 90 * 24 * 60 * 60 * 1000
   });
 
-  // ✅ ໃໝ່: ສົ່ງ token ກັບໄປໃນ response body ນຳ ເພື່ອໃຫ້ frontend ເກັບໄວ້ໃນ localStorage
+  // ສົ່ງ token ກັບໄປໃນ response body ນຳ ເພື່ອໃຫ້ frontend ເກັບໄວ້ໃນ localStorage
   res.json({ success: true, customerId, token });
 });
 
@@ -65,14 +65,14 @@ router.post('/login', async (req, res) => {
   const { phone, pin } = req.body;
 
   if (!phone || !pin) {
-    return res.status(400).json({ error: 'ກະລນາປອນເບໂທ ແລະ PIN' });
+    return res.status(400).json({ error: 'ກະລຸນາປ້ອນເບີໂທ ແລະ PIN' });
   }
 
   const lockKey = `customer-login:${phone}`;
   const lockStatus = checkLocked(lockKey);
   if (lockStatus.locked) {
     return res.status(429).json({
-      error: `ພະຍາຍາມຫາຍເກນໄປ ກະລນາລອງໃໝໃນ ${lockStatus.secondsLeft} ວນາທ`
+      error: `ພະຍາຍາມຫຼາຍເກີນໄປ ກະລຸນາລອງໃໝ່ໃນ ${lockStatus.secondsLeft} ວິນາທີ`
     });
   }
 
@@ -80,13 +80,13 @@ router.post('/login', async (req, res) => {
   const customer = rows[0];
   if (!customer) {
     recordFailure(lockKey);
-    return res.status(404).json({ error: 'ບພບເບໂທນໃນລະບບ' });
+    return res.status(404).json({ error: 'ບໍ່ພົບເບີໂທນີ້ໃນລະບົບ' });
   }
 
   const match = await bcrypt.compare(pin, customer.pin_hash);
   if (!match) {
     recordFailure(lockKey);
-    return res.status(401).json({ error: 'PIN ບຖກຕອງ' });
+    return res.status(401).json({ error: 'PIN ບໍ່ຖືກຕ້ອງ' });
   }
 
   clearAttempts(lockKey);
@@ -98,7 +98,6 @@ router.post('/login', async (req, res) => {
     maxAge: 90 * 24 * 60 * 60 * 1000
   });
 
-  // ✅ ໃໝ່: ສົ່ງ token ກັບໄປໃນ response body
   res.json({ success: true, customerId: customer.id, token });
 });
 
@@ -106,7 +105,7 @@ router.post('/forgot-pin', async (req, res) => {
   const { phone, birth_date, new_pin } = req.body;
 
   if (!phone || !birth_date || !new_pin) {
-    return res.status(400).json({ error: 'ກະລນາປອນຂມນໃຫຄບ' });
+    return res.status(400).json({ error: 'ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບ' });
   }
   if (new_pin.length < 4 || new_pin.length > 6) {
     return res.status(400).json({ error: 'PIN ໃໝ່ຕ້ອງມີ 4-6 ໂຕເລກ' });
@@ -116,26 +115,31 @@ router.post('/forgot-pin', async (req, res) => {
   const lockStatus = checkLocked(lockKey);
   if (lockStatus.locked) {
     return res.status(429).json({
-      error: `ພະຍາຍາມຫາຍເກນໄປ ກະລນາລອງໃໝ່ໃນ ${lockStatus.secondsLeft} ວນາທ`
+      error: `ພະຍາຍາມຫຼາຍເກີນໄປ ກະລຸນາລອງໃໝ່ໃນ ${lockStatus.secondsLeft} ວິນາທີ`
     });
   }
 
-  const [rows] = await pool.query('SELECT * FROM customers WHERE phone = ?', [phone]);
+  // ດຶງວັນເກີດເປັນຂໍ້ຄວາມ YYYY-MM-DD ເພື່ອປຽບທຽບໄດ້ຖືກຕ້ອງ
+  // (ຖ້າບໍ່ແປງ mysql2 ຈະສົ່ງເປັນ Date object ເຮັດໃຫ້ປຽບທຽບກັບຂໍ້ຄວາມບໍ່ຕົງກັນ)
+  const [rows] = await pool.query(
+    "SELECT *, DATE_FORMAT(birth_date, '%Y-%m-%d') AS birth_date_str FROM customers WHERE phone = ?",
+    [phone]
+  );
   const customer = rows[0];
   if (!customer) {
     recordFailure(lockKey);
-    return res.status(404).json({ error: 'ບພບເບໂທນໃນລະບບ' });
+    return res.status(404).json({ error: 'ບໍ່ພົບເບີໂທນີ້ໃນລະບົບ' });
   }
 
-  if (!customer.birth_date) {
+  if (!customer.birth_date_str) {
     return res.status(400).json({
-      error: 'ບນຊນຍງບໄດບນທກວນເດອນປເກດ ກະລນາຕດຕຮານໂດຍກງເພອຣເຊດ PIN'
+      error: 'ບັນຊີນີ້ຍັງບໍ່ໄດ້ບັນທຶກວັນເດືອນປີເກີດ ກະລຸນາຕິດຕໍ່ຮ້ານໂດຍກົງເພື່ອຣີເຊັດ PIN'
     });
   }
 
-  if (customer.birth_date !== birth_date) {
+  if (customer.birth_date_str !== birth_date) {
     recordFailure(lockKey);
-    return res.status(401).json({ error: 'ວນເດອນປເກດບຕງກບຂມນທບນທກໄວ' });
+    return res.status(401).json({ error: 'ວັນເດືອນປີເກີດບໍ່ຕົງກັບຂໍ້ມູນທີ່ບັນທຶກໄວ້' });
   }
 
   clearAttempts(lockKey);
@@ -143,7 +147,7 @@ router.post('/forgot-pin', async (req, res) => {
   const newPinHash = await bcrypt.hash(new_pin, 10);
   await pool.query('UPDATE customers SET pin_hash = ? WHERE id = ?', [newPinHash, customer.id]);
 
-  res.json({ success: true, message: 'ຕງ PIN ໃໝ່ສເລດ ກະລນາເຂາສລະບບດວຍ PIN ໃໝ່' });
+  res.json({ success: true, message: 'ຕັ້ງ PIN ໃໝ່ສຳເລັດ ກະລຸນາເຂົ້າສູ່ລະບົບດ້ວຍ PIN ໃໝ່' });
 });
 
 router.post('/logout', (req, res) => {
@@ -153,14 +157,31 @@ router.post('/logout', (req, res) => {
 
 router.get('/me', requireCustomerAuth, async (req, res) => {
   const [rows] = await pool.query(
-    'SELECT id, phone, name FROM customers WHERE id = ?',
+    'SELECT id, phone, name, deleted_at FROM customers WHERE id = ?',
     [req.customerId]
   );
   const customer = rows[0];
   if (!customer) {
-    return res.status(404).json({ error: 'ບພບຂມນລກຄາ' });
+    return res.status(404).json({ error: 'ບໍ່ພົບຂໍ້ມູນລູກຄ້າ' });
+  }
+  // ບັນຊີທີ່ຖືກລຶບແລ້ວ ໃຫ້ຖືວ່າອອກຈາກລະບົບ
+  if (customer.deleted_at) {
+    res.clearCookie('customer_token', COOKIE_OPTIONS);
+    return res.status(401).json({ error: 'ບັນຊີນີ້ຖືກລຶບແລ້ວ' });
   }
   res.json({ customerId: customer.id, phone: customer.phone, name: customer.name });
+});
+
+router.post('/me/name', requireCustomerAuth, async (req, res) => {
+  const name = String(req.body.name || '').trim();
+  if (!name) {
+    return res.status(400).json({ error: 'ກະລຸນາປ້ອນຊື່' });
+  }
+  if (name.length > 30) {
+    return res.status(400).json({ error: 'ຊື່ຍາວເກີນໄປ (ສູງສຸດ 30 ໂຕອັກສອນ)' });
+  }
+  await pool.query('UPDATE customers SET name = ? WHERE id = ?', [name, req.customerId]);
+  res.json({ success: true, name });
 });
 
 module.exports = router;
