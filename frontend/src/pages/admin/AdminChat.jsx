@@ -231,7 +231,7 @@ export default function AdminChat() {
     if (boxRef.current) boxRef.current.scrollTop = boxRef.current.scrollHeight;
   }, [messages]);
 
-  function openCustomerChat(id, label) {
+  function openCustomerChat(id, label) { 
     setCurrentId(id);
     setCurrentLabel(label);
     setMessages([]);
