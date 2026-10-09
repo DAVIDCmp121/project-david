@@ -190,8 +190,22 @@ router.delete('/addresses/:id', async (req, res) => {
 });
 
 /* ---------- ວັນເກີດ (ໃຊ້ຢືນຢັນຕອນລືມ PIN) ---------- */
+
+// ບອກພຽງວ່າຕັ້ງວັນເກີດໄວ້ແລ້ວຫຼືຍັງ (ບໍ່ສົ່ງວັນເກີດຈິງ)
 router.get('/birth-date', async (req, res) => {
   try {
+    const [rows] = await pool.query('SELECT birth_date FROM customers WHERE id = ?', [req.customerId]);
+    res.json({ success: true, has_birth_date: !!(rows[0] && rows[0].birth_date) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: SERVER_ERROR });
+  }
+});
+
+// ເບິ່ງວັນເກີດຈິງ: ຕ້ອງໃສ່ PIN ຖືກເທົ່ານັ້ນ (ກວດຝັ່ງເຊີບເວີ)
+router.post('/birth-date/reveal', async (req, res) => {
+  try {
+    if (!(await checkPin(req, res, 'reveal-birth-date', req.body.pin))) return;
     const [rows] = await pool.query(
       "SELECT DATE_FORMAT(birth_date, '%Y-%m-%d') AS birth_date FROM customers WHERE id = ?",
       [req.customerId]
@@ -203,6 +217,7 @@ router.get('/birth-date', async (req, res) => {
   }
 });
 
+// ຕັ້ງ / ປ່ຽນວັນເກີດ (ຕ້ອງໃສ່ PIN)
 router.post('/birth-date', async (req, res) => {
   const birthDate = String(req.body.birth_date || '');
   if (!validDate(birthDate)) {
