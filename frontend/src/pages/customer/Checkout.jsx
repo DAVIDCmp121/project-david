@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../../components/TopBar.jsx';
+import ConfirmModal from '../../components/ConfirmModal.jsx';
 import { CartProvider } from '../../context/CartContext.jsx';
 import { API_BASE, apiGet, apiPost, apiUpload } from '../../api.js';
+import { usePageT } from '../../useT.js';
+import dict from '../../locales/cust-checkout.js';
 
-const STEP_LABELS = ['ເລືອກຂົນສົ່ງ', 'ຂໍ້ມູນ ແລະ ຊຳລະເງິນ'];
+const STEP_KEYS = ['co.step1', 'co.step2'];
 const MAX_SAVED_ADDRESSES = 5;
 
 // key ຕ້ອງກົງກັບ VALID_CARRIERS ໃນ backend/routes/orders.js
@@ -73,6 +76,27 @@ const css = `
 .co-carrier.selected .co-radio::after {
   content: ''; width: 12px; height: 12px; border-radius: 50%; background: var(--gold);
 }
+
+/* ລາຍການຂົນສົ່ງທີ່ຂະຫຍາຍອອກໃນການ໌ດໜ້າ 2 (ປ່ຽນຂົນສົ່ງໂດຍບໍ່ກັບໜ້າ 1) */
+.co-carriers-inline {
+  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--cust-border); gap: 8px;
+}
+.co-carriers-inline .co-carrier { padding: 9px 12px; gap: 12px; }
+.co-carriers-inline .co-carrier-name { font-size: 0.95rem; }
+
+/* ຄ່າສົ່ງ + ແຖບຄວາມຄືບໜ້າສົ່ງຟຣີ */
+.co-ship-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; font-size: 0.95rem; color: var(--cust-text);
+}
+.co-free { color: #15803d; font-weight: 800; }
+.co-ship-hint {
+  margin-top: 8px; padding: 12px 14px; border-radius: 12px; background: #fffaf0;
+  border: 1px solid #f1e3b8; font-size: 0.88rem; color: var(--cust-text);
+}
+.co-ship-hint.ok { background: #f0fdf4; border-color: #bbf7d0; color: #15803d; font-weight: 700; }
+.co-ship-bar { height: 8px; border-radius: 999px; background: #f1e8cf; margin-top: 8px; overflow: hidden; }
+.co-ship-bar i { display: block; height: 100%; border-radius: 999px; background: var(--gold); transition: width 0.3s; }
 
 /* ---------- ການ໌ດທົ່ວໄປ ---------- */
 .co-card {
@@ -153,9 +177,27 @@ const css = `
   border-color: var(--gold); background: #fffaf0; box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.15);
 }
 .co-coupon:disabled { opacity: 0.5; cursor: not-allowed; }
-.co-coupon-name { font-weight: 700; font-size: 0.92rem; }
+.co-coupon-name { font-weight: 700; font-size: 0.92rem; display: flex; align-items: center; gap: 8px; }
+.co-coupon-count {
+  padding: 1px 8px; border-radius: 999px; background: #faf0cf; color: #9a7412;
+  font-size: 0.75rem; font-weight: 800;
+}
 .co-coupon-sub { font-size: 0.78rem; color: var(--cust-text-muted); margin-top: 2px; }
 .co-coupon-save { color: #b8862b; font-weight: 800; font-size: 0.9rem; white-space: nowrap; }
+
+/* ສະຫຼຸບຍອດ */
+.co-sum { margin-bottom: 12px; }
+.co-sum-title { font-weight: 700; margin-bottom: 8px; color: var(--cust-text); }
+.co-sum-row {
+  display: flex; justify-content: space-between; gap: 10px; padding: 6px 0;
+  font-size: 0.92rem; color: var(--cust-text);
+}
+.co-sum-row.disc span:last-child { color: #15803d; font-weight: 700; }
+.co-sum-row.net {
+  margin-top: 6px; padding-top: 10px; border-top: 1px dashed var(--cust-border);
+  font-weight: 800; font-size: 1.05rem;
+}
+.co-sum-row.net span:last-child { color: #b8862b; }
 
 /* ປຸ່ມເລືອກວິທີຊຳລະ */
 .co-pay { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
@@ -177,6 +219,21 @@ const css = `
   background: #fffaf0; border: 1px solid #f1e3b8; margin-bottom: 14px;
 }
 .co-card .pay-amount-box span:last-child { color: #b8862b; font-size: 1.1rem; }
+
+/* ຍອດທີ່ຕ້ອງໂອນ (ໃຫຍ່ + ປຸ່ມຄັດລອກ) */
+.co-amount {
+  background: #fffaf0; border: 1px solid #f1e3b8; border-radius: 14px;
+  padding: 12px 14px; margin-bottom: 14px; text-align: center;
+}
+.co-amount-label { font-size: 0.82rem; color: var(--cust-text-muted); }
+.co-amount-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 4px 0; flex-wrap: wrap; }
+.co-amount-num { font-size: 1.7rem; font-weight: 800; color: #b8862b; line-height: 1.2; }
+.co-copy {
+  padding: 6px 14px; border-radius: 999px; border: 1px solid var(--gold); background: #fff;
+  color: #b8862b; font-weight: 700; font-size: 0.82rem; cursor: pointer; font-family: inherit;
+}
+.co-copy:hover { background: var(--gold); color: #fff; }
+.co-amount-hint { font-size: 0.78rem; color: #b45309; }
 
 /* ອັບໂຫລດສະລິບ */
 .co-upload {
@@ -255,6 +312,13 @@ function calcDiscount(c, subtotal) {
   return Math.min(d, subtotal);
 }
 
+// ຄ່າສົ່ງ (ໃຊ້ສະແດງຜົນເທົ່ານັ້ນ — backend ຄຳນວນຈິງ ແລະ ສົ່ງຄືນມາຕອນສັ່ງຊື້)
+function calcShipping(cfg, subtotal) {
+  if (!cfg.flat_fee || cfg.flat_fee <= 0) return 0;
+  if (cfg.free_min > 0 && subtotal >= cfg.free_min) return 0;
+  return cfg.flat_fee;
+}
+
 function CarrierLogo({ carrier, size = 52 }) {
   const [failed, setFailed] = useState(false);
   const radius = Math.round(size * 0.23);
@@ -282,6 +346,7 @@ function CarrierLogo({ carrier, size = 52 }) {
 
 // dropdown ທີ່ເປີດລົງດ້ານລຸ່ມສະເໝີ (ແທນ <select> ທີ່ browser ອາດເປີດຂຶ້ນດ້ານເທິງ)
 function DropSelect({ value, onChange, options, placeholder, disabled }) {
+  const { t } = usePageT(dict);
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
 
@@ -323,7 +388,7 @@ function DropSelect({ value, onChange, options, placeholder, disabled }) {
       </button>
       {open && (
         <ul className="co-dd-list">
-          {options.length === 0 && <li className="empty">ບໍ່ມີຂໍ້ມູນ</li>}
+          {options.length === 0 && <li className="empty">{t('co.noData')}</li>}
           {options.map((o) => (
             <li
               key={o.value}
@@ -343,6 +408,8 @@ function DropSelect({ value, onChange, options, placeholder, disabled }) {
 }
 
 function CheckoutInner() {
+  const { t } = usePageT(dict);
+  const kip = t('common.kip');
   const navigate = useNavigate();
   const [items, setItems] = useState(null);
   const [loadError, setLoadError] = useState(false);
@@ -350,6 +417,7 @@ function CheckoutInner() {
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [carrier, setCarrier] = useState('');
+  const [changingCarrier, setChangingCarrier] = useState(false); // ເປີດລາຍການປ່ຽນຂົນສົ່ງໃນໜ້າ 2
   const [payMethod, setPayMethod] = useState('transfer'); // 'transfer' | 'cod'
   const [step, setStep] = useState(1);
 
@@ -370,25 +438,41 @@ function CheckoutInner() {
   const [slipFile, setSlipFile] = useState(null);
   const [slipPreview, setSlipPreview] = useState('');
   const [confirming, setConfirming] = useState(false);
+  const [copied, setCopied] = useState(false);
 
-  // ຄູປອງໃນກະເປົາຂອງລູກຄ້າ + ຄູປອງທີ່ເລືອກໃຊ້
+  // ຄູປອງໃນກະເປົາຂອງລູກຄ້າ + ກຸ່ມຄູປອງທີ່ເລືອກໃຊ້ (ຄູປອງຊ້ຳກັນຖືກລວມເປັນກຸ່ມດຽວ)
   const [coupons, setCoupons] = useState([]);
-  const [couponId, setCouponId] = useState(null);
+  const [couponKey, setCouponKey] = useState(null);
+
+  // ຄ່າສົ່ງ (ມາຈາກ backend): flat_fee = ຄ່າສົ່ງເໝົາ, free_min = ຍອດຂັ້ນຕ່ຳສົ່ງຟຣີ
+  const [shipCfg, setShipCfg] = useState({ flat_fee: 0, free_min: 0 });
+
+  // กล่องแจ้งข้อความแทน alert(): { message, onClose }
+  const [notice, setNotice] = useState(null);
+
+  function showNotice(message, onClose) {
+    setNotice({ message, onClose });
+  }
+  function closeNotice() {
+    const fn = notice && notice.onClose;
+    setNotice(null);
+    if (fn) fn();
+  }
 
   useEffect(() => {
     (async () => {
-      const [cartRes, meRes, qrRes, addrRes, cpRes] = await Promise.all([
+      const [cartRes, meRes, qrRes, addrRes, cpRes, shipRes] = await Promise.all([
         apiGet('/api/cart'),
         apiGet('/api/customer-auth/me'),
         apiGet('/api/settings/payment-qr'),
         apiGet('/api/customer-account/addresses'),
         apiGet('/api/coupons/me'),
+        apiGet('/api/orders/shipping-config'),
       ]);
 
       if (cartRes.ok && Array.isArray(cartRes.data.items)) {
         if (cartRes.data.items.length === 0) {
-          alert('ກະຕ່າສິນຄ້າວ່າງເປົ່າ ກະລຸນາເລືອກສິນຄ້າກ່ອນ');
-          navigate('/menu');
+          showNotice(t('co.alertEmptyCart'), () => navigate('/menu'));
           return;
         }
         setItems(cartRes.data.items);
@@ -409,6 +493,13 @@ function CheckoutInner() {
 
       if (cpRes.ok && Array.isArray(cpRes.data.coupons)) {
         setCoupons(cpRes.data.coupons);
+      }
+
+      if (shipRes.ok && shipRes.data) {
+        setShipCfg({
+          flat_fee: Number(shipRes.data.flat_fee) || 0,
+          free_min: Number(shipRes.data.free_min) || 0,
+        });
       }
 
       if (qrRes.ok && qrRes.data.qrImage) {
@@ -464,11 +555,22 @@ function CheckoutInner() {
     setBranchLoading(false);
   }
 
+  const noticeModal = (
+    <ConfirmModal
+      open={!!notice}
+      message={notice ? notice.message : ''}
+      hideCancel
+      onConfirm={closeNotice}
+      onCancel={closeNotice}
+    />
+  );
+
   if (!items && !loadError) {
     return (
       <div className="customer-shell">
         <TopBar />
-        <p style={{ padding: 20, color: 'var(--cust-text-muted)' }}>ກຳລັງໂຫລດ...</p>
+        <p style={{ padding: 20, color: 'var(--cust-text-muted)' }}>{t('common.loading')}</p>
+        {noticeModal}
       </div>
     );
   }
@@ -477,17 +579,34 @@ function CheckoutInner() {
       <div className="customer-shell">
         <TopBar />
         <div style={{ padding: 20, color: 'var(--cust-text-muted)' }}>
-          <p>ໂຫລດຂໍ້ມູນບໍ່ສຳເລັດ ກະລຸນາລອງໃໝ່</p>
-          <button onClick={() => navigate('/menu/cart')}>ກັບໄປກະຕ່າ</button>
+          <p>{t('co.loadFail')}</p>
+          <button onClick={() => navigate('/menu/cart')}>{t('co.backToCart')}</button>
         </div>
+        {noticeModal}
       </div>
     );
   }
 
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
-  const selectedCoupon = coupons.find((c) => c.id === couponId);
+
+  // ລວມຄູປອງທີ່ຄືກັນ (ຊື່/ປະເພດ/ມູນຄ່າ/ຂັ້ນຕ່ຳ ຄືກັນ) ເປັນກຸ່ມດຽວ ສະແດງ ×ຈຳນວນ — ໃຊ້ໃບທີ່ໝົດອາຍຸກ່ອນສຸດ
+  const couponGroups = (() => {
+    const map = new Map();
+    [...coupons]
+      .sort((a, b) => new Date(a.expires_at) - new Date(b.expires_at))
+      .forEach((c) => {
+        const key = [c.name, c.type, c.value, c.min_order, c.max_discount || 0].join('|');
+        if (!map.has(key)) map.set(key, { key, rep: c, count: 0 });
+        map.get(key).count += 1;
+      });
+    return [...map.values()];
+  })();
+  const selectedCoupon = (couponGroups.find((g) => g.key === couponKey) || {}).rep;
   const discount = selectedCoupon ? calcDiscount(selectedCoupon, subtotal) : 0;
-  const total = subtotal - discount; // ຍອດທີ່ຕ້ອງຈ່າຍຈິງ
+
+  const shippingEnabled = shipCfg.flat_fee > 0;
+  const shippingFee = calcShipping(shipCfg, subtotal);
+  const total = subtotal - discount + shippingFee; // ຍອດທີ່ຕ້ອງຈ່າຍຈິງ
 
   const carrierObj = CARRIERS.find((c) => c.key === carrier);
   const usesBranch = BRANCH_CARRIERS.includes(carrier);
@@ -502,10 +621,15 @@ function CheckoutInner() {
 
   function validateStep1() {
     if (!carrier) {
-      alert('ກະລຸນາເລືອກຂົນສົ່ງ');
+      showNotice(t('co.alertCarrier'));
       return;
     }
     goStep(2);
+  }
+
+  function pickCarrier(key) {
+    setCarrier(key);
+    setChangingCarrier(false);
   }
 
   function onSlipChange(e) {
@@ -521,31 +645,50 @@ function CheckoutInner() {
     setSlipPreview('');
   }
 
+  // ຄັດລອກຍອດທີ່ຕ້ອງໂອນ (ຕົວເລກລ້ວນ ວາງໃນແອັບທະນາຄານໄດ້ເລີຍ)
+  async function copyAmount() {
+    const text = String(total);
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (err) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+      } catch (e2) {}
+      document.body.removeChild(ta);
+    }
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
   async function submitOrder() {
     const cleanPhone = phone.replace(/\s/g, '');
     if (!/^\+?\d{8,15}$/.test(cleanPhone)) {
-      alert('ກະລຸນາໃສ່ເບີໂທໃຫ້ຖືກຕ້ອງ');
+      showNotice(t('co.alertPhone'));
       return;
     }
     if (usesBranch) {
       if (!provinceId) {
-        alert('ກະລຸນາເລືອກແຂວງ');
+        showNotice(t('co.alertProvince'));
         return;
       }
       if (!district) {
-        alert('ກະລຸນາເລືອກເມືອງ');
+        showNotice(t('co.alertDistrict'));
         return;
       }
       if (!branchId) {
-        alert('ກະລຸນາເລືອກສາຂາ');
+        showNotice(t('co.alertBranch'));
         return;
       }
     } else if (!address.trim()) {
-      alert('ກະລຸນາໃສ່ທີ່ຢູ່ຈັດສົ່ງ');
+      showNotice(t('co.alertAddress'));
       return;
     }
     if (payMethod === 'transfer' && !slipFile) {
-      alert('ກະລຸນາອັບໂຫລດຮູບສະລິບໂອນເງິນກ່ອນ');
+      showNotice(t('co.alertSlip'));
       return;
     }
 
@@ -555,7 +698,7 @@ function CheckoutInner() {
       formData.append('customer_phone', cleanPhone);
       formData.append('carrier', carrier);
       formData.append('payment_method', payMethod);
-      if (couponId) formData.append('user_coupon_id', couponId);
+      if (selectedCoupon) formData.append('user_coupon_id', selectedCoupon.id);
       if (usesBranch) {
         formData.append('branch_id', branchId);
       } else {
@@ -566,18 +709,29 @@ function CheckoutInner() {
       const { ok, data } = await apiUpload('/api/orders', formData);
 
       if (ok) {
-        // backend ສົ່ງທີ່ຢູ່ (ທີ່ປະກອບຈາກສາຂາແລ້ວ) ກັບມາ
+        // ★ ຂໍ້ຄວາມສະຫຼຸບອໍເດີທີ່ສົ່ງເຂົ້າແຊັດ ຄົງເປັນພາສາລາວສະເໝີ ແລະ ແຍກເປັນບັນທັດ
+        //   (ໜ້າແຊັດ parse ຕາມບັນທັດ ແລະ ແອດມິນອ່ານ) — ຢ່າແປ ຫຼື ປ່ຽນຊື່ຫົວຂໍ້ (ຄ່າສິນຄ້າ/ຄ່າສົ່ງ/ລວມ...)
         const addrText = data.address || address.trim();
+        const finalShipping = Number(data.shipping_fee ?? shippingFee) || 0;
+        const finalTotal = Number(data.total ?? total);
         const itemLines = items
           .map((i) => `- ${i.name}${i.chosen_size ? ` (ໄຊສ໌ ${i.chosen_size})` : ''} x${i.quantity} = ${i.price * i.quantity} ກີບ`)
           .join('\n');
         const methodText = payMethod === 'cod' ? 'ເກັບເງິນປາຍທາງ (COD)' : 'ໂອນເງິນ';
-        const orderMessage =
-          `ສັ່ງຊື້ໃໝ່:\n${itemLines}\n` +
-          (discount > 0 ? `ຄູປອງ: ${selectedCoupon.name} (-${discount} ກີບ)\n` : '') +
-          `ລວມ: ${total} ກີບ\n` +
-          `ຂົນສົ່ງ: ${carrierObj.name}\nວິທີຊຳລະ: ${methodText}\n` +
-          `ເບີໂທ: ${cleanPhone}\n${usesBranch ? '' : 'ທີ່ຢູ່ຈັດສົ່ງ: '}${addrText}`;
+        const orderMessage = [
+          'ສັ່ງຊື້ໃໝ່:',
+          itemLines,
+          `ຄ່າສິນຄ້າ: ${subtotal} ກີບ`,
+          shippingEnabled ? `ຄ່າສົ່ງ: ${finalShipping > 0 ? `${finalShipping} ກີບ` : 'ຟຣີ'}` : null,
+          discount > 0 ? `ຄູປອງ: ${selectedCoupon.name} (-${discount} ກີບ)` : null,
+          `ລວມ: ${finalTotal} ກີບ`,
+          `ຂົນສົ່ງ: ${carrierObj.name}`,
+          `ວິທີຊຳລະ: ${methodText}`,
+          `ເບີໂທ: ${cleanPhone}`,
+          `${usesBranch ? '' : 'ທີ່ຢູ່ຈັດສົ່ງ: '}${addrText}`,
+        ]
+          .filter(Boolean)
+          .join('\n');
 
         try {
           await apiPost('/api/messages', { message_text: orderMessage });
@@ -601,11 +755,11 @@ function CheckoutInner() {
 
         navigate('/menu/chat');
       } else {
-        alert('ເກີດຂໍ້ຜິດພາດ: ' + (data.error || ''));
+        showNotice(t('co.alertError') + (data && data.error ? `\n${data.error}` : ''));
         setConfirming(false);
       }
     } catch (err) {
-      alert('ເຊື່ອມຕໍ່ບໍ່ໄດ້ ກະລຸນາລອງໃໝ່');
+      showNotice(t('co.alertConn'));
       setConfirming(false);
     }
   }
@@ -617,16 +771,16 @@ function CheckoutInner() {
 
       <div className={`checkout-page${step === 2 ? ' co-wide' : ''}`}>
         <div className="steps-bar">
-          {STEP_LABELS.map((label, i) => (
-            <div key={label} className={`step ${step === i + 1 ? 'active' : ''}`}>
-              {i + 1}. {label}
+          {STEP_KEYS.map((k, i) => (
+            <div key={k} className={`step ${step === i + 1 ? 'active' : ''}`}>
+              {i + 1}. {t(k)}
             </div>
           ))}
         </div>
 
         {step === 1 && (
           <div className="step-panel">
-            <h2>ລາຍການສິນຄ້າ</h2>
+            <h2>{t('co.items')}</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
               {items.map((item) => (
                 <div key={item.id} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -636,19 +790,43 @@ function CheckoutInner() {
                   <div style={{ flex: 1 }}>
                     <div>{item.name}</div>
                     <div style={{ color: '#999', fontSize: 13 }}>
-                      {item.chosen_size ? `ໄຊສ໌ ${item.chosen_size} · ` : ''}x{item.quantity}
+                      {item.chosen_size ? `${t('common.size')} ${item.chosen_size} · ` : ''}x{item.quantity}
                     </div>
                   </div>
-                  <div>{fmt(item.price * item.quantity)} ກີບ</div>
+                  <div>{fmt(item.price * item.quantity)} {kip}</div>
                 </div>
               ))}
             </div>
             <div className="checkout-total">
-              <span>ລວມທັງໝົດ</span>
-              <span>{fmt(subtotal)} ກີບ</span>
+              <span>{t('co.subtotal')}</span>
+              <span>{fmt(subtotal)} {kip}</span>
             </div>
 
-            <div className="co-sec-title">ເລືອກຂົນສົ່ງ</div>
+            {shippingEnabled && (
+              <>
+                <div className="co-ship-row">
+                  <span>{t('co.shipping')}</span>
+                  {shippingFee > 0 ? (
+                    <span>+{fmt(shippingFee)} {kip}</span>
+                  ) : (
+                    <span className="co-free">{t('co.shippingFree')}</span>
+                  )}
+                </div>
+                {shipCfg.free_min > 0 &&
+                  (shippingFee === 0 ? (
+                    <div className="co-ship-hint ok">{t('co.freeReached')}</div>
+                  ) : (
+                    <div className="co-ship-hint">
+                      {t('co.freeHint', { n: fmt(shipCfg.free_min - subtotal), kip })}
+                      <div className="co-ship-bar">
+                        <i style={{ width: `${Math.min(100, Math.round((subtotal / shipCfg.free_min) * 100))}%` }} />
+                      </div>
+                    </div>
+                  ))}
+              </>
+            )}
+
+            <div className="co-sec-title">{t('co.chooseCarrier')}</div>
             <div className="co-carriers">
               {CARRIERS.map((c) => (
                 <button
@@ -665,8 +843,8 @@ function CheckoutInner() {
             </div>
 
             <div className="btn-row">
-              <button className="back-btn" onClick={() => navigate('/menu/cart')}>ກັບຄືນ</button>
-              <button className="next-btn" onClick={validateStep1}>ຕໍ່ໄປ</button>
+              <button className="back-btn" onClick={() => navigate('/menu/cart')}>{t('common.back')}</button>
+              <button className="next-btn" onClick={validateStep1}>{t('co.next')}</button>
             </div>
           </div>
         )}
@@ -676,21 +854,47 @@ function CheckoutInner() {
             <div className="co-grid">
               {/* ===== ຝັ່ງຊ້າຍ: ຂໍ້ມູນ ===== */}
               <div className="co-col">
-                <h2>ຂໍ້ມູນ</h2>
+                <h2>{t('co.info')}</h2>
                 <div className="co-stack">
-                  <div className="co-card co-summary">
-                    <CarrierLogo carrier={carrierObj} size={44} />
-                    <div className="co-summary-name">{carrierObj.name}</div>
-                    <button type="button" className="co-change" onClick={() => goStep(1)}>ປ່ຽນ</button>
+                  <div className="co-card">
+                    <div className="co-summary">
+                      <CarrierLogo carrier={carrierObj} size={44} />
+                      <div className="co-summary-name">{carrierObj.name}</div>
+                      <button
+                        type="button"
+                        className="co-change"
+                        aria-expanded={changingCarrier}
+                        onClick={() => setChangingCarrier((v) => !v)}
+                      >
+                        {changingCarrier ? t('common.cancel') : t('co.change')}
+                      </button>
+                    </div>
+
+                    {changingCarrier && (
+                      <div className="co-carriers co-carriers-inline">
+                        {CARRIERS.map((c) => (
+                          <button
+                            key={c.key}
+                            type="button"
+                            className={`co-carrier${carrier === c.key ? ' selected' : ''}`}
+                            onClick={() => pickCarrier(c.key)}
+                          >
+                            <CarrierLogo carrier={c} size={38} />
+                            <span className="co-carrier-name">{c.name}</span>
+                            <span className="co-radio" />
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <div className="co-card">
-                    <div className="co-label">ຊື່</div>
+                    <div className="co-label">{t('co.name')}</div>
                     <div className={`co-name${name ? '' : ' empty'}`}>
-                      {name || 'ຍັງບໍ່ໄດ້ຕັ້ງຊື່ (ຕັ້ງໄດ້ທີ່ໜ້າຂໍ້ມູນສ່ວນຕົວ)'}
+                      {name || t('co.noName')}
                     </div>
 
-                    <div className="co-label">ເບີໂທ</div>
+                    <div className="co-label">{t('co.phone')}</div>
                     <input
                       type="tel"
                       value={phone}
@@ -700,17 +904,17 @@ function CheckoutInner() {
 
                     {usesBranch ? (
                       <>
-                        <div className="co-label">ສາຂາທີ່ຈະໄປຮັບສິນຄ້າ</div>
+                        <div className="co-label">{t('co.pickupBranch')}</div>
 
                         <DropSelect
-                          placeholder="ເລືອກແຂວງ"
+                          placeholder={t('co.selProvince')}
                           value={provinceId}
                           onChange={onProvinceChange}
                           options={provinces.map((p) => ({ value: p.province_id, label: p.province_name }))}
                         />
 
                         <DropSelect
-                          placeholder="ເລືອກເມືອງ"
+                          placeholder={t('co.selDistrict')}
                           value={district}
                           disabled={!provinceId}
                           onChange={onDistrictChange}
@@ -718,7 +922,7 @@ function CheckoutInner() {
                         />
 
                         <DropSelect
-                          placeholder="ເລືອກສາຂາ"
+                          placeholder={t('co.selBranch')}
                           value={branchId}
                           disabled={!district}
                           onChange={setBranchId}
@@ -726,20 +930,20 @@ function CheckoutInner() {
                         />
 
                         {branchLoading && (
-                          <div style={{ fontSize: '0.85rem', color: 'var(--cust-text-muted)' }}>ກຳລັງໂຫລດ...</div>
+                          <div style={{ fontSize: '0.85rem', color: 'var(--cust-text-muted)' }}>{t('common.loading')}</div>
                         )}
 
                         {selectedBranch && (
                           <div className="co-branch-info">
                             <div><b>{selectedBranch.name}</b></div>
                             {selectedBranch.address && <div>{selectedBranch.address}</div>}
-                            {selectedBranch.phone && <div>ເບີສາຂາ: {selectedBranch.phone}</div>}
+                            {selectedBranch.phone && <div>{t('co.branchPhone', { n: selectedBranch.phone })}</div>}
                           </div>
                         )}
                       </>
                     ) : (
                       <>
-                        <div className="co-label">ທີ່ຢູ່ຈັດສົ່ງ</div>
+                        <div className="co-label">{t('co.shipAddress')}</div>
                         {savedAddrs.length > 0 && (
                           <div className="co-addr-chips">
                             {savedAddrs.map((a) => (
@@ -755,7 +959,7 @@ function CheckoutInner() {
                           </div>
                         )}
                         <textarea
-                          placeholder="ທີ່ຢູ່ຈັດສົ່ງ"
+                          placeholder={t('co.shipAddress')}
                           value={address}
                           onChange={(e) => setAddress(e.target.value)}
                           rows={3}
@@ -768,7 +972,7 @@ function CheckoutInner() {
                               checked={saveAddr}
                               onChange={(e) => setSaveAddr(e.target.checked)}
                             />
-                            ບັນທຶກທີ່ຢູ່ນີ້ໄວ້ໃຊ້ຄັ້ງຕໍ່ໄປ
+                            {t('co.saveAddr')}
                           </label>
                         )}
                       </>
@@ -777,33 +981,37 @@ function CheckoutInner() {
                 </div>
               </div>
 
-              {/* ===== ຝັ່ງຂວາ: ຄູປອງ + ຊຳລະເງິນ ===== */}
+              {/* ===== ຝັ່ງຂວາ: ຄູປອງ + ສະຫຼຸບຍອດ + ຊຳລະເງິນ ===== */}
               <div className="co-col">
-                <h2>ຊຳລະເງິນ</h2>
+                <h2>{t('co.payment')}</h2>
 
-                <div className="co-label" style={{ marginBottom: 8 }}>ຄູປອງສ່ວນລົດ</div>
+                <div className="co-label" style={{ marginBottom: 8 }}>{t('co.coupon')}</div>
                 <div className="co-card" style={{ marginBottom: 12 }}>
-                  {coupons.length === 0 ? (
+                  {couponGroups.length === 0 ? (
                     <div style={{ fontSize: '0.88rem', color: 'var(--cust-text-muted)' }}>
-                      ທ່ານຍັງບໍ່ມີຄູປອງ · ແລກແຕ້ມເປັນຄູປອງໄດ້ທີ່ໜ້າບັນຊີ
+                      {t('co.noCoupon')}
                     </div>
                   ) : (
-                    coupons.map((c) => {
+                    couponGroups.map((g) => {
+                      const c = g.rep;
                       const ok = subtotal >= c.min_order;
                       return (
                         <button
                           type="button"
-                          key={c.id}
+                          key={g.key}
                           disabled={!ok}
-                          className={`co-coupon${couponId === c.id ? ' selected' : ''}`}
-                          onClick={() => setCouponId(couponId === c.id ? null : c.id)}
+                          className={`co-coupon${couponKey === g.key ? ' selected' : ''}`}
+                          onClick={() => setCouponKey(couponKey === g.key ? null : g.key)}
                         >
                           <div>
-                            <div className="co-coupon-name">{c.name}</div>
+                            <div className="co-coupon-name">
+                              {c.name}
+                              {g.count > 1 && <span className="co-coupon-count">×{g.count}</span>}
+                            </div>
                             <div className="co-coupon-sub">
                               {ok
-                                ? `ໝົດອາຍຸ ${new Date(c.expires_at).toLocaleDateString('en-GB')}`
-                                : `ຕ້ອງສັ່ງຂັ້ນຕ່ຳ ${fmt(c.min_order)} ກີບ`}
+                                ? t('co.expires', { date: new Date(c.expires_at).toLocaleDateString('en-GB') })
+                                : t('co.minOrder', { n: fmt(c.min_order), kip })}
                             </div>
                           </div>
                           {ok && <span className="co-coupon-save">-{fmt(calcDiscount(c, subtotal))}</span>}
@@ -813,20 +1021,49 @@ function CheckoutInner() {
                   )}
                 </div>
 
+                {/* ສະຫຼຸບຍອດ: ສິນຄ້າ + ຄ່າສົ່ງ − ຄູປອງ = ຍອດສຸດທິ */}
+                <div className="co-card co-sum">
+                  <div className="co-sum-title">{t('co.summary')}</div>
+                  <div className="co-sum-row">
+                    <span>{t('co.subtotal')}</span>
+                    <span>{fmt(subtotal)} {kip}</span>
+                  </div>
+                  {shippingEnabled && (
+                    <div className="co-sum-row">
+                      <span>{t('co.shipping')}</span>
+                      {shippingFee > 0 ? (
+                        <span>+{fmt(shippingFee)} {kip}</span>
+                      ) : (
+                        <span className="co-free">{t('co.shippingFree')}</span>
+                      )}
+                    </div>
+                  )}
+                  {discount > 0 && (
+                    <div className="co-sum-row disc">
+                      <span>{t('co.couponDiscount')}</span>
+                      <span>−{fmt(discount)} {kip}</span>
+                    </div>
+                  )}
+                  <div className="co-sum-row net">
+                    <span>{t('co.netTotal')}</span>
+                    <span>{fmt(total)} {kip}</span>
+                  </div>
+                </div>
+
                 <div className="co-pay">
                   <button
                     type="button"
                     className={`co-pay-opt${payMethod === 'transfer' ? ' selected' : ''}`}
                     onClick={() => setPayMethod('transfer')}
                   >
-                    <IconTransfer /> ໂອນເງິນ
+                    <IconTransfer /> {t('co.transfer')}
                   </button>
                   <button
                     type="button"
                     className={`co-pay-opt${payMethod === 'cod' ? ' selected' : ''}`}
                     onClick={() => setPayMethod('cod')}
                   >
-                    <IconCash /> ເກັບເງິນປາຍທາງ (COD)
+                    <IconCash /> {t('co.cod')}
                   </button>
                 </div>
 
@@ -835,28 +1072,35 @@ function CheckoutInner() {
                     <>
                       {qrImage && (
                         <div className="co-qr-wrap">
-                          <img src={qrImage} alt="QR ຮັບເງິນ" className="payment-qr" />
+                          <img src={qrImage} alt={t('co.qrAlt')} className="payment-qr" />
                         </div>
                       )}
-                      {qrMissing && <p>ຮ້ານຍັງບໍ່ໄດ້ຕັ້ງ QR ຮັບເງິນ ກະລຸນາຕິດຕໍ່ຮ້ານ ຫຼື ເລືອກເກັບເງິນປາຍທາງ</p>}
-                      <div className="pay-amount-box">
-                        <span>ຍອດທີ່ຕ້ອງໂອນ</span>
-                        <span>{fmt(total)} ກີບ</span>
+                      {qrMissing && <p>{t('co.qrMissing')}</p>}
+
+                      <div className="co-amount">
+                        <div className="co-amount-label">{t('co.amountTransfer')}</div>
+                        <div className="co-amount-row">
+                          <span className="co-amount-num">{fmt(total)} {kip}</span>
+                          <button type="button" className="co-copy" onClick={copyAmount}>
+                            {copied ? t('co.copied') : t('co.copy')}
+                          </button>
+                        </div>
+                        <div className="co-amount-hint">{t('co.transferExact')}</div>
                       </div>
 
-                      <label className="upload-label">ອັບໂຫລດຮູບສະລິບໂອນເງິນ</label>
+                      <label className="upload-label">{t('co.slipLabel')}</label>
                       {slipFile ? (
                         <div className="co-slip-row">
-                          <a href={slipPreview} target="_blank" rel="noreferrer" title="ກົດເພື່ອເບິ່ງຮູບໃຫຍ່">
-                            <img src={slipPreview} alt="slip" className="co-slip-thumb" />
+                          <a href={slipPreview} target="_blank" rel="noreferrer" title={t('co.slipZoom')}>
+                            <img src={slipPreview} alt={t('co.slipAlt')} className="co-slip-thumb" />
                           </a>
                           <div className="co-slip-name">{slipFile.name}</div>
-                          <button type="button" className="co-slip-remove" onClick={removeSlip}>ລຶບ</button>
+                          <button type="button" className="co-slip-remove" onClick={removeSlip}>{t('co.remove')}</button>
                         </div>
                       ) : (
                         <label className="co-upload">
                           <input type="file" accept="image/*" onChange={onSlipChange} />
-                          <span>+ ເລືອກຮູບສະລິບໂອນເງິນ</span>
+                          <span>{t('co.pickSlip')}</span>
                         </label>
                       )}
                     </>
@@ -864,11 +1108,11 @@ function CheckoutInner() {
                     <>
                       <div className="co-cod">
                         <span className="co-cod-ic"><IconCash size={24} /></span>
-                        <span>ຈ່າຍເງິນສົດເມື່ອໄດ້ຮັບສິນຄ້າ</span>
+                        <span>{t('co.codNote')}</span>
                       </div>
                       <div className="pay-amount-box" style={{ marginBottom: 0 }}>
-                        <span>ຍອດທີ່ຕ້ອງຈ່າຍ</span>
-                        <span>{fmt(total)} ກີບ</span>
+                        <span>{t('co.amountPay')}</span>
+                        <span>{fmt(total)} {kip}</span>
                       </div>
                     </>
                   )}
@@ -879,21 +1123,21 @@ function CheckoutInner() {
             {/* ===== ແຖບຢືນຢັນ (ຕິດຂອບລຸ່ມຈໍ) ===== */}
             <div className="co-bar">
               <div className="co-bar-total">
-                <span className="co-bar-label">
-                  {discount > 0 ? `ລວມ ${fmt(subtotal)} − ຄູປອງ ${fmt(discount)}` : 'ລວມທັງໝົດ'}
-                </span>
-                <span className="co-bar-amount">{fmt(total)} ກີບ</span>
+                <span className="co-bar-label">{t('co.netTotal')}</span>
+                <span className="co-bar-amount">{fmt(total)} {kip}</span>
               </div>
               <div className="co-bar-actions">
-                <button type="button" className="co-bar-back" onClick={() => goStep(1)}>ກັບຄືນ</button>
+                <button type="button" className="co-bar-back" onClick={() => goStep(1)}>{t('common.back')}</button>
                 <button type="button" className="co-bar-confirm" onClick={submitOrder} disabled={confirming}>
-                  {confirming ? 'ກຳລັງສົ່ງ...' : 'ຢືນຢັນການສັ່ງຊື້'}
+                  {confirming ? t('co.sending') : t('co.confirmOrder')}
                 </button>
               </div>
             </div>
           </div>
         )}
       </div>
+
+      {noticeModal}
     </div>
   );
 }

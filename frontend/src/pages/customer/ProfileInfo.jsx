@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../../components/TopBar.jsx';
+import ConfirmModal from '../../components/ConfirmModal.jsx';
 import { CartProvider } from '../../context/CartContext.jsx';
 import { apiGet, apiPost, clearToken } from '../../api';
+import { usePageT } from '../../useT.js';
+import dict from '../../locales/cust-profile-info.js';
 
 const BASE = '/api/customer-account';
 const MAX_NAME = 30;
@@ -120,13 +123,14 @@ function PinField({ label, value, onChange, autoComplete = 'current-password', a
 }
 
 function EditorActions({ busy, label, onCancel, danger = false }) {
+  const { t } = usePageT(dict);
   return (
     <div className="ai-actions">
       <button type="button" className="ai-cancel" onClick={onCancel}>
-        ຍົກເລີກ
+        {t('common.cancel')}
       </button>
       <button type="submit" className={danger ? 'ai-del' : 'pi-save'} disabled={busy}>
-        {busy ? 'ກຳລັງບັນທຶກ...' : label}
+        {busy ? t('acc.saving') : label}
       </button>
     </div>
   );
@@ -134,19 +138,21 @@ function EditorActions({ busy, label, onCancel, danger = false }) {
 
 function AccountInfoInner() {
   const navigate = useNavigate();
+  const { t } = usePageT(dict);
   const today = new Date().toISOString().slice(0, 10);
 
   const [phone, setPhone] = useState('');
   const [name, setName] = useState('');
   const [hasBirth, setHasBirth] = useState(null); // null = ຍັງບໍ່ຮູ້
   const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState('');
+  const [loadError, setLoadError] = useState(false);
 
   // ຟອມທີ່ກາງຢູ່: 'name' | 'reveal' | 'birth' | 'pin' | 'delete' | null (ເປີດໄດ້ເທື່ອລະອັນ)
   const [open, setOpen] = useState(null);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
-  const [flash, setFlash] = useState(null); // { key, text }
+  const [flash, setFlash] = useState(null); // { key, textKey }
+  const [confirmDel, setConfirmDel] = useState(false); // ກ່ອງຢືນຢັນລຶບບັນຊີ (ແທນ window.confirm)
 
   // ຄ່າໃນຟອມ
   const [nameInput, setNameInput] = useState('');
@@ -172,12 +178,12 @@ function AccountInfoInner() {
           setPhone(me.data.phone || '');
           setName(me.data.name || '');
         } else {
-          setLoadError('ໂຫລດຂໍ້ມູນບໍ່ສຳເລັດ');
+          setLoadError(true);
         }
         if (birth.ok) setHasBirth(!!birth.data.has_birth_date);
       } catch (err) {
         console.error(err);
-        setLoadError('ໂຫລດຂໍ້ມູນບໍ່ສຳເລັດ');
+        setLoadError(true);
       }
       setLoading(false);
     })();
@@ -187,16 +193,37 @@ function AccountInfoInner() {
   // ເຊື່ອງວັນເກີດອັດຕະໂນມັດ
   useEffect(() => {
     if (revealed === null) return undefined;
-    const t = setTimeout(() => setRevealed(null), REVEAL_SECONDS * 1000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setRevealed(null), REVEAL_SECONDS * 1000);
+    return () => clearTimeout(timer);
   }, [revealed]);
 
   // ເຊື່ອງຂໍ້ຄວາມ "ບັນທຶກແລ້ວ ✓"
   useEffect(() => {
     if (!flash) return undefined;
-    const t = setTimeout(() => setFlash(null), 3500);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setFlash(null), 3500);
+    return () => clearTimeout(timer);
   }, [flash]);
+
+  // ແປຂໍ້ຄວາມຜິດພາດຈາກ backend ເປັນພາສາຂອງລູກຄ້າ
+  // 429 = ຖືກລັອກ (ມີ seconds_left), 401 = PIN ຜິດ (ມີ attempts_left), 400 = ອີງຕາມ context
+  function errText(res, fallbackKey, status400Key) {
+    const st = res && res.status;
+    const d = (res && res.data) || {};
+    if (st === 429) {
+      const s = Math.ceil(Number(d.seconds_left));
+      if (!s || s < 0) return t('acc.errLockedGeneric');
+      const when = s >= 60 ? t('acc.timeMin', { n: Math.ceil(s / 60) }) : t('acc.timeSec', { n: s });
+      return t('acc.errLocked', { when });
+    }
+    if (st === 401) {
+      const left = Number(d.attempts_left);
+      return Number.isFinite(left) && d.attempts_left !== undefined && left > 0
+        ? `${t('acc.errPinWrong')} (${t('acc.attemptsLeft', { n: left })})`
+        : t('acc.errPinWrong');
+    }
+    if (st === 400 && status400Key) return t(status400Key);
+    return t(fallbackKey);
+  }
 
   function resetFields() {
     setMsg('');
@@ -224,8 +251,8 @@ function AccountInfoInner() {
   async function saveName(e) {
     e.preventDefault();
     const trimmed = nameInput.trim();
-    if (!trimmed) return setMsg('ກະລຸນາປ້ອນຊື່');
-    if (trimmed.length > MAX_NAME) return setMsg(`ຊື່ຍາວເກີນໄປ (ສູງສຸດ ${MAX_NAME} ໂຕອັກສອນ)`);
+    if (!trimmed) return setMsg(t('acc.errNameEmpty'));
+    if (trimmed.length > MAX_NAME) return setMsg(t('acc.errNameLong', { max: MAX_NAME }));
     setBusy(true);
     setMsg('');
     try {
@@ -233,13 +260,13 @@ function AccountInfoInner() {
       if (res.ok) {
         setName(trimmed);
         closeEditor();
-        setFlash({ key: 'name', text: 'ບັນທຶກຊື່ແລ້ວ ✓' });
+        setFlash({ key: 'name', textKey: 'acc.okName' });
       } else {
-        setMsg((res.data && res.data.error) || 'ບັນທຶກບໍ່ສຳເລັດ');
+        setMsg(errText(res, 'acc.errSave'));
       }
     } catch (err) {
       console.error(err);
-      setMsg('ບັນທຶກບໍ່ສຳເລັດ');
+      setMsg(t('acc.errSave'));
     }
     setBusy(false);
   }
@@ -247,7 +274,7 @@ function AccountInfoInner() {
   /* ----- ເບິ່ງວັນເກີດ (ຕ້ອງໃສ່ PIN) ----- */
   async function reveal(e) {
     e.preventDefault();
-    if (pin.length < 4) return setMsg('ກະລຸນາປ້ອນ PIN');
+    if (pin.length < 4) return setMsg(t('acc.errPin'));
     setBusy(true);
     setMsg('');
     try {
@@ -257,11 +284,11 @@ function AccountInfoInner() {
         else setHasBirth(false);
         closeEditor();
       } else {
-        setMsg((res.data && res.data.error) || 'ບໍ່ສາມາດເບິ່ງໄດ້');
+        setMsg(errText(res, 'acc.errReveal'));
       }
     } catch (err) {
       console.error(err);
-      setMsg('ບໍ່ສາມາດເບິ່ງໄດ້');
+      setMsg(t('acc.errReveal'));
     }
     setBusy(false);
   }
@@ -269,8 +296,8 @@ function AccountInfoInner() {
   /* ----- ຕັ້ງ / ແກ້ວັນເກີດ ----- */
   async function saveBirth(e) {
     e.preventDefault();
-    if (!birthInput) return setMsg('ກະລຸນາເລືອກວັນເກີດ');
-    if (pin.length < 4) return setMsg('ກະລຸນາປ້ອນ PIN ເພື່ອຢືນຢັນ');
+    if (!birthInput) return setMsg(t('acc.errBirthEmpty'));
+    if (pin.length < 4) return setMsg(t('acc.errPinConfirm'));
     setBusy(true);
     setMsg('');
     try {
@@ -279,13 +306,13 @@ function AccountInfoInner() {
         setHasBirth(true);
         setRevealed(birthInput);
         closeEditor();
-        setFlash({ key: 'birth', text: 'ບັນທຶກວັນເກີດແລ້ວ ✓' });
+        setFlash({ key: 'birth', textKey: 'acc.okBirth' });
       } else {
-        setMsg((res.data && res.data.error) || 'ບັນທຶກບໍ່ສຳເລັດ');
+        setMsg(errText(res, 'acc.errSave', 'acc.errBirthInvalid'));
       }
     } catch (err) {
       console.error(err);
-      setMsg('ບັນທຶກບໍ່ສຳເລັດ');
+      setMsg(t('acc.errSave'));
     }
     setBusy(false);
   }
@@ -293,31 +320,37 @@ function AccountInfoInner() {
   /* ----- ປ່ຽນ PIN ----- */
   async function changePin(e) {
     e.preventDefault();
-    if (curPin.length < 4) return setMsg('ກະລຸນາປ້ອນ PIN ປັດຈຸບັນ');
-    if (!/^\d{4,6}$/.test(newPin)) return setMsg('PIN ໃໝ່ຕ້ອງເປັນຕົວເລກ 4-6 ໂຕ');
-    if (newPin !== newPin2) return setMsg('PIN ໃໝ່ບໍ່ຕົງກັນ');
+    if (curPin.length < 4) return setMsg(t('acc.errCurPin'));
+    if (!/^\d{4,6}$/.test(newPin)) return setMsg(t('acc.errNewPin'));
+    if (newPin !== newPin2) return setMsg(t('acc.errMismatch'));
+    if (newPin === curPin) return setMsg(t('acc.errSamePin'));
     setBusy(true);
     setMsg('');
     try {
       const res = await apiPost(`${BASE}/change-pin`, { current_pin: curPin, new_pin: newPin });
       if (res.ok) {
         closeEditor();
-        setFlash({ key: 'pin', text: 'ປ່ຽນ PIN ສຳເລັດ ✓' });
+        setFlash({ key: 'pin', textKey: 'acc.okPin' });
       } else {
-        setMsg((res.data && res.data.error) || 'ປ່ຽນ PIN ບໍ່ສຳເລັດ');
+        setMsg(errText(res, 'acc.errChangePin'));
       }
     } catch (err) {
       console.error(err);
-      setMsg('ປ່ຽນ PIN ບໍ່ສຳເລັດ');
+      setMsg(t('acc.errChangePin'));
     }
     setBusy(false);
   }
 
-  /* ----- ລຶບບັນຊີ ----- */
-  async function deleteAccount(e) {
+  /* ----- ລຶບບັນຊີ: ກົດປຸ່ມ → ເປີດກ່ອງຢືນຢັນ → ລຶບຈິງ ----- */
+  function deleteAccount(e) {
     e.preventDefault();
-    if (pin.length < 4) return setMsg('ກະລຸນາປ້ອນ PIN ເພື່ອຢືນຢັນ');
-    if (!window.confirm('ລຶບບັນຊີຖາວອນ? ບໍ່ສາມາດກູ້ຄືນໄດ້')) return;
+    if (pin.length < 4) return setMsg(t('acc.errPinConfirm'));
+    setMsg('');
+    setConfirmDel(true);
+  }
+
+  async function doDelete() {
+    setConfirmDel(false);
     setBusy(true);
     setMsg('');
     try {
@@ -327,15 +360,17 @@ function AccountInfoInner() {
         navigate('/menu/login');
         return;
       }
-      setMsg((res.data && res.data.error) || 'ລຶບບັນຊີບໍ່ສຳເລັດ');
+      // 400 ຈາກເສັ້ນທາງນີ້ = ມີອໍເດີທີ່ຍັງບໍ່ສຳເລັດ (PIN ຜ່ານແລ້ວ)
+      setMsg(errText(res, 'acc.errDel', 'acc.errDelPending'));
     } catch (err) {
       console.error(err);
-      setMsg('ລຶບບັນຊີບໍ່ສຳເລັດ');
+      setMsg(t('acc.errDel'));
     }
     setBusy(false);
   }
 
-  const flashFor = (key) => (flash && flash.key === key ? <div className="ai-note ok">{flash.text}</div> : null);
+  const flashFor = (key) =>
+    flash && flash.key === key ? <div className="ai-note ok">{t(flash.textKey)}</div> : null;
 
   return (
     <div className="customer-shell">
@@ -344,10 +379,10 @@ function AccountInfoInner() {
 
       <div className="ai-wrap">
         <div className="ai-head">
-          <button className="ai-back" onClick={() => navigate('/menu/profile')} aria-label="ກັບຄືນ">
+          <button className="ai-back" onClick={() => navigate('/menu/profile')} aria-label={t('common.back')}>
             ‹
           </button>
-          <h1 className="ai-title">ຂໍ້ມູນບັນຊີ</h1>
+          <h1 className="ai-title">{t('acc.title')}</h1>
         </div>
 
         {loading ? (
@@ -356,18 +391,18 @@ function AccountInfoInner() {
             <div className="ai-sk" style={{ height: 90 }} />
           </>
         ) : loadError ? (
-          <p style={{ color: '#dc2626' }}>{loadError}</p>
+          <p style={{ color: '#dc2626' }}>{t('acc.loadFail')}</p>
         ) : (
           <>
             {/* ===== ຂໍ້ມູນສ່ວນຕົວ ===== */}
-            <h2 className="ai-sec">ຂໍ້ມູນສ່ວນຕົວ</h2>
+            <h2 className="ai-sec">{t('acc.secPersonal')}</h2>
             <section className="ai-card">
               {/* ຊື່ */}
               <div className="ai-item">
                 <div className="ai-row">
                   <div className="ai-main">
-                    <div className="ai-lb">ຊື່</div>
-                    <div className={`ai-val${name ? '' : ' empty'}`}>{name || 'ຍັງບໍ່ໄດ້ຕັ້ງຊື່'}</div>
+                    <div className="ai-lb">{t('acc.name')}</div>
+                    <div className={`ai-val${name ? '' : ' empty'}`}>{name || t('acc.noName')}</div>
                     {flashFor('name')}
                   </div>
                   <div className="ai-acts">
@@ -377,14 +412,14 @@ function AccountInfoInner() {
                       aria-expanded={open === 'name'}
                       onClick={() => toggle('name')}
                     >
-                      {open === 'name' ? 'ປິດ' : 'ປ່ຽນຊື່'}
+                      {open === 'name' ? t('acc.close') : t('acc.changeName')}
                     </button>
                   </div>
                 </div>
                 {open === 'name' && (
                   <form className="ai-editor" onSubmit={saveName}>
                     <label className="ai-field">
-                      <span className="ai-flb">ຊື່ໃໝ່ (ສູງສຸດ {MAX_NAME} ໂຕອັກສອນ)</span>
+                      <span className="ai-flb">{t('acc.newName', { max: MAX_NAME })}</span>
                       <input
                         className="pi-input"
                         type="text"
@@ -395,7 +430,7 @@ function AccountInfoInner() {
                       />
                     </label>
                     {msg && <p className="ai-msg">{msg}</p>}
-                    <EditorActions busy={busy} label="ບັນທຶກຊື່" onCancel={closeEditor} />
+                    <EditorActions busy={busy} label={t('acc.saveName')} onCancel={closeEditor} />
                   </form>
                 )}
               </div>
@@ -404,9 +439,9 @@ function AccountInfoInner() {
               <div className="ai-item">
                 <div className="ai-row">
                   <div className="ai-main">
-                    <div className="ai-lb">ເບີໂທ</div>
+                    <div className="ai-lb">{t('acc.phone')}</div>
                     <div className="ai-val">{phone}</div>
-                    <div className="ai-note">ປ່ຽນເບີເອງບໍ່ໄດ້ — ຕິດຕໍ່ຮ້ານຖ້າຕ້ອງການປ່ຽນ</div>
+                    <div className="ai-note">{t('acc.phoneNote')}</div>
                   </div>
                 </div>
               </div>
@@ -415,21 +450,21 @@ function AccountInfoInner() {
               <div className="ai-item">
                 <div className="ai-row">
                   <div className="ai-main">
-                    <div className="ai-lb">ວັນເດືອນປີເກີດ</div>
+                    <div className="ai-lb">{t('acc.birth')}</div>
                     {hasBirth === false ? (
                       <>
-                        <div className="ai-val empty">ຍັງບໍ່ໄດ້ຕັ້ງ</div>
-                        <div className="ai-note warn">ຖ້າລືມ PIN ຈະຣີເຊັດເອງບໍ່ໄດ້</div>
+                        <div className="ai-val empty">{t('acc.birthNone')}</div>
+                        <div className="ai-note warn">{t('acc.birthWarn')}</div>
                       </>
                     ) : revealed !== null ? (
                       <>
                         <div className="ai-val">{fmtBirth(revealed)}</div>
-                        <div className="ai-note">ຈະເຊື່ອງອັດຕະໂນມັດໃນ {REVEAL_SECONDS} ວິນາທີ</div>
+                        <div className="ai-note">{t('acc.birthAutoHide', { s: REVEAL_SECONDS })}</div>
                       </>
                     ) : (
                       <>
                         <div className="ai-val mask">••/••/••••</div>
-                        <div className="ai-note">ໃສ່ PIN ເພື່ອເບິ່ງວັນເກີດ</div>
+                        <div className="ai-note">{t('acc.birthEnterPin')}</div>
                       </>
                     )}
                     {flashFor('birth')}
@@ -442,7 +477,7 @@ function AccountInfoInner() {
                         aria-expanded={open === 'birth'}
                         onClick={() => toggle('birth')}
                       >
-                        {open === 'birth' ? 'ປິດ' : 'ຕັ້ງວັນເກີດ'}
+                        {open === 'birth' ? t('acc.close') : t('acc.setBirth')}
                       </button>
                     ) : revealed !== null ? (
                       <>
@@ -452,7 +487,7 @@ function AccountInfoInner() {
                           aria-expanded={open === 'birth'}
                           onClick={() => toggle('birth')}
                         >
-                          {open === 'birth' ? 'ປິດ' : 'ແກ້ໄຂ'}
+                          {open === 'birth' ? t('acc.close') : t('acc.edit')}
                         </button>
                         <button
                           type="button"
@@ -462,7 +497,7 @@ function AccountInfoInner() {
                             if (open === 'birth') closeEditor();
                           }}
                         >
-                          ເຊື່ອງ
+                          {t('acc.hide')}
                         </button>
                       </>
                     ) : (
@@ -472,7 +507,7 @@ function AccountInfoInner() {
                         aria-expanded={open === 'reveal'}
                         onClick={() => toggle('reveal')}
                       >
-                        {open === 'reveal' ? 'ປິດ' : 'ເບິ່ງ'}
+                        {open === 'reveal' ? t('acc.close') : t('acc.view')}
                       </button>
                     )}
                   </div>
@@ -480,17 +515,17 @@ function AccountInfoInner() {
 
                 {open === 'reveal' && (
                   <form className="ai-editor" onSubmit={reveal}>
-                    <PinField label="ປ້ອນ PIN ເພື່ອເບິ່ງວັນເກີດ" value={pin} onChange={setPin} autoFocus />
+                    <PinField label={t('acc.pinToView')} value={pin} onChange={setPin} autoFocus />
                     {msg && <p className="ai-msg">{msg}</p>}
-                    <EditorActions busy={busy} label="ເບິ່ງວັນເກີດ" onCancel={closeEditor} />
+                    <EditorActions busy={busy} label={t('acc.viewBirth')} onCancel={closeEditor} />
                   </form>
                 )}
 
                 {open === 'birth' && (
                   <form className="ai-editor" onSubmit={saveBirth}>
-                    <p className="ai-hint">ໃຊ້ຢືນຢັນຕົວຕົນເວລາລືມ PIN</p>
+                    <p className="ai-hint">{t('acc.birthHint')}</p>
                     <label className="ai-field">
-                      <span className="ai-flb">ວັນເກີດ</span>
+                      <span className="ai-flb">{t('acc.birthLabel')}</span>
                       <input
                         className="pi-input"
                         type="date"
@@ -500,23 +535,23 @@ function AccountInfoInner() {
                         onChange={(e) => setBirthInput(e.target.value)}
                       />
                     </label>
-                    <PinField label="ປ້ອນ PIN ເພື່ອຢືນຢັນ" value={pin} onChange={setPin} />
+                    <PinField label={t('acc.pinToConfirm')} value={pin} onChange={setPin} />
                     {msg && <p className="ai-msg">{msg}</p>}
-                    <EditorActions busy={busy} label="ບັນທຶກວັນເກີດ" onCancel={closeEditor} />
+                    <EditorActions busy={busy} label={t('acc.saveBirth')} onCancel={closeEditor} />
                   </form>
                 )}
               </div>
             </section>
 
             {/* ===== ຄວາມປອດໄພ ===== */}
-            <h2 className="ai-sec">ຄວາມປອດໄພ</h2>
+            <h2 className="ai-sec">{t('acc.secSecurity')}</h2>
             <section className="ai-card">
               <div className="ai-item">
                 <div className="ai-row">
                   <div className="ai-main">
-                    <div className="ai-lb">ລະຫັດຜ່ານ (PIN)</div>
+                    <div className="ai-lb">{t('acc.pin')}</div>
                     <div className="ai-val mask">••••••</div>
-                    <div className="ai-note">PIN ເຂົ້າລະຫັດໄວ້ ຈຶ່ງສະແດງບໍ່ໄດ້ ແຕ່ປ່ຽນໃໝ່ໄດ້</div>
+                    <div className="ai-note">{t('acc.pinNote')}</div>
                     {flashFor('pin')}
                   </div>
                   <div className="ai-acts">
@@ -526,34 +561,31 @@ function AccountInfoInner() {
                       aria-expanded={open === 'pin'}
                       onClick={() => toggle('pin')}
                     >
-                      {open === 'pin' ? 'ປິດ' : 'ປ່ຽນ PIN'}
+                      {open === 'pin' ? t('acc.close') : t('acc.changePin')}
                     </button>
                   </div>
                 </div>
                 {open === 'pin' && (
                   <form className="ai-editor" onSubmit={changePin}>
-                    <p className="ai-hint">PIN ໃໝ່ເປັນຕົວເລກ 4-6 ໂຕ</p>
-                    <PinField label="PIN ປັດຈຸບັນ" value={curPin} onChange={setCurPin} autoFocus />
-                    <PinField label="PIN ໃໝ່" value={newPin} onChange={setNewPin} autoComplete="new-password" />
-                    <PinField label="ຢືນຢັນ PIN ໃໝ່" value={newPin2} onChange={setNewPin2} autoComplete="new-password" />
+                    <p className="ai-hint">{t('acc.pinHint')}</p>
+                    <PinField label={t('acc.curPin')} value={curPin} onChange={setCurPin} autoFocus />
+                    <PinField label={t('acc.newPin')} value={newPin} onChange={setNewPin} autoComplete="new-password" />
+                    <PinField label={t('acc.newPin2')} value={newPin2} onChange={setNewPin2} autoComplete="new-password" />
                     {msg && <p className="ai-msg">{msg}</p>}
-                    <EditorActions busy={busy} label="ປ່ຽນ PIN" onCancel={closeEditor} />
+                    <EditorActions busy={busy} label={t('acc.changePin')} onCancel={closeEditor} />
                   </form>
                 )}
               </div>
             </section>
 
             {/* ===== ລຶບບັນຊີ ===== */}
-            <h2 className="ai-sec">ລຶບບັນຊີ</h2>
+            <h2 className="ai-sec">{t('acc.delSec')}</h2>
             <section className="ai-card danger">
               <div className="ai-item">
                 <div className="ai-row">
                   <div className="ai-main">
-                    <div className="ai-lb red">ລຶບບັນຊີຂອງຂ້ອຍ</div>
-                    <div className="ai-note">
-                      ຂໍ້ມູນສ່ວນຕົວ, ທີ່ຢູ່, ສິນຄ້າທີ່ຖືກໃຈ, ກະຕ່າ ແລະ ແຊັດ ຈະຖືກລຶບຖາວອນ
-                      ສ່ວນປະຫວັດອໍເດີຍັງຖືກເກັບໄວ້ໃຫ້ຮ້ານ
-                    </div>
+                    <div className="ai-lb red">{t('acc.delTitle')}</div>
+                    <div className="ai-note">{t('acc.delNote')}</div>
                   </div>
                   <div className="ai-acts">
                     <button
@@ -562,15 +594,15 @@ function AccountInfoInner() {
                       aria-expanded={open === 'delete'}
                       onClick={() => toggle('delete')}
                     >
-                      {open === 'delete' ? 'ປິດ' : 'ລຶບບັນຊີ'}
+                      {open === 'delete' ? t('acc.close') : t('acc.delSec')}
                     </button>
                   </div>
                 </div>
                 {open === 'delete' && (
                   <form className="ai-editor" onSubmit={deleteAccount}>
-                    <PinField label="ປ້ອນ PIN ເພື່ອຢືນຢັນ" value={pin} onChange={setPin} autoFocus />
+                    <PinField label={t('acc.pinToConfirm')} value={pin} onChange={setPin} autoFocus />
                     {msg && <p className="ai-msg">{msg}</p>}
-                    <EditorActions busy={busy} label="ຢືນຢັນລຶບບັນຊີ" onCancel={closeEditor} danger />
+                    <EditorActions busy={busy} label={t('acc.delConfirmBtn')} onCancel={closeEditor} danger />
                   </form>
                 )}
               </div>
@@ -578,6 +610,15 @@ function AccountInfoInner() {
           </>
         )}
       </div>
+
+      <ConfirmModal
+        open={confirmDel}
+        message={t('acc.delConfirm')}
+        danger
+        confirmText={t('acc.delConfirmBtn')}
+        onConfirm={doDelete}
+        onCancel={() => setConfirmDel(false)}
+      />
     </div>
   );
 }

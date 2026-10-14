@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { apiGet, apiPost, apiUpload, saveToken } from '../../api.js';
 import TopBar from '../../components/TopBar.jsx';
+import ConfirmModal from '../../components/ConfirmModal.jsx';
 import { CartProvider } from '../../context/CartContext.jsx';
 import logo from '../../assets/polo-logo.jpeg';
+import { usePageT } from '../../useT.js';
+import dict from '../../locales/cust-chat.js';
 
 // ---------- สไตล์ (อยู่ในไฟล์นี้ ไม่ชนกับ CSS เดิม) ----------
 // ถ้าหน้าจอสูงเกินหรือเตี้ยไป ปรับเลข 64px (ความสูงของ TopBar) ตรงนี้
@@ -41,10 +44,20 @@ const CSS = `
 .cc-oi-sub{color:#6b7280;font-size:.78rem;margin-top:1px}
 .cc-size{display:inline-block;background:#f3f4f6;border-radius:6px;padding:0 6px;margin-left:6px;font-size:.75rem;font-weight:600;color:#374151}
 .cc-oi-price{font-weight:600;white-space:nowrap}
-.cc-total{display:flex;justify-content:space-between;padding:10px 14px;font-weight:700;background:#fafafa}
+.cc-sumrow{display:flex;justify-content:space-between;gap:12px;padding:6px 14px;font-size:.85rem;color:#4b5563}
+.cc-sumrow:first-of-type{padding-top:10px}
+.cc-sumrow.disc span:last-child{color:#15803d;font-weight:600}
+.cc-free{color:#15803d;font-weight:700}
+.cc-total{display:flex;justify-content:space-between;padding:10px 14px;font-weight:700;background:#fafafa;margin-top:4px;border-top:1px solid #e5e7eb}
 .cc-total span:last-child{color:#dc2626}
-.cc-addr{padding:10px 14px;border-top:1px solid #e5e7eb;font-size:.85rem;color:#374151;word-break:break-word}
-.cc-addr b{display:block;color:#6b7280;font-size:.74rem;font-weight:600;margin-bottom:2px}
+.cc-info{border-top:1px solid #e5e7eb;padding:6px 14px 10px}
+.cc-ir{display:flex;gap:10px;padding:6px 0;font-size:.85rem;align-items:flex-start}
+.cc-ir-ic{width:20px;flex:0 0 20px;text-align:center}
+.cc-ir-lb{display:block;color:#6b7280;font-size:.72rem;font-weight:600}
+.cc-ir-val{display:block;color:#111827;word-break:break-word;white-space:pre-wrap}
+.cc-pill{display:inline-block;padding:2px 10px;border-radius:999px;font-size:.78rem;font-weight:700}
+.cc-pill.cod{background:#ffedd5;color:#c2410c}
+.cc-pill.transfer{background:#e0f2fe;color:#0369a1}
 
 .cc-welcome{margin:auto;text-align:center;color:#6b7280;padding:20px;max-width:280px;line-height:1.6}
 .cc-welcome .big{font-size:2rem;margin-bottom:6px}
@@ -64,75 +77,99 @@ const CSS = `
 .cc-lightbox button{position:absolute;top:14px;right:16px;border:none;background:rgba(255,255,255,.18);color:#fff;width:40px;height:40px;border-radius:50%;font-size:1.2rem;cursor:pointer}
 `;
 
-const QUICK_REPLIES = [
-  'ສອບຖາມສະຖານະອໍເດີ',
-  'ສອບຖາມໄຊສ໌',
-  'ຂໍຮູບສິນຄ້າເພີ່ມ',
-  'ສອບຖາມການຈັດສົ່ງ',
-];
+const QUICK_KEYS = ['cc.q1', 'cc.q2', 'cc.q3', 'cc.q4'];
 
 // ---------- ฟังก์ชันช่วย ----------
-function fmtMoney(n) {
+function fmtMoney(n, kip) {
   const v = Number(String(n).replace(/,/g, ''));
-  return Number.isNaN(v) ? String(n) : `${v.toLocaleString('en-US')} ກີບ`;
+  return Number.isNaN(v) ? String(n) : `${v.toLocaleString('en-US')} ${kip}`;
 }
 
-function looksLikeOrder(text) {
-  if (!text) return false;
-  const flat = text.replace(/\s+/g, ' ').trim();
-  const colon = flat.indexOf(':');
-  if (colon < 1 || colon > 30) return false;
-  return /^:\s*-\s/.test(flat.slice(colon));
+// ★ ข้อความที่ Checkout ส่งเข้าแชตเป็นภาษาลาวเสมอ แยกเป็นบรรทัด "หัวข้อ: ค่า"
+//   คีย์ลาวด้านล่างต้องตรงกับที่ Checkout.jsx เขียน (orderMessage)
+const INFO_KEYS = {
+  'ຄ່າສິນຄ້າ': 'subtotal',
+  'ຄ່າສົ່ງ': 'shipping',
+  'ຄູປອງ': 'coupon',
+  'ລວມ': 'total',
+  'ຂົນສົ່ງ': 'carrier',
+  'ວິທີຊຳລະ': 'method',
+  'ເບີໂທ': 'phone',
+  'ທີ່ຢູ່ຈັດສົ່ງ': 'address',
+};
+// ບັນທັດສາຂາຂົນສົ່ງ (backend ປະກອບໃຫ້ ໃນ buildBranchAddress)
+const BRANCH_KEYS = {
+  'ຮັບທີ່ສາຂາ': 'branch',
+  'ເມືອງ': 'district',
+  'ແຂວງ': 'province',
+  'ເບີສາຂາ': 'branchPhone',
+};
+
+// "POLO (ໄຊສ໌ M) x1 = 459000 ກີບ" → { name, size, qty, price }
+function parseItem(s) {
+  const m = s.match(/^(.*?)\s+x\s*(\d+)\s*=\s*([\d,.]+)/);
+  if (!m) return null;
+  let name = m[1].trim();
+  let size = '';
+  const sm = name.match(/\(([^)]*)\)\s*$/);
+  if (sm) {
+    size = sm[1].replace(/^\S+\s+/, '').trim();
+    name = name.replace(sm[0], '').trim();
+  }
+  return { name, size, qty: Number(m[2]), price: m[3] };
 }
 
-// แปลงข้อความ "ສັ່ງຊື້ໃໝ່: - POLO (ໄຊສ໌ M) x1 = 459000 ກີບ ... ລວມ: ... ທີ່ຢູ່ຈັດສົ່ງ: ..." เป็นข้อมูล
 function parseOrder(raw) {
-  if (!looksLikeOrder(raw)) return null;
-  const flat = raw.replace(/\s+/g, ' ').trim();
-  const colon = flat.indexOf(':');
-  const title = flat.slice(0, colon).trim();
-  let body = flat.slice(colon + 1);
-  let total = null;
-  let address = '';
-
-  const tm = body.match(/ລວມ\s*:\s*([\d,.]+)\s*\S*\s*([\s\S]*)$/);
-  if (tm) {
-    total = tm[1];
-    address = tm[2].replace(/^[^:]*:\s*/, '').trim();
-    body = body.slice(0, tm.index);
-  }
-
-  const items = [];
-  body
-    .split(/(?:^|\s)-\s+/)
+  const lines = String(raw || '')
+    .split('\n')
     .map((s) => s.trim())
-    .filter(Boolean)
-    .forEach((part) => {
-      const m = part.match(/^(.*?)\s+x\s*(\d+)\s*=\s*([\d,.]+)/);
-      if (!m) return;
-      let name = m[1].trim();
-      let size = '';
-      const sm = name.match(/\(([^)]*)\)\s*$/);
-      if (sm) {
-        size = sm[1].replace(/^\S+\s+/, '').trim();
-        name = name.replace(sm[0], '').trim();
-      }
-      items.push({ name, size, qty: Number(m[2]), price: m[3] });
-    });
+    .filter(Boolean);
+  if (lines.length < 3 || !/^[^:]{1,30}:$/.test(lines[0]) || !lines[1].startsWith('- ')) return null;
 
-  if (items.length === 0) return null;
-  if (total === null) {
-    total = String(items.reduce((s, i) => s + Number(String(i.price).replace(/,/g, '') || 0), 0));
+  const order = { title: lines[0].slice(0, -1).trim(), items: [], info: {}, branch: {}, address: [] };
+  let inAddress = false; // ຫຼັງຫົວຂໍ້ທີ່ຢູ່ ທຸກບັນທັດເປັນທີ່ຢູ່ (ລູກຄ້າພິມເອງ ຫ້າມຕີຄວາມເປັນຫົວຂໍ້)
+
+  lines.slice(1).forEach((line) => {
+    if (inAddress) {
+      order.address.push(line);
+      return;
+    }
+    if (line.startsWith('- ')) {
+      const it = parseItem(line.slice(2));
+      if (it) order.items.push(it);
+      return;
+    }
+    const m = line.match(/^([^:]{1,30}):\s*(.*)$/);
+    const key = m ? m[1].trim() : '';
+    if (key && INFO_KEYS[key]) {
+      if (INFO_KEYS[key] === 'address') {
+        inAddress = true;
+        if (m[2]) order.address.push(m[2]);
+      } else {
+        order.info[INFO_KEYS[key]] = m[2].trim();
+      }
+      return;
+    }
+    if (key && BRANCH_KEYS[key]) {
+      order.branch[BRANCH_KEYS[key]] = m[2].trim();
+      return;
+    }
+    order.address.push(line);
+  });
+
+  if (order.items.length === 0) return null;
+  if (!order.info.total) {
+    order.info.total = String(order.items.reduce((s, i) => s + Number(String(i.price).replace(/,/g, '') || 0), 0));
   }
-  return { title, items, total, address };
+  return order;
 }
 
-function dayLabel(d) {
+function dayLabel(d, t) {
   const today = new Date();
   const yest = new Date();
   yest.setDate(today.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) return 'ມື້ນີ້';
-  if (d.toDateString() === yest.toDateString()) return 'ມື້ວານ';
+  if (d.toDateString() === today.toDateString()) return t('common.today');
+  if (d.toDateString() === yest.toDateString()) return t('common.yesterday');
   return d.toLocaleDateString('en-GB');
 }
 
@@ -142,10 +179,43 @@ function ShopAvatar({ className }) {
   return <img className={className} src={logo} alt="" onError={() => setOk(false)} />;
 }
 
+function InfoRow({ icon, label, children }) {
+  return (
+    <div className="cc-ir">
+      <span className="cc-ir-ic">{icon}</span>
+      <div>
+        <span className="cc-ir-lb">{label}</span>
+        <span className="cc-ir-val">{children}</span>
+      </div>
+    </div>
+  );
+}
+
 function OrderCard({ order }) {
+  const { t } = usePageT(dict);
+  const kip = t('common.kip');
+  const { info, branch } = order;
+  const title = order.title === 'ສັ່ງຊື້ໃໝ່' ? t('cc.newOrder') : order.title;
+
+  const cod = /COD/i.test(info.method || '');
+  const shipN = Number(String(info.shipping || '').replace(/[^\d.]/g, '')) || 0;
+
+  // "ຊື່ຄູປອງ (-200000 ກີບ)" → ຊື່ + ຈຳນວນເງິນ
+  let couponName = '';
+  let couponAmt = '';
+  if (info.coupon) {
+    const cm = info.coupon.match(/^(.*?)\s*\(\s*-?\s*([\d,.]+)/);
+    couponName = cm ? cm[1] : info.coupon;
+    couponAmt = cm ? cm[2] : '';
+  }
+
+  const hasBranch = !!branch.branch;
+  const place = [branch.district, branch.province].filter(Boolean).join(', ');
+
   return (
     <div className="cc-order">
-      <div className="cc-order-head">🛒 {order.title}</div>
+      <div className="cc-order-head">🛒 {title}</div>
+
       {order.items.map((it, i) => (
         <div className="cc-oi" key={i}>
           <div>
@@ -155,25 +225,64 @@ function OrderCard({ order }) {
             </div>
             <div className="cc-oi-sub">x{it.qty}</div>
           </div>
-          <div className="cc-oi-price">{fmtMoney(it.price)}</div>
+          <div className="cc-oi-price">{fmtMoney(it.price, kip)}</div>
         </div>
       ))}
-      <div className="cc-total">
-        <span>ລວມ</span>
-        <span>{fmtMoney(order.total)}</span>
-      </div>
-      {order.address && (
-        <div className="cc-addr">
-          <b>📍 ທີ່ຢູ່ຈັດສົ່ງ</b>
-          {order.address}
+
+      {info.subtotal && (
+        <div className="cc-sumrow">
+          <span>{t('cc.subtotal')}</span>
+          <span>{fmtMoney(info.subtotal, kip)}</span>
         </div>
       )}
+      {info.shipping && (
+        <div className="cc-sumrow">
+          <span>{t('cc.shipping')}</span>
+          {shipN > 0 ? <span>+{fmtMoney(shipN, kip)}</span> : <span className="cc-free">{t('cc.shippingFree')}</span>}
+        </div>
+      )}
+      {info.coupon && (
+        <div className="cc-sumrow disc">
+          <span>{t('cc.coupon')}{couponName ? ` · ${couponName}` : ''}</span>
+          {couponAmt && <span>−{fmtMoney(couponAmt, kip)}</span>}
+        </div>
+      )}
+      <div className="cc-total">
+        <span>{t('cc.total')}</span>
+        <span>{fmtMoney(info.total, kip)}</span>
+      </div>
+
+      <div className="cc-info">
+        {info.carrier && (
+          <InfoRow icon="🚚" label={t('cc.carrier')}>{info.carrier}</InfoRow>
+        )}
+        {info.method && (
+          <InfoRow icon={cod ? '💵' : '💳'} label={t('cc.payMethod')}>
+            <span className={`cc-pill ${cod ? 'cod' : 'transfer'}`}>{cod ? t('cc.cod') : t('cc.transfer')}</span>
+          </InfoRow>
+        )}
+        {info.phone && (
+          <InfoRow icon="📞" label={t('cc.phoneLbl')}>{info.phone}</InfoRow>
+        )}
+        {hasBranch ? (
+          <InfoRow icon="📍" label={t('cc.pickupAt')}>
+            <b>{branch.branch}</b>
+            {place ? `\n${place}` : ''}
+            {branch.branchPhone ? `\n${t('cc.branchPhone')}: ${branch.branchPhone}` : ''}
+          </InfoRow>
+        ) : (
+          order.address.length > 0 && (
+            <InfoRow icon="📍" label={t('cc.address')}>{order.address.join('\n')}</InfoRow>
+          )
+        )}
+      </div>
     </div>
   );
 }
 
 // ---------- หน้าแชต ----------
 function CustomerChatInner() {
+  const { t, locale } = usePageT(dict);
   const [loggedIn, setLoggedIn] = useState(null);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
@@ -182,6 +291,7 @@ function CustomerChatInner() {
   const [loginError, setLoginError] = useState('');
   const [sending, setSending] = useState(false);
   const [lightbox, setLightbox] = useState('');
+  const [notice, setNotice] = useState(''); // กล่องแจ้งข้อความแทน alert()
 
   const boxRef = useRef(null);
   const soundRef = useRef(null);
@@ -243,22 +353,34 @@ function CustomerChatInner() {
     if (boxRef.current) boxRef.current.scrollTop = boxRef.current.scrollHeight;
   }, [messages]);
 
+  // ข้อความเมื่อถูกล็อก: "ลองใหม่ใน 5 นาที" (backend ส่ง seconds_left มาให้)
+  function lockedText(data) {
+    const s = Math.ceil(Number(data && data.seconds_left));
+    if (!s || s < 0) return t('cc.errLockedGeneric');
+    const when = s >= 60 ? t('cc.timeMin', { n: Math.ceil(s / 60) }) : t('cc.timeSec', { n: s });
+    return t('cc.errLocked', { when });
+  }
+
   async function doLogin() {
     setLoginError('');
     if (!phone || !pin) {
-      setLoginError('ກະລຸນາປ້ອນເບີໂທ ແລະ PIN');
+      setLoginError(t('cc.errEmpty'));
       return;
     }
     try {
-      const { data } = await apiPost('/api/customer-auth/login', { phone, pin });
-      if (data.success) {
+      const { status, data } = await apiPost('/api/customer-auth/login', { phone, pin });
+      if (status === 429) {
+        setLoginError(lockedText(data));
+        return;
+      }
+      if (data && data.success) {
         saveToken(data.token);
         checkLoginAndStart();
       } else {
-        setLoginError(data.error || 'ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ');
+        setLoginError(t('cc.errLoginFail'));
       }
     } catch (err) {
-      setLoginError('ເກີດຂໍ້ຜິດພາດ, ລອງໃໝ່ພາຍຫຼັງ');
+      setLoginError(t('cc.errGeneric'));
     }
   }
 
@@ -274,10 +396,10 @@ function CustomerChatInner() {
       if (data.success) {
         loadMessages();
       } else {
-        alert(data.error || 'ສົ່ງຂໍ້ຄວາມບໍ່ສຳເລັດ');
+        setNotice(t('cc.sendFail'));
       }
     } catch (err) {
-      alert('ເກີດຂໍ້ຜິດພາດ');
+      setNotice(t('cc.error'));
     }
     setSending(false);
   }
@@ -293,10 +415,10 @@ function CustomerChatInner() {
       if (data.success) {
         loadMessages();
       } else {
-        alert(data.error || 'ອັບໂຫລດຮູບບໍ່ສຳເລັດ');
+        setNotice(t('cc.uploadFail'));
       }
     } catch (err) {
-      alert('ເກີດຂໍ້ຜິດພາດ');
+      setNotice(t('cc.error'));
     }
     setSending(false);
     e.target.value = '';
@@ -307,16 +429,18 @@ function CustomerChatInner() {
   if (loggedIn === false) {
     return (
       <div className="menuchat-login-box">
-        <h2>ເຂົ້າສູ່ລະບົບເພື່ອແຊັດ</h2>
-        <input type="tel" placeholder="ເບີໂທລະສັບ" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <h2>{t('cc.loginTitle')}</h2>
+        <input type="tel" placeholder={t('cc.phone')} value={phone} onChange={(e) => setPhone(e.target.value)} />
         <input
           type="password"
-          placeholder="ລະຫັດ PIN"
+          inputMode="numeric"
+          maxLength={6}
+          placeholder={t('cc.pin')}
           value={pin}
           onChange={(e) => setPin(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter') doLogin(); }}
         />
-        <button onClick={doLogin}>ເຂົ້າສູ່ລະບົບ</button>
+        <button onClick={doLogin}>{t('cc.login')}</button>
         <div className="menuchat-login-error">{loginError}</div>
       </div>
     );
@@ -333,11 +457,11 @@ function CustomerChatInner() {
       if (key !== prevDay) {
         prevDay = key;
         rendered.push(
-          <div className="cc-date" key={`d-${msg.id}`}>{dayLabel(d)}</div>
+          <div className="cc-date" key={`d-${msg.id}`}>{dayLabel(d, t)}</div>
         );
       }
     }
-    const time = valid ? d.toLocaleTimeString('lo-LA', { hour: '2-digit', minute: '2-digit' }) : '';
+    const time = valid ? d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }) : '';
     const isImageOnly = msg.image_url && !msg.message_text;
     const order = msg.message_text ? parseOrder(msg.message_text) : null;
     const side = msg.sender === 'customer' ? 'me' : 'shop';
@@ -372,7 +496,7 @@ function CustomerChatInner() {
             <ShopAvatar className="cc-logo" />
             <div>
               <div className="cc-title">POLO SHOP</div>
-              <div className="cc-sub">ຕິດຕໍ່ສອບຖາມກັບຮ້ານໄດ້ທີ່ນີ້</div>
+              <div className="cc-sub">{t('cc.sub')}</div>
             </div>
           </div>
 
@@ -380,7 +504,7 @@ function CustomerChatInner() {
             {messages.length === 0 ? (
               <div className="cc-welcome">
                 <div className="big">💬</div>
-                ສະບາຍດີ! ມີຫຍັງໃຫ້ຊ່ວຍບໍ? ພິມຂໍ້ຄວາມ ຫຼື ກົດປຸ່ມດ້ານລຸ່ມໄດ້ເລີຍ
+                {t('cc.welcome')}
               </div>
             ) : (
               rendered
@@ -388,38 +512,46 @@ function CustomerChatInner() {
           </div>
 
           <div className="cc-quick">
-            {QUICK_REPLIES.map((q) => (
-              <button key={q} className="cc-chip" disabled={sending} onClick={() => sendText(q)}>
-                {q}
+            {QUICK_KEYS.map((k) => (
+              <button key={k} className="cc-chip" disabled={sending} onClick={() => sendText(t(k))}>
+                {t(k)}
               </button>
             ))}
           </div>
 
           <div className="cc-input">
-            <label className="cc-attach">
+            <label className="cc-attach" title={t('cc.attach')} aria-label={t('cc.attach')}>
               📷
               <input type="file" accept="image/*" onChange={sendImage} style={{ display: 'none' }} />
             </label>
             <input
               type="text"
-              placeholder="ພິມຂໍ້ຄວາມ..."
+              placeholder={t('cc.placeholder')}
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.nativeEvent.isComposing) sendText();
               }}
             />
-            <button className="cc-send" disabled={!text.trim() || sending} onClick={() => sendText()}>➤</button>
+            <button className="cc-send" aria-label={t('cc.send')} disabled={!text.trim() || sending} onClick={() => sendText()}>➤</button>
           </div>
         </div>
       </div>
 
       {lightbox && (
         <div className="cc-lightbox" onClick={() => setLightbox('')}>
-          <button aria-label="close" onClick={() => setLightbox('')}>✕</button>
+          <button aria-label={t('cc.close')} onClick={() => setLightbox('')}>✕</button>
           <img src={lightbox} alt="" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
+
+      <ConfirmModal
+        open={!!notice}
+        message={notice}
+        hideCancel
+        onConfirm={() => setNotice('')}
+        onCancel={() => setNotice('')}
+      />
 
       <audio ref={soundRef} src="/menu/notify.wav" preload="auto" />
     </>

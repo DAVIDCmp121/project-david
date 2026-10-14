@@ -270,15 +270,30 @@ router.post('/', requireAuth, uploadImages, async (req, res) => {
 });
 
 // ລຶບສິນຄ້າ
-// - ຫາທຸກຕາຕະລາງທີ່ອ້າງອີງ products ເອງ (foreign key)
+// - ສິນຄ້າທີ່ເຄີຍມີອໍເດີ: ບໍ່ໃຫ້ລຶບ (ເກັບປະຫວັດການຂາຍ) ໃຫ້ແກ້ສະຕັອກເປັນ 0 ແທນ
 // - ຕາຕະລາງກະຕ່າ / ສິນຄ້າທີ່ຖືກໃຈ: ລ້າງໃຫ້ອັດຕະໂນມັດ
-// - ຕາຕະລາງອື່ນທີ່ຍັງມີຂໍ້ມູນ: ບໍ່ລຶບ ແລ້ວບອກຊື່ຕາຕະລາງໃຫ້ເຫັນ
-// - ທຸກຢ່າງຢູ່ໃນ transaction ຖ້າພາດຈະບໍ່ລຶບຫຍັງເລີຍ
+// - ຕາຕະລາງອື່ນທີ່ຍັງມີຂໍ້ມູນ: ບໍ່ລຶບ ແລ້ວບອກຊື່ຕາຕະລາງ
+// - ທຸກຢ່າງຢູ່ໃນ transaction
 router.delete('/:id', requireAuth, async (req, res) => {
   const conn = await pool.getConnection();
   try {
     const productId = req.params.id;
     await conn.beginTransaction();
+
+    const [[soldItems]] = await conn.query(
+      'SELECT COUNT(*) AS n FROM order_items WHERE product_id = ?',
+      [productId]
+    );
+    const [[legacyOrders]] = await conn.query(
+      'SELECT COUNT(*) AS n FROM orders WHERE product_id = ?',
+      [productId]
+    );
+    if (Number(soldItems.n) > 0 || Number(legacyOrders.n) > 0) {
+      await conn.rollback();
+      return res.status(409).json({
+        error: 'ລຶບບໍ່ໄດ້: ສິນຄ້ານີ້ເຄີຍມີອໍເດີແລ້ວ (ເກັບໄວ້ເປັນປະຫວັດການຂາຍ) ໃຫ້ແກ້ສະຕັອກເປັນ 0 ແທນ',
+      });
+    }
 
     const [refs] = await conn.query(
       `SELECT TABLE_NAME AS tbl, COLUMN_NAME AS col
@@ -289,8 +304,8 @@ router.delete('/:id', requireAuth, async (req, res) => {
     );
 
     for (const r of refs) {
-      // orders ແລະ product_images ລຶບຢູ່ດ້ານລຸ່ມຢູ່ແລ້ວ
-      if (r.tbl === 'orders' || r.tbl === 'product_images') continue;
+      // ຕາຕະລາງເຫຼົ່ານີ້ຖືກຈັດການຢູ່ແລ້ວ ຫຼື ກວດຂ້າງເທິງແລ້ວ
+      if (['orders', 'order_items', 'product_images', 'product_variants'].includes(r.tbl)) continue;
 
       if (/cart|favorite|wish/i.test(r.tbl)) {
         await conn.query(`DELETE FROM \`${r.tbl}\` WHERE \`${r.col}\` = ?`, [productId]);
@@ -308,9 +323,9 @@ router.delete('/:id', requireAuth, async (req, res) => {
       }
     }
 
-    await conn.query('DELETE FROM orders WHERE product_id = ?', [productId]);
     await conn.query('DELETE FROM product_images WHERE product_id = ?', [productId]);
     await conn.query('DELETE FROM product_variants WHERE product_id = ?', [productId]);
+    await conn.query('DELETE FROM stock_movements WHERE product_id = ?', [productId]);
     await conn.query('DELETE FROM products WHERE id = ?', [productId]);
 
     await conn.commit();

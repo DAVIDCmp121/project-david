@@ -34,21 +34,34 @@ async function withTx(fn) {
   }
 }
 
+// ຕອບເມື່ອຖືກລັອກ: ສົ່ງ seconds_left ໄປນຳ ເພື່ອໃຫ້ frontend ແປເປັນພາສາຂອງລູກຄ້າ
+function sendLocked(res, secondsLeft) {
+  return res.status(429).json({
+    error: `ພະຍາຍາມຫຼາຍເກີນໄປ ກະລຸນາລອງໃໝ່ໃນ ${secondsLeft} ວິນາທີ`,
+    locked: true,
+    seconds_left: secondsLeft,
+  });
+}
+
 // ກວດ PIN ປັດຈຸບັນ + ກັນເດົາ PIN (ສົ່ງ response ເອງເມື່ອບໍ່ຜ່ານ)
-async function checkPin(req, res, action, pin) {
-  const lockKey = `${action}:${req.customerId}`;
+// ທຸກການຢືນຢັນ PIN ຂອງລູກຄ້າຄົນດຽວກັນໃຊ້ກຸນແຈລັອກດຽວກັນ
+// (ບໍ່ແຍກຕາມໜ້າທີ່ ເພື່ອບໍ່ໃຫ້ເດົາໄດ້ຫຼາຍຂຶ້ນໂດຍການສະຫຼັບໜ້າ)
+async function checkPin(req, res, _action, pin) {
+  const lockKey = `pin-check:${req.customerId}`;
   const lock = checkLocked(lockKey);
   if (lock.locked) {
-    res.status(429).json({
-      error: `ພະຍາຍາມຫຼາຍເກີນໄປ ກະລຸນາລອງໃໝ່ໃນ ${lock.secondsLeft} ວິນາທີ`,
-    });
+    sendLocked(res, lock.secondsLeft);
     return false;
   }
   const [rows] = await pool.query('SELECT pin_hash FROM customers WHERE id = ?', [req.customerId]);
   const ok = rows[0] && pin && (await bcrypt.compare(String(pin), rows[0].pin_hash));
   if (!ok) {
-    recordFailure(lockKey);
-    res.status(401).json({ error: 'PIN ບໍ່ຖືກຕ້ອງ' });
+    const fail = recordFailure(lockKey);
+    if (fail.locked) {
+      sendLocked(res, fail.secondsLeft);
+    } else {
+      res.status(401).json({ error: 'PIN ບໍ່ຖືກຕ້ອງ', attempts_left: fail.attemptsLeft });
+    }
     return false;
   }
   clearAttempts(lockKey);

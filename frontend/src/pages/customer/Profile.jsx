@@ -1,9 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../../components/TopBar.jsx';
+import ConfirmModal from '../../components/ConfirmModal.jsx';
 import { CartProvider } from '../../context/CartContext.jsx';
 import { PersonCircle, HeartCircle, Chevron } from '../../components/SettingsIcons.jsx';
 import { apiGet, apiPost, clearToken } from '../../api';
+import { usePageT } from '../../useT.js';
+import dict from '../../locales/cust-profile.js';
 
 /* ---------- ເສັ້ນທາງໜ້າອໍເດີ (ກວດໃນ App.jsx ວ່າຖືກບໍ່ ຖ້າບໍ່ຖືກໃຫ້ແກ້ບ່ອນນີ້) ---------- */
 const ORDERS_PATH = '/menu/orders';
@@ -266,14 +269,15 @@ function Row({ icon, label, sub, onClick }) {
 
 // ແຖວສະວິດ ເປີດ/ປິດ ໂໝດມືດ
 function ThemeRow({ isDark, onToggle }) {
+  const { t } = usePageT(dict);
   return (
     <button className="pf-row" onClick={onToggle} role="switch" aria-checked={isDark}>
       <Circle>
         <IconMoon />
       </Circle>
       <span className="pf-row-text">
-        <span className="pf-row-lb">ໂໝດມືດ</span>
-        <span className="pf-row-sub">{isDark ? 'ກຳລັງໃຊ້: ດຳ' : 'ກຳລັງໃຊ້: ຂາວ'}</span>
+        <span className="pf-row-lb">{t('pf.dark')}</span>
+        <span className="pf-row-sub">{isDark ? t('pf.usingDark') : t('pf.usingLight')}</span>
       </span>
       <span className={`pf-switch${isDark ? ' on' : ''}`} />
     </button>
@@ -281,9 +285,10 @@ function ThemeRow({ isDark, onToggle }) {
 }
 
 function TierBlock({ spent }) {
+  const { t } = usePageT(dict);
   let idx = 0;
-  TIERS.forEach((t, i) => {
-    if (spent >= t.min) idx = i;
+  TIERS.forEach((tier, i) => {
+    if (spent >= tier.min) idx = i;
   });
   const current = TIERS[idx];
   const next = TIERS[idx + 1];
@@ -294,19 +299,21 @@ function TierBlock({ spent }) {
       <div className="pf-tier-head">
         <span className="pf-tier-badge">{current.name}</span>
         <span className="pf-tier-spent">
-          ຍອດສະສົມ <b>{fmt(spent)}</b> ກີບ
+          {t('pf.spent')} <b>{fmt(spent)}</b> {t('common.kip')}
         </span>
       </div>
       <div className="pf-bar" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
         <div className="pf-bar-fill" style={{ width: `${pct}%` }} />
       </div>
       <div className="pf-tier-note">
-        {next ? `ຍັງຂາດ ${fmt(next.min - spent)} ກີບ ເພື່ອເປັນ ${next.name}` : 'ທ່ານຢູ່ລະດັບສູງສຸດແລ້ວ'}
+        {next
+          ? t('pf.toNext', { n: fmt(next.min - spent), kip: t('common.kip'), tier: next.name })
+          : t('pf.topTier')}
       </div>
       <ol className="pf-ladder" aria-hidden="true">
-        {TIERS.map((t, i) => (
-          <li key={t.name} className={i <= idx ? (i === idx ? 'done now' : 'done') : ''}>
-            {t.name}
+        {TIERS.map((tier, i) => (
+          <li key={tier.name} className={i <= idx ? (i === idx ? 'done now' : 'done') : ''}>
+            {tier.name}
           </li>
         ))}
       </ol>
@@ -316,11 +323,13 @@ function TierBlock({ spent }) {
 
 function ProfileInner() {
   const navigate = useNavigate();
+  const { t } = usePageT(dict);
   const [user, setUser] = useState(null); // { name, phone }
   const [stats, setStats] = useState(null); // { total, inProgress, delivered, spent }
   const [loyalty, setLoyalty] = useState(null); // { points, coupons }
   const [loaded, setLoaded] = useState(false);
   const [theme, setTheme] = useState(getSavedTheme); // 'light' | 'dark'
+  const [logoutOpen, setLogoutOpen] = useState(false); // กล่องยืนยันออกจากระบบ
 
   // ສະລັບທີມ ແລ້ວບັນທຶກໄວ້
   function toggleTheme() {
@@ -367,8 +376,8 @@ function ProfileInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function handleLogout() {
-    if (!window.confirm('ຢືນຢັນອອກຈາກລະບົບ?')) return;
+  async function doLogout() {
+    setLogoutOpen(false);
     try {
       await apiPost('/api/customer-auth/logout', {});
     } catch (err) {}
@@ -383,13 +392,13 @@ function ProfileInner() {
   // ເພີ່ມເມນູໃໝ່ໃນອະນາຄົດ: ເພີ່ມລາຍການໃສ່ໃນ items ຂອງກຸ່ມທີ່ຕ້ອງການ
   const MENU_GROUPS = [
     {
-      title: 'ບັນຊີ',
+      title: t('pf.secAccount'),
       items: [
         {
           // ໜ້າດຽວ: ຊື່, ເບີໂທ, ວັນເກີດ, PIN ແລະ ລຶບບັນຊີ
           icon: <PersonCircle />,
-          label: 'ຂໍ້ມູນບັນຊີ',
-          sub: 'ຊື່, ເບີໂທ, ວັນເກີດ, PIN ແລະ ລຶບບັນຊີ',
+          label: t('pf.accInfo'),
+          sub: t('pf.accInfoSub'),
           to: '/menu/profile/info',
         },
         {
@@ -398,13 +407,13 @@ function ProfileInner() {
               <IconPin />
             </Circle>
           ),
-          label: 'ທີ່ຢູ່ຈັດສົ່ງ',
-          sub: 'ບັນທຶກໄວ້ໃຊ້ຕອນສັ່ງຊື້',
+          label: t('pf.addr'),
+          sub: t('pf.addrSub'),
           to: '/menu/profile/addresses',
         },
         {
           icon: <HeartCircle />,
-          label: 'ສິນຄ້າທີ່ຖືກໃຈ',
+          label: t('pf.fav'),
           to: '/menu/favorites',
         },
       ],
@@ -417,7 +426,7 @@ function ProfileInner() {
       <TopBar />
 
       <div className="pf-wrap">
-        <h1 className="pf-title">ບັນຊີຂອງຂ້ອຍ</h1>
+        <h1 className="pf-title">{t('pf.title')}</h1>
 
         <div className="pf-layout">
           {/* ===== ຊ້າຍ: ໂປຣໄຟລ໌ + ລະດັບ + ແຕ້ມ + ສະຖິຕິ ===== */}
@@ -433,7 +442,7 @@ function ProfileInner() {
                   )}
                 </span>
                 <span className="pf-user-info">
-                  <span className={`pf-name${name ? '' : ' empty'}`}>{name || 'ຍັງບໍ່ໄດ້ຕັ້ງຊື່'}</span>
+                  <span className={`pf-name${name ? '' : ' empty'}`}>{name || t('pf.noName')}</span>
                   <span className="pf-phone">{user?.phone || ' '}</span>
                 </span>
               </div>
@@ -452,11 +461,11 @@ function ProfileInner() {
                 <div className="pf-quick">
                   <button className="pf-q" onClick={() => navigate('/menu/profile/coupons')}>
                     <span className="pf-q-num">{fmt(loyalty.points)}</span>
-                    <span className="pf-q-lb">ແຕ້ມສະສົມ</span>
+                    <span className="pf-q-lb">{t('pf.points')}</span>
                   </button>
                   <button className="pf-q" onClick={() => navigate('/menu/profile/coupons')}>
                     <span className="pf-q-num">{fmt(loyalty.coupons)}</span>
-                    <span className="pf-q-lb">ຄູປອງຂອງຂ້ອຍ</span>
+                    <span className="pf-q-lb">{t('pf.coupons')}</span>
                   </button>
                 </div>
               )}
@@ -464,15 +473,15 @@ function ProfileInner() {
               <div className="pf-stats">
                 <button className="pf-stat" onClick={() => navigate(ORDERS_PATH)}>
                   <div className="pf-stat-num">{show(stats?.total)}</div>
-                  <div className="pf-stat-lb">ອໍເດີທັງໝົດ</div>
+                  <div className="pf-stat-lb">{t('pf.ordersAll')}</div>
                 </button>
                 <button className="pf-stat" onClick={() => navigate(ORDERS_PATH)}>
                   <div className="pf-stat-num">{show(stats?.inProgress)}</div>
-                  <div className="pf-stat-lb">ກຳລັງດຳເນີນການ</div>
+                  <div className="pf-stat-lb">{t('pf.inProgress')}</div>
                 </button>
                 <button className="pf-stat" onClick={() => navigate(ORDERS_PATH)}>
                   <div className="pf-stat-num">{show(stats?.delivered)}</div>
-                  <div className="pf-stat-lb">ຮອດແລ້ວ</div>
+                  <div className="pf-stat-lb">{t('pf.delivered')}</div>
                 </button>
               </div>
             </section>
@@ -498,21 +507,30 @@ function ProfileInner() {
             ))}
 
             {/* ການສະແດງຜົນ (ໂໝດມືດ) */}
-            <h2 className="pf-sec-title">ການສະແດງຜົນ</h2>
+            <h2 className="pf-sec-title">{t('pf.display')}</h2>
             <section className="pf-card">
               <ThemeRow isDark={theme === 'dark'} onToggle={toggleTheme} />
             </section>
 
             {/* ອອກຈາກລະບົບ */}
-            <button className="pf-logout" onClick={handleLogout}>
+            <button className="pf-logout" onClick={() => setLogoutOpen(true)}>
               <IconLogout />
-              ອອກຈາກລະບົບ
+              {t('auth.logout')}
             </button>
 
             <div className="pf-footer">POLO SHOP v1.0.0</div>
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        open={logoutOpen}
+        message={t('pf.logoutConfirm')}
+        confirmText={t('auth.logout')}
+        danger
+        onConfirm={doLogout}
+        onCancel={() => setLogoutOpen(false)}
+      />
     </div>
   );
 }

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import TopBar from '../../components/TopBar.jsx';
 import { CartProvider, useCart } from '../../context/CartContext.jsx';
 import { API_BASE, apiGet, apiPut, apiDelete } from '../../api.js';
+import { usePageT } from '../../useT.js';
+import dict from '../../locales/cust-cart.js';
 
 const css = `
 .ct-wrap { max-width: 900px; margin: 0 auto; padding: 20px 16px 0; }
@@ -13,11 +15,18 @@ const css = `
   border: 1px solid var(--cust-border, #ececec); border-radius: 14px; padding: 12px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
 }
+.ct-item.ct-bad { border-color: #fca5a5; background: #fffafa; }
 .ct-img { width: 84px; height: 84px; border-radius: 10px; object-fit: cover; background: #f4f4f2; flex: 0 0 auto; }
 .ct-info { flex: 1 1 auto; min-width: 0; }
 .ct-name { font-size: 0.98rem; font-weight: 600; color: var(--cust-text, #1f2937); line-height: 1.3; }
 .ct-meta { font-size: 0.8rem; color: var(--cust-text-muted, #6b7280); margin-top: 3px; }
 .ct-price { font-size: 0.95rem; font-weight: 700; color: #b8862b; margin-top: 6px; }
+.ct-warn { font-size: 0.82rem; color: #dc2626; margin-top: 6px; font-weight: 600; }
+.ct-low { font-size: 0.8rem; color: #d97706; margin-top: 4px; }
+.ct-adjust {
+  margin-top: 6px; padding: 4px 12px; border-radius: 8px; border: 1px solid #dc2626;
+  background: #fff; color: #dc2626; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+}
 .ct-right { display: flex; align-items: center; gap: 16px; flex: 0 0 auto; }
 .ct-qty { display: flex; align-items: center; gap: 10px; }
 .ct-qty button {
@@ -50,13 +59,15 @@ const css = `
 .ct-bar-inner {
   max-width: 900px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 14px;
 }
+.ct-bar-note { max-width: 900px; margin: 0 auto 8px; color: #dc2626; font-size: 0.85rem; font-weight: 600; }
 .ct-total-label { font-size: 0.82rem; color: var(--cust-text-muted, #6b7280); }
 .ct-total { font-size: 1.25rem; font-weight: 800; color: #b8862b; }
 .ct-pay {
   padding: 13px 30px; border-radius: 12px; border: none; background: var(--gold); color: #fff;
   font-weight: 700; font-size: 1rem; cursor: pointer; box-shadow: 0 6px 16px rgba(201, 162, 39, 0.3);
 }
-.ct-pay:hover { filter: brightness(1.06); }
+.ct-pay:hover:not(:disabled) { filter: brightness(1.06); }
+.ct-pay:disabled { background: #d1d5db; box-shadow: none; cursor: not-allowed; }
 
 @media (max-width: 640px) {
   .ct-item { flex-wrap: wrap; }
@@ -67,9 +78,15 @@ const css = `
 }
 `;
 
+const LOW_STOCK_SHOW = 3;
+
 function fmt(n) {
   return Number(n || 0).toLocaleString('en-US');
 }
+
+// stock ที่ backend ส่งมา = สต็อกของไซส์ที่เลือกในแถวนั้นอยู่แล้ว
+const stockOf = (item) => Number(item.stock) || 0;
+const isOver = (item) => item.quantity > stockOf(item);
 
 function CartInner() {
   const [items, setItems] = useState(null);
@@ -77,6 +94,7 @@ function CartInner() {
   const [busyId, setBusyId] = useState(null);
   const navigate = useNavigate();
   const { refreshCartCount } = useCart();
+  const { t } = usePageT(dict);
 
   useEffect(() => {
     loadCart();
@@ -97,23 +115,19 @@ function CartInner() {
     }
   }
 
-  // ຈຳນວນສູງສຸດຂອງແຖວນີ້ = ສະຕັອກ − ຈຳນວນຂອງແຖວອື່ນທີ່ເປັນສິນຄ້າດຽວກັນ (ຄົນລະໄຊສ໌)
-  function maxQtyFor(item) {
-    const others = (items || [])
-      .filter((i) => i.product_id === item.product_id && i.id !== item.id)
-      .reduce((sum, i) => sum + i.quantity, 0);
-    return Math.max(1, item.stock - others);
-  }
-
   async function changeQty(item, newQty) {
     if (newQty < 1) return;
-    if (newQty > maxQtyFor(item)) return;
+    // เพิ่มได้ไม่เกินสต็อก (ลดได้เสมอ)
+    if (newQty > item.quantity && newQty > stockOf(item)) return;
     setBusyId(item.id);
     try {
       const { ok } = await apiPut(`/api/cart/${item.id}`, { quantity: newQty });
       if (ok) {
         setItems((prev) => prev.map((i) => (i.id === item.id ? { ...i, quantity: newQty } : i)));
         refreshCartCount();
+      } else {
+        // สต็อกอาจเปลี่ยนไปแล้ว โหลดตะกร้าใหม่ให้ตัวเลขตรงกับความจริง
+        await loadCart();
       }
     } catch (err) {
       console.error(err);
@@ -143,6 +157,7 @@ function CartInner() {
 
   const total = items ? items.reduce((sum, i) => sum + i.price * i.quantity, 0) : 0;
   const hasItems = items && items.length > 0;
+  const hasProblem = !!items && items.some(isOver);
 
   return (
     <div className="customer-shell">
@@ -150,64 +165,85 @@ function CartInner() {
       <TopBar />
 
       <main className="ct-wrap">
-        <h2 className="ct-title">ກະຕ່າສິນຄ້າ</h2>
+        <h2 className="ct-title">{t('cart.title')}</h2>
 
         {items === null && !loadError && (
-          <p style={{ color: 'var(--cust-text-muted, #6b7280)' }}>ກຳລັງໂຫລດ...</p>
+          <p style={{ color: 'var(--cust-text-muted, #6b7280)' }}>{t('common.loading')}</p>
         )}
 
         {loadError && (
           <div className="ct-empty">
-            <p>ໂຫລດຂໍ້ມູນກະຕ່າບໍ່ສຳເລັດ ກະລຸນາລອງໃໝ່</p>
-            <button className="ct-retry" onClick={loadCart}>ລອງໃໝ່</button>
+            <p>{t('cart.loadFail')}</p>
+            <button className="ct-retry" onClick={loadCart}>{t('common.retry')}</button>
           </div>
         )}
 
         {items && items.length === 0 && (
           <div className="ct-empty">
-            <p>ກະຕ່າວ່າງເປົ່າ</p>
-            <button onClick={() => navigate('/menu')}>ກັບໄປໜ້າສິນຄ້າ</button>
+            <p>{t('cart.empty')}</p>
+            <button onClick={() => navigate('/menu')}>{t('cart.backToShop')}</button>
           </div>
         )}
 
         {hasItems && (
           <div className="ct-list">
-            {items.map((item) => (
-              <div className="ct-item" key={item.id}>
-                {item.image && (
-                  <img className="ct-img" src={`${API_BASE}${item.image}`} alt={item.name} />
-                )}
-                <div className="ct-info">
-                  <div className="ct-name">{item.name}</div>
-                  <div className="ct-meta">
-                    ໄຊສ໌: {item.chosen_size || item.size} | ສີ: {item.color}
-                  </div>
-                  <div className="ct-price">{fmt(item.price)} ກີບ</div>
-                </div>
+            {items.map((item) => {
+              const stock = stockOf(item);
+              const out = stock <= 0;
+              const over = isOver(item);
+              const low = !over && stock <= LOW_STOCK_SHOW;
+              return (
+                <div className={`ct-item${over ? ' ct-bad' : ''}`} key={item.id}>
+                  {item.image && (
+                    <img className="ct-img" src={`${API_BASE}${item.image}`} alt={item.name} />
+                  )}
+                  <div className="ct-info">
+                    <div className="ct-name">{item.name}</div>
+                    <div className="ct-meta">
+                      {t('common.size')}: {item.chosen_size || item.size} | {t('common.color')}: {item.color}
+                    </div>
+                    <div className="ct-price">{fmt(item.price)} {t('common.kip')}</div>
 
-                <div className="ct-right">
-                  <div className="ct-qty">
-                    <button
-                      disabled={busyId === item.id || item.quantity <= 1}
-                      onClick={() => changeQty(item, item.quantity - 1)}
-                    >
-                      −
-                    </button>
-                    <span>{item.quantity}</span>
-                    <button
-                      disabled={busyId === item.id || item.quantity >= maxQtyFor(item)}
-                      onClick={() => changeQty(item, item.quantity + 1)}
-                    >
-                      +
+                    {out && <div className="ct-warn">{t('cart.out')}</div>}
+                    {!out && over && (
+                      <>
+                        <div className="ct-warn">{t('cart.only', { n: stock })}</div>
+                        <button
+                          className="ct-adjust"
+                          disabled={busyId === item.id}
+                          onClick={() => changeQty(item, stock)}
+                        >
+                          {t('cart.adjust', { n: stock })}
+                        </button>
+                      </>
+                    )}
+                    {low && <div className="ct-low">{t('cart.only', { n: stock })}</div>}
+                  </div>
+
+                  <div className="ct-right">
+                    <div className="ct-qty">
+                      <button
+                        disabled={busyId === item.id || item.quantity <= 1 || over}
+                        onClick={() => changeQty(item, item.quantity - 1)}
+                      >
+                        −
+                      </button>
+                      <span>{item.quantity}</span>
+                      <button
+                        disabled={busyId === item.id || item.quantity >= stock}
+                        onClick={() => changeQty(item, item.quantity + 1)}
+                      >
+                        +
+                      </button>
+                    </div>
+                    <div className="ct-line">{fmt(item.price * item.quantity)} {t('common.kip')}</div>
+                    <button className="ct-del" disabled={busyId === item.id} onClick={() => removeItem(item)}>
+                      {t('cart.remove')}
                     </button>
                   </div>
-                  <div className="ct-line">{fmt(item.price * item.quantity)} ກີບ</div>
-                  <button className="ct-del" disabled={busyId === item.id} onClick={() => removeItem(item)}>
-                    ລົບ
-                  </button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -216,12 +252,13 @@ function CartInner() {
 
       {hasItems && (
         <div className="ct-bar">
+          {hasProblem && <div className="ct-bar-note">{t('cart.fixFirst')}</div>}
           <div className="ct-bar-inner">
             <div>
-              <div className="ct-total-label">ລວມທັງໝົດ</div>
-              <div className="ct-total">{fmt(total)} ກີບ</div>
+              <div className="ct-total-label">{t('cart.total')}</div>
+              <div className="ct-total">{fmt(total)} {t('common.kip')}</div>
             </div>
-            <button className="ct-pay" onClick={goCheckout}>ຊຳລະເງິນ</button>
+            <button className="ct-pay" disabled={hasProblem} onClick={goCheckout}>{t('cart.pay')}</button>
           </div>
         </div>
       )}

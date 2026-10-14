@@ -15,6 +15,17 @@ const COOKIE_OPTIONS = {
   secure: isProd
 };
 
+const isValidPin = (pin) => /^\d{4,6}$/.test(String(pin || ''));
+
+// ຕອບເມື່ອຖືກລັອກ: ສົ່ງ seconds_left ໄປນຳ ເພື່ອໃຫ້ frontend ແປເປັນພາສາຂອງລູກຄ້າ
+function sendLocked(res, lockStatus) {
+  return res.status(429).json({
+    error: `ພະຍາຍາມຫຼາຍເກີນໄປ ກະລຸນາລອງໃໝ່ໃນ ${lockStatus.secondsLeft} ວິນາທີ`,
+    locked: true,
+    seconds_left: lockStatus.secondsLeft
+  });
+}
+
 router.post('/check-phone', async (req, res) => {
   const { phone } = req.body;
   if (!phone) {
@@ -31,7 +42,7 @@ router.post('/register', async (req, res) => {
   if (!phone || !pin) {
     return res.status(400).json({ error: 'ກະລຸນາປ້ອນເບີໂທ ແລະ PIN' });
   }
-  if (pin.length < 4 || pin.length > 6) {
+  if (!isValidPin(pin)) {
     return res.status(400).json({ error: 'PIN ຕ້ອງມີ 4-6 ໂຕເລກ' });
   }
   if (!birth_date) {
@@ -43,7 +54,7 @@ router.post('/register', async (req, res) => {
     return res.status(409).json({ error: 'ເບີໂທນີ້ສະໝັກແລ້ວ ກະລຸນາເຂົ້າສູ່ລະບົບແທນ' });
   }
 
-  const pinHash = await bcrypt.hash(pin, 10);
+  const pinHash = await bcrypt.hash(String(pin), 10);
   const [result] = await pool.query(
     'INSERT INTO customers (phone, pin_hash, name, birth_date) VALUES (?, ?, ?, ?)',
     [phone, pinHash, name || null, birth_date]
@@ -71,9 +82,7 @@ router.post('/login', async (req, res) => {
   const lockKey = `customer-login:${phone}`;
   const lockStatus = checkLocked(lockKey);
   if (lockStatus.locked) {
-    return res.status(429).json({
-      error: `ພະຍາຍາມຫຼາຍເກີນໄປ ກະລຸນາລອງໃໝ່ໃນ ${lockStatus.secondsLeft} ວິນາທີ`
-    });
+    return sendLocked(res, lockStatus);
   }
 
   const [rows] = await pool.query('SELECT * FROM customers WHERE phone = ?', [phone]);
@@ -83,9 +92,12 @@ router.post('/login', async (req, res) => {
     return res.status(404).json({ error: 'ບໍ່ພົບເບີໂທນີ້ໃນລະບົບ' });
   }
 
-  const match = await bcrypt.compare(pin, customer.pin_hash);
+  const match = await bcrypt.compare(String(pin), customer.pin_hash);
   if (!match) {
     recordFailure(lockKey);
+    // ຫຼັງບັນທຶກຄວາມຜິດ ກວດອີກຄັ້ງ: ຖ້າຄັ້ງນີ້ເຮັດໃຫ້ຖືກລັອກ ບອກລູກຄ້າທັນທີ
+    const after = checkLocked(lockKey);
+    if (after.locked) return sendLocked(res, after);
     return res.status(401).json({ error: 'PIN ບໍ່ຖືກຕ້ອງ' });
   }
 
@@ -107,16 +119,14 @@ router.post('/forgot-pin', async (req, res) => {
   if (!phone || !birth_date || !new_pin) {
     return res.status(400).json({ error: 'ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບ' });
   }
-  if (new_pin.length < 4 || new_pin.length > 6) {
+  if (!isValidPin(new_pin)) {
     return res.status(400).json({ error: 'PIN ໃໝ່ຕ້ອງມີ 4-6 ໂຕເລກ' });
   }
 
   const lockKey = `forgot-pin:${phone}`;
   const lockStatus = checkLocked(lockKey);
   if (lockStatus.locked) {
-    return res.status(429).json({
-      error: `ພະຍາຍາມຫຼາຍເກີນໄປ ກະລຸນາລອງໃໝ່ໃນ ${lockStatus.secondsLeft} ວິນາທີ`
-    });
+    return sendLocked(res, lockStatus);
   }
 
   // ດຶງວັນເກີດເປັນຂໍ້ຄວາມ YYYY-MM-DD ເພື່ອປຽບທຽບໄດ້ຖືກຕ້ອງ
@@ -139,12 +149,14 @@ router.post('/forgot-pin', async (req, res) => {
 
   if (customer.birth_date_str !== birth_date) {
     recordFailure(lockKey);
+    const after = checkLocked(lockKey);
+    if (after.locked) return sendLocked(res, after);
     return res.status(401).json({ error: 'ວັນເດືອນປີເກີດບໍ່ຕົງກັບຂໍ້ມູນທີ່ບັນທຶກໄວ້' });
   }
 
   clearAttempts(lockKey);
 
-  const newPinHash = await bcrypt.hash(new_pin, 10);
+  const newPinHash = await bcrypt.hash(String(new_pin), 10);
   await pool.query('UPDATE customers SET pin_hash = ? WHERE id = ?', [newPinHash, customer.id]);
 
   res.json({ success: true, message: 'ຕັ້ງ PIN ໃໝ່ສຳເລັດ ກະລຸນາເຂົ້າສູ່ລະບົບດ້ວຍ PIN ໃໝ່' });

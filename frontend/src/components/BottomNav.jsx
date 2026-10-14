@@ -1,5 +1,7 @@
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext.jsx';
+import { usePageT } from '../useT.js';
+import dict from '../locales/cust-nav.js';
 
 /* ---------- CSS (ໂໝດສະຫວ່າງ + ໂໝດມືດ) ---------- */
 const css = `
@@ -25,7 +27,7 @@ const css = `
 }
 .bn-item:active { transform: scale(0.94); }
 .bn-item.active { background: rgba(212, 165, 72, 0.16); color: #b8862b; }
-.bn-lb { font-size: 11px; font-weight: 500; }
+.bn-lb { font-size: 11px; font-weight: 500; white-space: nowrap; }
 .bn-item.active .bn-lb { font-weight: 600; }
 .bn-badge {
   position: absolute; top: 3px; right: 24%;
@@ -70,11 +72,12 @@ export default function BottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
   const { cartCount } = useCart();
+  const { t } = usePageT(dict);
 
   const items = [
     {
       key: 'home',
-      label: 'ໜ້າຫຼັກ',
+      label: t('cn.home'),
       path: '/menu',
       icon: (
         <svg {...svgProps}>
@@ -85,7 +88,7 @@ export default function BottomNav() {
     },
     {
       key: 'cart',
-      label: 'ກະຕ່າ',
+      label: t('cn.cart'),
       path: '/menu/cart',
       badge: cartCount > 0 ? cartCount : null,
       icon: (
@@ -98,7 +101,7 @@ export default function BottomNav() {
     },
     {
       key: 'chat',
-      label: 'ແຊັດ',
+      label: t('cn.chat'),
       path: '/menu/chat',
       icon: (
         <svg {...svgProps}>
@@ -108,7 +111,7 @@ export default function BottomNav() {
     },
     {
       key: 'orders',
-      label: 'ອໍເດີ',
+      label: t('cn.orders'),
       path: '/menu/orders',
       icon: (
         <svg {...svgProps}>
@@ -120,7 +123,7 @@ export default function BottomNav() {
   ];
 
   return (
-    <nav className="bn">
+    <nav className="bn" aria-label={t('cn.menuLabel')}>
       <style>{css}</style>
       {items.map((item) => {
         const active = item.path && location.pathname === item.path;

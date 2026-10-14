@@ -1,11 +1,14 @@
 import logoImg from '../assets/polo-logo.jpeg';
+import { LangSwitcher } from '../i18n.jsx';
 
 const css = `
 .lg-page.customer-shell {
+  position: relative;
   min-height: 100vh; display: flex; align-items: center; justify-content: center;
   padding: 32px 16px; box-sizing: border-box; background: #f7f7f5;
   --lg-gold: var(--gold, #c9a227);
 }
+.lg-lang { position: absolute; top: 16px; right: 16px; z-index: 10; }
 .lg-col { width: 100%; max-width: 420px; display: flex; flex-direction: column; align-items: center; }
 .lg-card {
   width: 100%; box-sizing: border-box; background: #fff; border: 1px solid #ececec;
@@ -99,11 +102,15 @@ export function EyeIcon({ off }) {
   );
 }
 
-// badge = ป้ายบอกว่าสำหรับใคร (เช่น "ສຳລັບແອດມິນ"), footer = กล่องล่างการ์ด (เช่น ลิงก์สมัครสมาชิก)
-export default function LoginShell({ badge, subtitle, children, footer }) {
+// badge = ป้ายบอกว่าสำหรับใคร, footer = กล่องล่างการ์ด (เช่น ลิงก์สมัครสมาชิก)
+// showLang = แสดงปุ่มเลือกภาษามุมขวาบน (ใส่ false ถ้าหน้านั้นวางเองอยู่แล้ว)
+export default function LoginShell({ badge, subtitle, children, footer, showLang = true }) {
   return (
     <div className="lg-page customer-shell">
       <style>{css}</style>
+      {showLang && (
+        <div className="lg-lang"><LangSwitcher /></div>
+      )}
       <div className="lg-col">
         <div className="lg-card">
           <span className="lg-logo"><img src={logoImg} alt="" /></span>

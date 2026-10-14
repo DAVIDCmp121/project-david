@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../../components/TopBar.jsx';
+import ConfirmModal from '../../components/ConfirmModal.jsx';
 import { CartProvider } from '../../context/CartContext.jsx';
 import { apiGet, apiPost } from '../../api.js';
+import { usePageT } from '../../useT.js';
+import dict from '../../locales/cust-coupons.js';
 
 const css = `
 .cp-page { max-width: 640px; margin: 0 auto; padding: 16px 16px 60px; }
@@ -59,21 +62,28 @@ function fmtDate(s) {
   return new Date(s).toLocaleDateString('en-GB');
 }
 
-function describe(c) {
-  const main =
-    c.type === 'percent'
-      ? `ຫຼຸດ ${c.value}%${c.max_discount ? ` (ສູງສຸດ ${fmt(c.max_discount)} ກີບ)` : ''}`
-      : `ຫຼຸດ ${fmt(c.value)} ກີບ`;
-  const cond = c.min_order > 0 ? `ຂັ້ນຕ່ຳ ${fmt(c.min_order)} ກີບ` : 'ບໍ່ມີຂັ້ນຕ່ຳ';
-  return `${main} · ${cond}`;
-}
-
 function CouponsInner() {
   const navigate = useNavigate();
+  const { t } = usePageT(dict);
   const [data, setData] = useState(null);
   const [history, setHistory] = useState([]);
   const [error, setError] = useState(false);
   const [busyId, setBusyId] = useState(null);
+  const [redeemTarget, setRedeemTarget] = useState(null); // คูปองที่รอยืนยันการแลก
+  const [notice, setNotice] = useState(''); // ข้อความแจ้งแทน alert()
+
+  const kip = t('common.kip');
+
+  function describe(c) {
+    const main =
+      c.type === 'percent'
+        ? `${t('cp.percentOff', { v: c.value })}${
+            c.max_discount ? ` (${t('cp.max', { n: fmt(c.max_discount), kip })})` : ''
+          }`
+        : t('cp.flatOff', { n: fmt(c.value), kip });
+    const cond = c.min_order > 0 ? t('cp.minOrder', { n: fmt(c.min_order), kip }) : t('cp.noMin');
+    return `${main} · ${cond}`;
+  }
 
   async function load() {
     const [meRes, hRes] = await Promise.all([
@@ -93,16 +103,23 @@ function CouponsInner() {
     load();
   }, []);
 
-  async function redeem(c) {
-    if (!window.confirm(`ແລກ "${c.name}" ໂດຍໃຊ້ ${fmt(c.points_cost)} ແຕ້ມ?`)) return;
+  // กดปุ่มแลก → เปิดกล่องยืนยัน
+  function askRedeem(c) {
+    setRedeemTarget(c);
+  }
+
+  async function doRedeem() {
+    const c = redeemTarget;
+    setRedeemTarget(null);
+    if (!c) return;
     setBusyId(c.id);
     const r = await apiPost('/api/coupons/redeem', { coupon_id: c.id });
     setBusyId(null);
     if (r.ok) {
-      alert('ແລກຄູປອງສຳເລັດ ໃຊ້ໄດ້ຕອນຊຳລະເງິນ');
+      setNotice(t('cp.redeemOk'));
       load();
     } else {
-      alert((r.data && r.data.error) || 'ແລກຄູປອງບໍ່ສຳເລັດ');
+      setNotice((r.data && r.data.error) || t('cp.redeemFail'));
     }
   }
 
@@ -111,71 +128,92 @@ function CouponsInner() {
       <style>{css}</style>
       <TopBar />
       <div className="cp-page">{children}</div>
+
+      <ConfirmModal
+        open={!!redeemTarget}
+        message={
+          redeemTarget
+            ? t('cp.redeemConfirm', { name: redeemTarget.name, n: fmt(redeemTarget.points_cost) })
+            : ''
+        }
+        onConfirm={doRedeem}
+        onCancel={() => setRedeemTarget(null)}
+      />
+
+      <ConfirmModal
+        open={!!notice}
+        message={notice}
+        hideCancel
+        onConfirm={() => setNotice('')}
+        onCancel={() => setNotice('')}
+      />
     </div>
   );
 
   if (error) {
     return shell(
       <>
-        <p className="cp-empty">ໂຫລດຂໍ້ມູນບໍ່ສຳເລັດ ກະລຸນາລອງໃໝ່ ຫຼື ເຂົ້າສູ່ລະບົບກ່ອນ</p>
-        <button className="cp-btn" onClick={load}>ລອງໃໝ່</button>
+        <p className="cp-empty">{t('cp.loadFail')}</p>
+        <button className="cp-btn" onClick={load}>{t('common.retry')}</button>
       </>
     );
   }
   if (!data) {
-    return shell(<p className="cp-empty">ກຳລັງໂຫລດ...</p>);
+    return shell(<p className="cp-empty">{t('common.loading')}</p>);
   }
 
   return shell(
     <>
-      <button className="cp-back" onClick={() => navigate('/menu/profile')}>← ກັບຄືນ</button>
-      <h2 className="cp-title">ຄູປອງ ແລະ ແຕ້ມສະສົມ</h2>
+      <button className="cp-back" onClick={() => navigate('/menu/profile')}>← {t('common.back')}</button>
+      <h2 className="cp-title">{t('cp.title')}</h2>
 
       <div className="cp-hero">
-        <div className="cp-hero-label">ແຕ້ມຂອງຂ້ອຍ</div>
+        <div className="cp-hero-label">{t('cp.myPoints')}</div>
         <div className="cp-hero-points">{fmt(data.points)}</div>
         <div className="cp-hero-note">
-          ຮັບ 1 ແຕ້ມທຸກໆ {fmt(data.point_unit)} ກີບ ເມື່ອອໍເດີຮອດແລ້ວ
+          {t('cp.earnNote', { unit: fmt(data.point_unit), kip })}
         </div>
       </div>
 
-      <div className="cp-sec">ແລກແຕ້ມເປັນຄູປອງ</div>
-      {data.catalog.length === 0 && <div className="cp-empty">ຍັງບໍ່ມີຄູປອງໃຫ້ແລກ</div>}
+      <div className="cp-sec">{t('cp.secRedeem')}</div>
+      {data.catalog.length === 0 && <div className="cp-empty">{t('cp.noCatalog')}</div>}
       {data.catalog.map((c) => (
         <div className="cp-card" key={c.id}>
           <div className="cp-info">
             <div className="cp-name">{c.name}</div>
             <div className="cp-sub">{describe(c)}</div>
-            <div className="cp-sub">ໃຊ້ໄດ້ {c.valid_days} ວັນ ຫຼັງແລກ</div>
+            <div className="cp-sub">{t('cp.validDays', { n: c.valid_days })}</div>
           </div>
           <button
             className="cp-btn"
             disabled={data.points < c.points_cost || busyId === c.id}
-            onClick={() => redeem(c)}
+            onClick={() => askRedeem(c)}
           >
-            {data.points < c.points_cost ? `ຕ້ອງການ ${fmt(c.points_cost)} ແຕ້ມ` : `ແລກ ${fmt(c.points_cost)} ແຕ້ມ`}
+            {data.points < c.points_cost
+              ? t('cp.need', { n: fmt(c.points_cost) })
+              : t('cp.redeem', { n: fmt(c.points_cost) })}
           </button>
         </div>
       ))}
 
-      <div className="cp-sec">ຄູປອງຂອງຂ້ອຍ</div>
-      {data.coupons.length === 0 && <div className="cp-empty">ທ່ານຍັງບໍ່ມີຄູປອງ</div>}
+      <div className="cp-sec">{t('cp.secMine')}</div>
+      {data.coupons.length === 0 && <div className="cp-empty">{t('cp.noMine')}</div>}
       {data.coupons.map((c) => (
         <div className="cp-card cp-mine" key={c.id}>
           <div className="cp-info">
             <div className="cp-name">{c.name}</div>
             <div className="cp-sub">{describe(c)}</div>
-            <div className="cp-sub">ໝົດອາຍຸ {fmtDate(c.expires_at)}</div>
+            <div className="cp-sub">{t('cp.expires')} {fmtDate(c.expires_at)}</div>
           </div>
         </div>
       ))}
 
-      <div className="cp-sec">ປະຫວັດແຕ້ມ</div>
-      {history.length === 0 && <div className="cp-empty">ຍັງບໍ່ມີປະຫວັດ</div>}
+      <div className="cp-sec">{t('cp.secHistory')}</div>
+      {history.length === 0 && <div className="cp-empty">{t('cp.noHistory')}</div>}
       {history.map((h) => (
         <div className="cp-hist" key={h.id}>
           <div>
-            <div className="cp-hist-note">{h.note || (h.type === 'earn' ? 'ໄດ້ຮັບແຕ້ມ' : 'ໃຊ້ແຕ້ມ')}</div>
+            <div className="cp-hist-note">{h.note || (h.type === 'earn' ? t('cp.earned') : t('cp.used'))}</div>
             <div className="cp-hist-date">{fmtDate(h.created_at)}</div>
           </div>
           <div className={`cp-pts ${h.points >= 0 ? 'plus' : 'minus'}`}>

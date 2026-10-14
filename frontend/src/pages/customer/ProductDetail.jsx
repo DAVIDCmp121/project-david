@@ -4,6 +4,8 @@ import TopBar from '../../components/TopBar.jsx';
 import { CartProvider, useCart } from '../../context/CartContext.jsx';
 import { API_BASE, apiGet, apiPost, apiDelete } from '../../api';
 import { ImageBadges, PriceBlock } from '../../components/ProductBadges.jsx';
+import { usePageT } from '../../useT.js';
+import dict from '../../locales/cust-product.js';
 
 const AUTO_SLIDE_MS = 3000;
 const LOW_STOCK_SHOW = 3; // ເຫຼືອບໍ່ເກີນນີ້ ຈະສະແດງ "ເຫຼືອ N ອັນ"
@@ -32,6 +34,7 @@ const chipStyle = {
 };
 
 function ProductDetailInner() {
+  const { t } = usePageT(dict);
   const { id } = useParams();
   const navigate = useNavigate();
   const { refreshCartCount } = useCart();
@@ -153,7 +156,7 @@ function ProductDetailInner() {
   function buildPayload() {
     if (needSize && !selectedSize) {
       setSizeError(true);
-      showToast('ກະລຸນາເລືອກໄຊສ໌ກ່ອນ', 2200);
+      showToast(t('cp.pickSizeFirst'), 2200);
       return null;
     }
     const payload = { product_id: product.id, quantity: qty };
@@ -166,16 +169,16 @@ function ProductDetailInner() {
     if (!payload) return;
     setBusy(true);
     try {
-      const { ok, data } = await apiPost('/api/cart', payload);
+      const { ok } = await apiPost('/api/cart', payload);
       if (ok) {
         refreshCartCount();
-        showToast('ເພີ່ມລົງກະຕ່າແລ້ວ');
+        showToast(t('common.addedToCart'));
       } else {
-        showToast(data.error || 'ເພີ່ມລົງກະຕ່າບໍ່ສຳເລັດ', 2600);
+        showToast(t('common.addFail'), 2600);
       }
     } catch (err) {
       console.error(err);
-      showToast('ເພີ່ມລົງກະຕ່າບໍ່ສຳເລັດ', 2200);
+      showToast(t('common.addFail'), 2200);
     } finally {
       setBusy(false);
     }
@@ -186,16 +189,16 @@ function ProductDetailInner() {
     if (!payload) return;
     setBusy(true);
     try {
-      const { ok, data } = await apiPost('/api/cart', payload);
+      const { ok } = await apiPost('/api/cart', payload);
       if (!ok) {
-        showToast(data.error || 'ເພີ່ມສິນຄ້າບໍ່ສຳເລັດ', 2600);
+        showToast(t('cp.buyFail'), 2600);
         return;
       }
       refreshCartCount();
       navigate('/menu/checkout');
     } catch (err) {
       console.error(err);
-      showToast('ເພີ່ມສິນຄ້າບໍ່ສຳເລັດ', 2200);
+      showToast(t('cp.buyFail'), 2200);
     } finally {
       setBusy(false);
     }
@@ -206,7 +209,7 @@ function ProductDetailInner() {
       onClick={() => navigate('/menu')}
       style={{ background: 'none', border: 'none', color: 'var(--cust-text-muted)', fontSize: '0.95rem', padding: '6px 0', cursor: 'pointer' }}
     >
-      ← ກັບຄືນ
+      ← {t('common.back')}
     </button>
   );
 
@@ -254,13 +257,13 @@ function ProductDetailInner() {
 
         {loadError && (
           <div style={{ padding: 20, textAlign: 'center', color: 'var(--cust-text-muted)' }}>
-            <p>ໂຫລດຂໍ້ມູນສິນຄ້າບໍ່ສຳເລັດ</p>
-            <button onClick={load}>ລອງໃໝ່</button>
+            <p>{t('cp.loadFail')}</p>
+            <button onClick={load}>{t('common.retry')}</button>
           </div>
         )}
 
         {!loadError && !product && (
-          <p style={{ padding: 20, color: 'var(--cust-text-muted)' }}>ກຳລັງໂຫລດ...</p>
+          <p style={{ padding: 20, color: 'var(--cust-text-muted)' }}>{t('common.loading')}</p>
         )}
 
         {product && (
@@ -296,7 +299,7 @@ function ProductDetailInner() {
                   </div>
                 ) : (
                   <div style={{ aspectRatio: '1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af' }}>
-                    ບໍ່ມີຮູບ
+                    {t('cp.noImage')}
                   </div>
                 )}
 
@@ -306,16 +309,16 @@ function ProductDetailInner() {
                     display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none',
                   }}>
                     <span style={{ background: '#374151', color: '#fff', padding: '8px 22px', borderRadius: 999, fontWeight: 700 }}>
-                      ສິນຄ້າໝົດ
+                      {t('common.soldOut')}
                     </span>
                   </div>
                 )}
 
                 {images.length > 1 && slide > 0 && (
-                  <button aria-label="ກ່ອນໜ້າ" onClick={() => goToSlide(slide - 1)} style={arrowStyle('left')}>‹</button>
+                  <button aria-label={t('cp.prev')} onClick={() => goToSlide(slide - 1)} style={arrowStyle('left')}>‹</button>
                 )}
                 {images.length > 1 && slide < images.length - 1 && (
-                  <button aria-label="ຖັດໄປ" onClick={() => goToSlide(slide + 1)} style={arrowStyle('right')}>›</button>
+                  <button aria-label={t('cp.next')} onClick={() => goToSlide(slide + 1)} style={arrowStyle('right')}>›</button>
                 )}
               </div>
 
@@ -324,7 +327,7 @@ function ProductDetailInner() {
                   {images.map((_, i) => (
                     <button
                       key={i}
-                      aria-label={`ຮູບທີ ${i + 1}`}
+                      aria-label={t('cp.imageN', { n: i + 1 })}
                       onClick={() => goToSlide(i)}
                       style={{
                         width: i === slide ? 22 : 8, height: 8, borderRadius: 999, border: 'none', padding: 0,
@@ -342,7 +345,7 @@ function ProductDetailInner() {
                 <h1 style={{ fontSize: '1.3rem', margin: '0 0 4px', color: 'var(--cust-text)' }}>{product.name}</h1>
                 <button
                   onClick={toggleFavorite}
-                  aria-label="ຖືກໃຈ"
+                  aria-label={t('common.favorite')}
                   style={{
                     width: 38, height: 38, borderRadius: '50%', border: '1px solid var(--cust-border)',
                     background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -363,14 +366,14 @@ function ProductDetailInner() {
               <PriceBlock product={product} large />
               {product.is_promo && product.promo_end && (
                 <div style={{ fontSize: '0.8rem', color: '#dc2626', marginTop: 4 }}>
-                  ໂປຣນີ້ເຖິງວັນທີ {product.promo_end.split('-').reverse().join('/')}
+                  {t('cp.promoUntil', { date: product.promo_end.split('-').reverse().join('/') })}
                 </div>
               )}
 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, margin: '12px 0' }}>
-                {product.category && <span style={chipStyle}>ໝວດ: {product.category}</span>}
-                {!needSize && product.size && <span style={chipStyle}>ໄຊສ໌: {product.size}</span>}
-                {product.color && <span style={chipStyle}>ສີ: {product.color}</span>}
+                {product.category && <span style={chipStyle}>{t('common.category')}: {product.category}</span>}
+                {!needSize && product.size && <span style={chipStyle}>{t('common.size')}: {product.size}</span>}
+                {product.color && <span style={chipStyle}>{t('common.color')}: {product.color}</span>}
                 <span
                   style={{
                     ...chipStyle,
@@ -381,13 +384,13 @@ function ProductDetailInner() {
                         : {}),
                   }}
                 >
-                  {shownStock <= 0 ? 'ໝົດ' : `ເຫຼືອ: ${shownStock} ອັນ`}
+                  {shownStock <= 0 ? t('cp.out') : t('common.stockLeft', { n: shownStock })}
                 </span>
               </div>
 
               {product.description && (
                 <section style={{ marginTop: 18 }}>
-                  <h3 style={sectionTitle}>ລາຍລະອຽດສິນຄ້າ</h3>
+                  <h3 style={sectionTitle}>{t('cp.description')}</h3>
                   <p style={{ whiteSpace: 'pre-wrap', lineHeight: 1.6, color: 'var(--cust-text-muted)', fontSize: '0.92rem', margin: 0 }}>
                     {product.description}
                   </p>
@@ -396,11 +399,11 @@ function ProductDetailInner() {
 
               {sizeChart.length > 0 && (
                 <section style={{ marginTop: 18 }}>
-                  <h3 style={sectionTitle}>ຕາຕະລາງຂະໜາດ (cm)</h3>
+                  <h3 style={sectionTitle}>{t('cp.sizeChart')}</h3>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.88rem', textAlign: 'center' }}>
                     <thead>
                       <tr>
-                        {['ໄຊສ໌', 'ອົກ', 'ຍາວ'].map((h) => (
+                        {[t('common.size'), t('cp.chest'), t('cp.length')].map((h) => (
                           <th key={h} style={{ background: '#faf6ea', border: '1px solid var(--cust-border)', padding: '8px 6px', color: 'var(--cust-text)' }}>{h}</th>
                         ))}
                       </tr>
@@ -422,7 +425,7 @@ function ProductDetailInner() {
               {needSize && (
                 <section style={{ marginTop: 22 }}>
                   <h3 style={sectionTitle}>
-                    ເລືອກໄຊສ໌
+                    {t('cp.chooseSize')}
                     {selectedSize && (
                       <span style={{ color: 'var(--gold)', marginLeft: 8 }}>: {selectedSize}</span>
                     )}
@@ -436,7 +439,7 @@ function ProductDetailInner() {
                           key={s}
                           type="button"
                           disabled={out}
-                          title={out ? 'ໄຊສ໌ນີ້ໝົດແລ້ວ' : undefined}
+                          title={out ? t('cp.sizeOut') : undefined}
                           onClick={() => pickSize(s)}
                           style={sizeBtnStyle(selectedSize === s, out)}
                         >
@@ -447,12 +450,12 @@ function ProductDetailInner() {
                   </div>
                   {sizeError && (
                     <div style={{ color: '#dc2626', fontSize: '0.85rem', marginTop: 8 }}>
-                      ກະລຸນາເລືອກໄຊສ໌ກ່ອນ
+                      {t('cp.pickSizeFirst')}
                     </div>
                   )}
                   {selectedStock !== null && selectedStock > 0 && selectedStock <= LOW_STOCK_SHOW && (
                     <div style={{ color: '#d97706', fontSize: '0.85rem', marginTop: 8 }}>
-                      ໄຊສ໌ {selectedSize} ເຫຼືອພຽງ {selectedStock} ອັນ
+                      {t('cp.sizeLow', { size: selectedSize, n: selectedStock })}
                     </div>
                   )}
                 </section>
@@ -460,7 +463,7 @@ function ProductDetailInner() {
 
               <section style={{ marginTop: 22 }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                  <span style={{ fontWeight: 600 }}>ຈຳນວນ</span>
+                  <span style={{ fontWeight: 600 }}>{t('common.quantity')}</span>
                   <div className="qty-control" style={{ margin: 0 }}>
                     <button disabled={qty <= 1 || soldOut} onClick={() => setQty((q) => Math.max(1, q - 1))}>−</button>
                     <span style={{ minWidth: 24, textAlign: 'center', fontWeight: 600 }}>{qty}</span>
@@ -478,7 +481,7 @@ function ProductDetailInner() {
                       cursor: 'pointer', opacity: actionDisabled ? 0.5 : 1,
                     }}
                   >
-                    ເພີ່ມລົງກະຕ່າ
+                    {t('common.addToCart')}
                   </button>
                   <button
                     disabled={actionDisabled}
@@ -489,7 +492,7 @@ function ProductDetailInner() {
                       cursor: 'pointer', opacity: actionDisabled ? 0.5 : 1,
                     }}
                   >
-                    {soldOut ? 'ສິນຄ້າໝົດ' : 'ຊື້ເລີຍ'}
+                    {soldOut ? t('common.soldOut') : t('common.buyNow')}
                   </button>
                 </div>
               </section>

@@ -3,9 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import TopBar from '../../components/TopBar.jsx';
 import { CartProvider } from '../../context/CartContext.jsx';
 import { API_BASE, apiGet, apiDelete } from '../../api';
+import { usePageT } from '../../useT.js';
+import dict from '../../locales/cust-favorites.js';
 
 function FavoritesInner() {
   const navigate = useNavigate();
+  const { t } = usePageT(dict);
   const [favorites, setFavorites] = useState(null);
 
   useEffect(() => {
@@ -51,12 +54,12 @@ function FavoritesInner() {
           >
             ‹
           </button>
-          <h1 style={{ fontSize: '1.3rem', margin: 0, color: 'var(--cust-text)' }}>ສິນຄ້າທີ່ຖືກໃຈ</h1>
+          <h1 style={{ fontSize: '1.3rem', margin: 0, color: 'var(--cust-text)' }}>{t('fav.title')}</h1>
         </div>
 
-        {favorites === null && <p style={{ color: 'var(--cust-text-muted)' }}>ກຳລັງໂຫລດ...</p>}
+        {favorites === null && <p style={{ color: 'var(--cust-text-muted)' }}>{t('common.loading')}</p>}
         {favorites && favorites.length === 0 && (
-          <p style={{ color: 'var(--cust-text-muted)' }}>ຍັງບໍ່ໄດ້ກົດຖືກໃຈສິນຄ້າໃດ</p>
+          <p style={{ color: 'var(--cust-text-muted)' }}>{t('fav.empty')}</p>
         )}
         {favorites && favorites.length > 0 && (
           <div className="product-grid">
@@ -65,10 +68,10 @@ function FavoritesInner() {
                 <div onClick={() => navigate(`/menu/product/${p.id}`)} style={{ cursor: 'pointer' }}>
                   {p.image && <img src={`${API_BASE}${p.image}`} className="product-img" alt={p.name} />}
                   <h3>{p.name}</h3>
-                  <p className="price">{p.price} ກີບ</p>
+                  <p className="price">{p.price} {t('common.kip')}</p>
                 </div>
                 <button onClick={() => removeFavorite(p.id)} style={{ width: '100%' }}>
-                  💔 ເອົາອອກ
+                  {t('fav.remove')}
                 </button>
               </div>
             ))}

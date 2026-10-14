@@ -11,6 +11,7 @@ const sharp = require('sharp');
 const { EFFECTIVE_PRICE_SQL } = require('../utils/pricing');
 const { computeDiscount, awardPointsForOrder, reverseOrderBenefits } = require('../utils/loyalty');
 const { findVariant, adjustStock } = require('../utils/variants');
+const { getShippingConfig, calcShippingFee } = require('../utils/shipping');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -157,11 +158,12 @@ async function getCartWithTotal(customerId) {
 }
 
 // ດຶງລາຍການອໍເດີທັງໝົດ (ແອັດມິນ/ພະນັກງານ) — ດຶງ order_items ມາຮ່ວມນຳ ເພື່ອຮອງຮັບຫຼາຍສິນຄ້າຕໍ່ 1 ອໍເດີ
-// total = ຍອດສິນຄ້າລວມ − ສ່ວນລົດຄູປອງ (ຍອດທີ່ລູກຄ້າຈ່າຍຈິງ)
+// total = ຍອດສິນຄ້າລວມ − ສ່ວນລົດຄູປອງ + ຄ່າສົ່ງ (ຍອດທີ່ລູກຄ້າຈ່າຍຈິງ)
+// ★ ຫົວ route ນີ້ຫາຍໄປໃນໄຟລ໌ທີ່ສົ່ງມາ — ກວດ path/middleware ກັບ git ອີກຄັ້ງ
 router.get('/', requireAuth, async (req, res) => {
   try {
     const [orders] = await pool.query(`
-      SELECT * FROM orders ORDER BY created_at DESC
+      SELECT * FROM orders WHERE channel = 'online' ORDER BY created_at DESC
     `);
 
     if (orders.length === 0) {
@@ -185,7 +187,7 @@ router.get('/', requireAuth, async (req, res) => {
         ...order,
         items: orderItems,
         subtotal,
-        total: subtotal - Number(order.discount_amount || 0),
+        total: subtotal - Number(order.discount_amount || 0) + Number(order.shipping_fee || 0),
       };
     });
 
@@ -216,10 +218,21 @@ router.post('/verify-slip', requireCustomerAuth, uploadMemory.single('slip'), as
   }
 });
 
+// ✅ ຄ່າສົ່ງ (ໃຫ້ໜ້າ Checkout ສະແດງ) — ຕົວເລກຈິງ backend ຄຳນວນເອງຕອນສັ່ງຊື້
+router.get('/shipping-config', requireCustomerAuth, async (req, res) => {
+  try {
+    res.json(await getShippingConfig(pool));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'ໂຫລດຄ່າສົ່ງບໍ່ສຳເລັດ' });
+  }
+});
+
 // ✅ ລູກຄ້າສັ່ງຊື້ — ສ້າງ order ຈາກ cart_items ທັງໝົດ
 // ຮອງຮັບ: ເລືອກຂົນສົ່ງ (carrier) + ວິທີຊຳລະ (transfer = ໂອນເງິນຕ້ອງມີສະລິບ / cod = ເກັບເງິນປາຍທາງ ບໍ່ຕ້ອງມີສະລິບ)
 // ຂົນສົ່ງທີ່ມີຂໍ້ມູນສາຂາ (BRANCH_CARRIERS) ຕ້ອງສົ່ງ branch_id ມາ ແລ້ວ backend ຈະປະກອບທີ່ຢູ່ຈາກສາຂາເອງ
 // ຄູປອງ (user_coupon_id, ບໍ່ບັງຄັບ): backend ກວດ + ຄຳນວນສ່ວນລົດເອງ ບໍ່ເຊື່ອຕົວເລກຈາກ frontend
+// ຄ່າສົ່ງ: backend ຄຳນວນເອງຈາກຍອດສິນຄ້າ (ກ່ອນຫັກຄູປອງ) — ຮອດເກນ = ຟຣີ, ບໍ່ຮອດ = ຄິດເໝົາ
 // ສະຕັອກ: ຕັດຕາມໄຊສ໌ (product_variants) ພາຍໃນ transaction ດຽວກັນ — ຖ້າໄຊສ໌ໃດບໍ່ພໍ ທັງອໍເດີຈະຖືກຍົກເລີກ
 router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) => {
   const connection = await pool.getConnection();
@@ -282,6 +295,7 @@ router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) =>
     // ໝາຍເຫດ: ການກວດສະຕັອກຍ້າຍໄປເຮັດໃນ transaction ຂ້າງລຸ່ມ (ຕາມໄຊສ໌) ເພື່ອກັນຄົນສັ່ງພ້ອມກັນ
 
     const slipImage = payment_method === 'transfer' ? '/uploads/' + req.file.filename : null;
+    const shippingFee = calcShippingFee(await getShippingConfig(pool), subtotal);
 
     await connection.beginTransaction();
 
@@ -309,8 +323,8 @@ router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) =>
       `INSERT INTO orders
         (customer_phone, customer_address, slip_image, customer_id, order_status, carrier, payment_method,
          branch_id, branch_code, branch_name, branch_phone, province_name, district_name,
-         user_coupon_id, discount_amount)
-       VALUES (?, ?, ?, ?, 'awaiting_review', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         user_coupon_id, discount_amount, shipping_fee)
+       VALUES (?, ?, ?, ?, 'awaiting_review', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         customer_phone, customer_address, slipImage, req.customerId, carrier, payment_method,
         branch ? branch.branch_id : null,
@@ -321,6 +335,7 @@ router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) =>
         branch ? branch.district_name : null,
         userCouponId,
         discount,
+        shippingFee,
       ]
     );
     const orderId = insertResult.insertId;
@@ -366,7 +381,8 @@ router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) =>
       id: orderId,
       address: customer_address,
       discount,
-      total: subtotal - discount,
+      shipping_fee: shippingFee,
+      total: subtotal - discount + shippingFee,
       message: 'ສັ່ງຊື້ສຳເລັດ',
     });
   } catch (err) {

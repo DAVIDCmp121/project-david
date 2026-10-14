@@ -2,24 +2,22 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { API_BASE, apiPost, getAuthHeader } from '../../api.js';
 import TopBar from '../../components/TopBar.jsx';
+import ConfirmModal from '../../components/ConfirmModal.jsx';
 import { CartProvider } from '../../context/CartContext.jsx';
+import { usePageT } from '../../useT.js';
+import dict from '../../locales/cust-orders-page.js';
 
+// ສີຂອງປ້າຍສະຖານະ (ຂໍ້ຄວາມແປຢູ່ໃນ locales ຄີ od.st.<status>)
 const STATUS = {
-  awaiting_review: { label: 'ລໍຖ້າກວດສະລິບ', bg: '#fef3c7', color: '#b45309' },
-  confirmed: { label: 'ຢືນຢັນແລ້ວ', bg: '#dbeafe', color: '#1d4ed8' },
-  shipped: { label: 'ຈັດສົ່ງແລ້ວ', bg: '#ede9fe', color: '#6d28d9' },
-  delivered: { label: 'ຮອດແລ້ວ', bg: '#dcfce7', color: '#15803d' },
-  cancelled: { label: 'ຍົກເລີກແລ້ວ', bg: '#f3f4f6', color: '#6b7280' },
+  awaiting_review: { bg: '#fef3c7', color: '#b45309' },
+  confirmed: { bg: '#dbeafe', color: '#1d4ed8' },
+  shipped: { bg: '#ede9fe', color: '#6d28d9' },
+  delivered: { bg: '#dcfce7', color: '#15803d' },
+  cancelled: { bg: '#f3f4f6', color: '#6b7280' },
 };
 
-const TABS = [
-  { key: 'all', label: 'ທັງໝົດ' },
-  { key: 'awaiting_review', label: 'ລໍຖ້າກວດສອບ' },
-  { key: 'confirmed', label: 'ຢືນຢັນແລ້ວ' },
-  { key: 'shipped', label: 'ຈັດສົ່ງແລ້ວ' },
-  { key: 'delivered', label: 'ຮອດແລ້ວ' },
-  { key: 'cancelled', label: 'ຍົກເລີກແລ້ວ' },
-];
+// ຂໍ້ຄວາມແປຢູ່ໃນ locales ຄີ od.tab.<key>
+const TAB_KEYS = ['all', 'awaiting_review', 'confirmed', 'shipped', 'delivered', 'cancelled'];
 
 // key ຕ້ອງກົງກັບ Checkout.jsx / backend (VALID_CARRIERS)
 const CARRIERS = {
@@ -170,12 +168,17 @@ function CarrierChip({ carrierKey }) {
 }
 
 function OrderCard({ order, onCancel, onChat }) {
+  const { t } = usePageT(dict);
   const [expanded, setExpanded] = useState(false);
   const statusKey = order.order_status || 'awaiting_review';
   const cod = order.payment_method === 'cod';
-  const base = STATUS[statusKey] || { label: statusKey, bg: '#f3f4f6', color: '#6b7280' };
+  const known = STATUS[statusKey];
+  const stColor = known || { bg: '#f3f4f6', color: '#6b7280' };
   // COD ບໍ່ມີສະລິບໃຫ້ກວດ → ໃຊ້ຄຳວ່າ "ລໍຖ້າຢືນຢັນ"
-  const st = statusKey === 'awaiting_review' && cod ? { ...base, label: 'ລໍຖ້າຢືນຢັນ' } : base;
+  let stLabel = statusKey;
+  if (known) {
+    stLabel = statusKey === 'awaiting_review' && cod ? t('od.st.awaiting_cod') : t(`od.st.${statusKey}`);
+  }
   const items = order.items || [];
   const shown = expanded ? items : items.slice(0, MAX_ITEMS_COLLAPSED);
   const hidden = items.length - MAX_ITEMS_COLLAPSED;
@@ -190,16 +193,16 @@ function OrderCard({ order, onCancel, onChat }) {
           <div className="od-date">{fmtDate(order.created_at)}</div>
           <div className="od-sub">
             {fmtTime(order.created_at)}
-            {order.bill_number ? ` · ເລກພັດສະດຸ: ${order.bill_number}` : ''}
+            {order.bill_number ? ` · ${t('od.parcel')}: ${order.bill_number}` : ''}
           </div>
         </div>
-        <span className="od-badge" style={{ background: st.bg, color: st.color }}>{st.label}</span>
+        <span className="od-badge" style={{ background: stColor.bg, color: stColor.color }}>{stLabel}</span>
       </div>
 
       <div className="od-meta">
         <CarrierChip carrierKey={order.carrier} />
         <span className={`od-pay ${cod ? 'cod' : 'transfer'}`}>
-          {cod ? 'ເກັບເງິນປາຍທາງ (COD)' : 'ໂອນເງິນ'}
+          {cod ? t('od.cod') : t('od.transfer')}
         </span>
       </div>
 
@@ -215,7 +218,7 @@ function OrderCard({ order, onCancel, onChat }) {
               )}
               <div className="od-name">
                 {it.product_name}
-                {it.size ? <div><span className="od-size">ໄຊສ໌ {it.size}</span></div> : null}
+                {it.size ? <div><span className="od-size">{t('common.size')} {it.size}</span></div> : null}
               </div>
               <div className="od-qty">×{it.quantity}</div>
             </div>
@@ -223,7 +226,7 @@ function OrderCard({ order, onCancel, onChat }) {
         })}
         {hidden > 0 && (
           <button className="od-more" onClick={() => setExpanded((v) => !v)}>
-            {expanded ? 'ເຊື່ອງລາຍການ' : `ເບິ່ງເພີ່ມອີກ ${hidden} ລາຍການ`}
+            {expanded ? t('od.hide') : t('od.more', { n: hidden })}
           </button>
         )}
       </div>
@@ -232,20 +235,20 @@ function OrderCard({ order, onCancel, onChat }) {
         <div>
           {discount > 0 && (
             <div className="od-disc">
-              ຄູປອງ{order.coupon_name ? ` ${order.coupon_name}` : ''}: −{fmt(discount)} ກີບ
+              {t('od.coupon')}{order.coupon_name ? ` ${order.coupon_name}` : ''}: −{fmt(discount)} {t('common.kip')}
             </div>
           )}
-          <div className="od-total-label">{showCodTotal ? 'ຍອດທີ່ຕ້ອງຈ່າຍປາຍທາງ' : 'ລວມທັງໝົດ'}</div>
-          <div className="od-total">{fmt(order.total)} ກີບ</div>
+          <div className="od-total-label">{showCodTotal ? t('od.codTotal') : t('od.total')}</div>
+          <div className="od-total">{fmt(order.total)} {t('common.kip')}</div>
           {statusKey === 'delivered' && pointsEarned > 0 && (
-            <div className="od-pts">ໄດ້ຮັບ +{fmt(pointsEarned)} ແຕ້ມ</div>
+            <div className="od-pts">{t('od.points', { n: fmt(pointsEarned) })}</div>
           )}
         </div>
         <div className="od-actions">
           {statusKey === 'awaiting_review' && (
-            <button className="od-btn od-cancel" onClick={() => onCancel(order.id)}>ຍົກເລີກ</button>
+            <button className="od-btn od-cancel" onClick={() => onCancel(order.id)}>{t('common.cancel')}</button>
           )}
-          <button className="od-btn od-chat" onClick={() => onChat(order.id)}>ແຊັດ</button>
+          <button className="od-btn od-chat" onClick={() => onChat(order.id)}>{t('menu.chat')}</button>
         </div>
       </div>
     </div>
@@ -253,14 +256,15 @@ function OrderCard({ order, onCancel, onChat }) {
 }
 
 function CustomerOrdersInner() {
+  const { t } = usePageT(dict);
   const [orders, setOrders] = useState(null);
   const [loggedIn, setLoggedIn] = useState(true);
   const [searchParams] = useSearchParams();
   // ຮອງຮັບລິງກ໌ຈາກໜ້າບັນຊີ: /menu/orders?status=shipped
   const initialStatus = searchParams.get('status');
-  const [filter, setFilter] = useState(
-    TABS.some((t) => t.key === initialStatus) ? initialStatus : 'all'
-  );
+  const [filter, setFilter] = useState(TAB_KEYS.includes(initialStatus) ? initialStatus : 'all');
+  const [cancelId, setCancelId] = useState(null); // ออเดอร์ที่รอยืนยันการยกเลิก
+  const [notice, setNotice] = useState(''); // ข้อความแจ้งแทน alert()
   const navigate = useNavigate();
 
   async function load() {
@@ -289,13 +293,24 @@ function CustomerOrdersInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loggedIn]);
 
-  async function cancelOrder(orderId) {
-    if (!window.confirm('ຢືນຢັນຍົກເລີກອໍເດີ?')) return;
-    const { data } = await apiPost(`/api/orders/${orderId}/cancel`, {});
-    if (data.success) {
-      load();
-    } else {
-      alert(data.error || 'ຍົກເລີກບໍ່ສຳເລັດ');
+  // กดปุ่มยกเลิกในการ์ด → เปิดกล่องยืนยัน
+  function askCancel(orderId) {
+    setCancelId(orderId);
+  }
+
+  async function doCancel() {
+    const orderId = cancelId;
+    setCancelId(null);
+    try {
+      const { data } = await apiPost(`/api/orders/${orderId}/cancel`, {});
+      if (data.success) {
+        load();
+      } else {
+        setNotice(data.error || t('od.cancelFail'));
+      }
+    } catch (err) {
+      console.error(err);
+      setNotice(t('od.cancelFail'));
     }
   }
 
@@ -325,39 +340,55 @@ function CustomerOrdersInner() {
       <TopBar />
 
       <div className="od-wrap">
-        <h1 className="od-title">ອໍເດີຂອງຂ້ອຍ</h1>
+        <h1 className="od-title">{t('od.title')}</h1>
 
         <div className="od-tabs">
-          {TABS.map((t) => (
+          {TAB_KEYS.map((key) => (
             <button
-              key={t.key}
-              className={`od-tab${filter === t.key ? ' active' : ''}`}
-              onClick={() => setFilter(t.key)}
+              key={key}
+              className={`od-tab${filter === key ? ' active' : ''}`}
+              onClick={() => setFilter(key)}
             >
-              {t.label}
-              <span className="od-tab-count">{countOf(t.key)}</span>
+              {t(`od.tab.${key}`)}
+              <span className="od-tab-count">{countOf(key)}</span>
             </button>
           ))}
         </div>
 
         {visible === null && (
-          <p className="od-empty">ກຳລັງໂຫລດ...</p>
+          <p className="od-empty">{t('common.loading')}</p>
         )}
 
         {visible && visible.length === 0 && (
           <p className="od-empty">
-            {filter === 'all' ? 'ຍັງບໍ່ມີອໍເດີ' : 'ບໍ່ມີອໍເດີໃນສະຖານະນີ້'}
+            {filter === 'all' ? t('od.emptyAll') : t('od.emptyStatus')}
           </p>
         )}
 
         {visible && visible.length > 0 && (
           <div className="od-list">
             {visible.map((order) => (
-              <OrderCard key={order.id} order={order} onCancel={cancelOrder} onChat={openChat} />
+              <OrderCard key={order.id} order={order} onCancel={askCancel} onChat={openChat} />
             ))}
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        open={cancelId !== null}
+        message={t('od.cancelConfirm')}
+        danger
+        onConfirm={doCancel}
+        onCancel={() => setCancelId(null)}
+      />
+
+      <ConfirmModal
+        open={!!notice}
+        message={notice}
+        hideCancel
+        onConfirm={() => setNotice('')}
+        onCancel={() => setNotice('')}
+      />
     </div>
   );
 }

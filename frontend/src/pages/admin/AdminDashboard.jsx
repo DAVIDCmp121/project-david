@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getAuthHeader } from '../../api.js';
+import { usePageT } from '../../useT.js';
+import dashDict from '../../locales/dashboard.js';
 
 /* =========================================================
    ຕົວຊ່ວຍ (format / ວັນທີ)
@@ -19,9 +21,9 @@ const ratio = (part, whole) => (whole > 0 ? (part / whole) * 100 : 0);
 const ONLINE_COLOR = '#3b82f6';
 const STORE_COLOR = '#f59e0b';
 
-const PAY_LABEL = { cash: 'ເງິນສົດ', transfer: 'ໂອນ', cod: 'COD (ເກັບເງິນປາຍທາງ)' };
+const PAY_KEY = { cash: 'db.cash', transfer: 'db.transfer', cod: 'db.cod' };
 const PAY_COLOR = { cash: '#10b981', transfer: '#6366f1', cod: '#f43f5e' };
-const CHANNEL_LABEL = { online: 'ອອນລາຍ', store: 'ໜ້າຮ້ານ' };
+const CHANNEL_KEY = { online: 'db.online', store: 'db.store' };
 
 // ວັນທີປັດຈຸບັນຕາມເວລາລາວ (UTC+7)
 function laoToday() {
@@ -44,11 +46,11 @@ function fmtDate(s) {
 }
 
 const PRESETS = [
-  { key: 'today', label: 'ມື້ນີ້' },
-  { key: '7', label: '7 ວັນ' },
-  { key: '30', label: '30 ວັນ' },
-  { key: 'month', label: 'ເດືອນນີ້' },
-  { key: 'custom', label: 'ກຳນົດເອງ' },
+  { key: 'today', labelKey: 'db.today' },
+  { key: '7', labelKey: 'db.d7' },
+  { key: '30', labelKey: 'db.d30' },
+  { key: 'month', labelKey: 'db.month' },
+  { key: 'custom', labelKey: 'db.custom' },
 ];
 
 function rangeFor(key, customFrom, customTo) {
@@ -72,6 +74,7 @@ function niceMax(v) {
   return nice * exp;
 }
 
+// ໂຍນ error ເປັນ key ເພື່ອໃຫ້ຄອມໂປເນັນແປຕາມພາສາ
 async function fetchSummary(from, to) {
   let res;
   try {
@@ -80,10 +83,10 @@ async function fetchSummary(from, to) {
       headers: { ...getAuthHeader() },
     });
   } catch (e) {
-    throw new Error('ເຊື່ອມຕໍ່ເຊີບເວີບໍ່ໄດ້');
+    throw new Error('__server__');
   }
   const json = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(json.error || 'ດຶງລາຍງານບໍ່ສຳເລັດ');
+  if (!res.ok) throw new Error(json.error || '__load__');
   return json;
 }
 
@@ -93,10 +96,11 @@ async function fetchSummary(from, to) {
 
 // ປ້າຍປຽບທຽບກັບຊ່ວງກ່ອນ
 function Delta({ cur, prev, label }) {
+  const { t } = usePageT(dashDict);
   if (prev == null) return null;
   const tail = label ? <i>{label}</i> : null;
   if (!prev && !cur) return <span className="rp-delta flat">–{tail}</span>;
-  if (!prev) return <span className="rp-delta up">▲ ໃໝ່{tail}</span>;
+  if (!prev) return <span className="rp-delta up">▲ {t('db.new')}{tail}</span>;
   const p = Math.round(((cur - prev) / prev) * 100);
   if (p === 0) return <span className="rp-delta flat">0%{tail}</span>;
   return (
@@ -121,12 +125,14 @@ function Skeleton() {
 
 // ກຣາຟແທ່ງລາຍວັນ (ຊ້ອນ ອອນລາຍ + ໜ້າຮ້ານ)
 function SalesChart({ items }) {
+  const { t } = usePageT(dashDict);
+  const kip = t('common.kip');
   const [active, setActive] = useState(null);
   const totals = items.map((i) => i.online + i.store);
   const peak = Math.max(0, ...totals);
 
   if (peak === 0) {
-    return <div className="rp-empty">ຍັງບໍ່ມີຍອດຂາຍໃນຊ່ວງນີ້</div>;
+    return <div className="rp-empty">{t('db.noSales')}</div>;
   }
 
   const max = niceMax(peak);
@@ -141,24 +147,24 @@ function SalesChart({ items }) {
   return (
     <>
       <div className="rp-info" aria-live="polite">
-        <b>{fmtDate(it.date)}{it.prev ? ' (ຊ່ວງກ່ອນ)' : ''}</b>
-        <span>ລວມ <b>{fmt(itTotal)}</b> ກີບ</span>
-        <span><i className="rp-dot" style={{ background: ONLINE_COLOR }} />ອອນລາຍ {fmt(it.online)}</span>
-        <span><i className="rp-dot" style={{ background: STORE_COLOR }} />ໜ້າຮ້ານ {fmt(it.store)}</span>
-        {active == null && n > 2 && <span className="rp-tag">ມື້ຍອດສູງສຸດ</span>}
+        <b>{fmtDate(it.date)}{it.prev ? ` ${t('db.prevRange')}` : ''}</b>
+        <span>{t('db.sum')} <b>{fmt(itTotal)}</b> {kip}</span>
+        <span><i className="rp-dot" style={{ background: ONLINE_COLOR }} />{t('db.online')} {fmt(it.online)}</span>
+        <span><i className="rp-dot" style={{ background: STORE_COLOR }} />{t('db.store')} {fmt(it.store)}</span>
+        {active == null && n > 2 && <span className="rp-tag">{t('db.peak')}</span>}
       </div>
 
       <div className="rp-chart">
         <div className="rp-y" aria-hidden="true">
-          {ticks.map((t) => (
-            <span key={t} style={{ bottom: `${(t / max) * 100}%` }}>{fmtShort(t)}</span>
+          {ticks.map((tk) => (
+            <span key={tk} style={{ bottom: `${(tk / max) * 100}%` }}>{fmtShort(tk)}</span>
           ))}
         </div>
         <div className="rp-scroll">
           <div className={`rp-plot${n <= 3 ? ' few' : ''}`} onMouseLeave={() => setActive(null)}>
             <div className="rp-lines" aria-hidden="true">
-              {ticks.map((t) => (
-                <div key={t} style={{ bottom: `${(t / max) * 100}%` }} />
+              {ticks.map((tk) => (
+                <div key={tk} style={{ bottom: `${(tk / max) * 100}%` }} />
               ))}
             </div>
             {items.map((d, i) => {
@@ -174,7 +180,7 @@ function SalesChart({ items }) {
                   onFocus={() => setActive(i)}
                   tabIndex={0}
                   role="button"
-                  aria-label={`${fmtDate(d.date)} ${fmt(total)} ກີບ`}
+                  aria-label={`${fmtDate(d.date)} ${fmt(total)} ${kip}`}
                 >
                   <div className="rp-area">
                     {total > 0 && (
@@ -197,11 +203,12 @@ function SalesChart({ items }) {
 
 // ວົງມົນສັດສ່ວນວິທີຈ່າຍເງິນ
 function Donut({ slices, total }) {
+  const { t } = usePageT(dashDict);
   const R = 50;
   const C = 2 * Math.PI * R;
   let offset = 0;
   return (
-    <svg className="rp-donut" viewBox="0 0 140 140" role="img" aria-label="ສັດສ່ວນວິທີຈ່າຍເງິນ">
+    <svg className="rp-donut" viewBox="0 0 140 140" role="img" aria-label={t('db.payShare')}>
       <circle cx="70" cy="70" r={R} fill="none" stroke="#eef0f4" strokeWidth="16" />
       {slices.map((s) => {
         const len = (s.value / total) * C;
@@ -223,7 +230,7 @@ function Donut({ slices, total }) {
         return el;
       })}
       <text x="70" y="68" textAnchor="middle" fontSize="18" fontWeight="800" fill="#111827">{fmtShort(total)}</text>
-      <text x="70" y="86" textAnchor="middle" fontSize="10" fill="#6b7280">ກີບ</text>
+      <text x="70" y="86" textAnchor="middle" fontSize="10" fill="#6b7280">{t('common.kip')}</text>
     </svg>
   );
 }
@@ -232,6 +239,9 @@ function Donut({ slices, total }) {
    ໜ້າລາຍງານຫຼັກ
    ========================================================= */
 export default function AdminDashboard() {
+  const { t } = usePageT(dashDict);
+  const kip = t('common.kip');
+
   const [preset, setPreset] = useState('7');
   const [customFrom, setCustomFrom] = useState(addDays(laoToday(), -6));
   const [customTo, setCustomTo] = useState(laoToday());
@@ -260,7 +270,8 @@ export default function AdminDashboard() {
       setPrev(prv);
     } catch (e) {
       if (id !== reqId.current) return;
-      setError(e.message || 'ດຶງລາຍງານບໍ່ສຳເລັດ');
+      const m = e.message;
+      setError(m === '__server__' ? t('db.errServer') : m === '__load__' || !m ? t('db.errTitle') : m);
       setData(null);
       setPrev(null);
     }
@@ -274,7 +285,7 @@ export default function AdminDashboard() {
 
   const shown = data ? { from: data.from, to: data.to } : rangeFor(preset, customFrom, customTo);
   const rangeLabel = shown.from === shown.to ? fmtDate(shown.from) : `${fmtDate(shown.from)} – ${fmtDate(shown.to)}`;
-  const cmpLabel = data && data.from === data.to ? 'ທຽບມື້ກ່ອນ' : 'ທຽບຊ່ວງກ່ອນ';
+  const cmpLabel = data && data.from === data.to ? t('db.cmpDay') : t('db.cmpRange');
 
   // ຂໍ້ມູນກຣາຟ: ຖ້າເລືອກມື້ດຽວ ໃຫ້ສະແດງທຽບກັບມື້ກ່ອນ
   const chartItems = useMemo(() => {
@@ -305,29 +316,31 @@ export default function AdminDashboard() {
   const payTotal = payList.reduce((s, p) => s + p.revenue, 0);
 
   const staffTotal = data ? data.staff.reduce((s, x) => s + x.revenue, 0) : 0;
-  const topMaxQty = data && data.top.length ? Math.max(...data.top.map((t) => t.qty)) : 1;
+  const topMaxQty = data && data.top.length ? Math.max(...data.top.map((x) => x.qty)) : 1;
+
+  const payName = (m) => (PAY_KEY[m] ? t(PAY_KEY[m]) : m);
 
   function exportCsv() {
     if (!data) return;
     const rows = [];
     const add = (...r) => rows.push(r);
-    add('ລາຍງານຍອດຂາຍ', data.from, data.to);
+    add(t('db.csvTitle'), data.from, data.to);
     add();
-    add('ສະຫຼຸບ', 'ຍອດ (ກີບ)', 'ບິນ', 'ຊິ້ນ');
-    add('ລວມ', data.total.revenue, data.total.bills, data.total.pieces);
-    add('ອອນລາຍ', data.channels.online.revenue, data.channels.online.bills, data.channels.online.pieces);
-    add('ໜ້າຮ້ານ', data.channels.store.revenue, data.channels.store.bills, data.channels.store.pieces);
+    add(t('db.csvSummary'), t('db.csvAmount'), t('db.bills'), t('db.pieces'));
+    add(t('db.sum'), data.total.revenue, data.total.bills, data.total.pieces);
+    add(t('db.online'), data.channels.online.revenue, data.channels.online.bills, data.channels.online.pieces);
+    add(t('db.store'), data.channels.store.revenue, data.channels.store.bills, data.channels.store.pieces);
     add();
-    add('ວັນທີ', 'ອອນລາຍ', 'ໜ້າຮ້ານ', 'ລວມ');
+    add(t('db.csvDate'), t('db.online'), t('db.store'), t('db.sum'));
     data.daily.forEach((d) => add(d.date, d.online, d.store, d.online + d.store));
     add();
-    add('ຊ່ອງທາງ', 'ວິທີຈ່າຍ', 'ບິນ', 'ຍອດ (ກີບ)');
-    data.payments.forEach((p) => add(CHANNEL_LABEL[p.channel], PAY_LABEL[p.method] || p.method, p.bills, p.revenue));
+    add(t('db.csvChannel'), t('db.csvPayMethod'), t('db.bills'), t('db.csvAmount'));
+    data.payments.forEach((p) => add(t(CHANNEL_KEY[p.channel]), payName(p.method), p.bills, p.revenue));
     add();
-    add('#', 'ສິນຄ້າ', 'ອອນລາຍ (ຊິ້ນ)', 'ໜ້າຮ້ານ (ຊິ້ນ)', 'ລວມ (ຊິ້ນ)', 'ຍອດ (ກີບ)');
-    data.top.forEach((t, i) => add(i + 1, t.name, t.online_qty, t.store_qty, t.qty, t.revenue));
+    add('#', t('db.csvProduct'), t('db.csvOnlinePcs'), t('db.csvStorePcs'), t('db.csvTotalPcs'), t('db.csvAmount'));
+    data.top.forEach((x, i) => add(i + 1, x.name, x.online_qty, x.store_qty, x.qty, x.revenue));
     add();
-    add('ພະນັກງານ', 'ບິນ', 'ຍອດ (ກີບ)');
+    add(t('db.csvStaff'), t('db.bills'), t('db.csvAmount'));
     data.staff.forEach((s) => add(s.name, s.bills, s.revenue));
 
     const esc = (v) => {
@@ -346,7 +359,7 @@ export default function AdminDashboard() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  const avgOf = (t) => (t && t.bills ? Math.round(t.revenue / t.bills) : 0);
+  const avgOf = (tt) => (tt && tt.bills ? Math.round(tt.revenue / tt.bills) : 0);
 
   return (
     <div className="rp">
@@ -363,21 +376,21 @@ export default function AdminDashboard() {
               className={`rp-pill${preset === p.key ? ' on' : ''}`}
               onClick={() => setPreset(p.key)}
             >
-              {p.label}
+              {t(p.labelKey)}
             </button>
           ))}
         </div>
         <div className="rp-tools">
           <span className="rp-range">{rangeLabel}</span>
-          <button type="button" className="rp-btn icon" onClick={() => load()} title="ໂຫຼດໃໝ່" aria-label="ໂຫຼດໃໝ່" disabled={loading}>↻</button>
-          <button type="button" className="rp-btn" onClick={exportCsv} disabled={!data}>ສົ່ງອອກ CSV</button>
+          <button type="button" className="rp-btn icon" onClick={() => load()} title={t('db.reload')} aria-label={t('db.reload')} disabled={loading}>↻</button>
+          <button type="button" className="rp-btn" onClick={exportCsv} disabled={!data}>{t('db.exportCsv')}</button>
         </div>
         {preset === 'custom' && (
           <div className="rp-custom">
             <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} />
-            <span>ຫາ</span>
+            <span>{t('db.to')}</span>
             <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} />
-            <button type="button" className="rp-btn solid" onClick={() => load('custom')}>ເບິ່ງລາຍງານ</button>
+            <button type="button" className="rp-btn solid" onClick={() => load('custom')}>{t('db.view')}</button>
           </div>
         )}
       </div>
@@ -385,10 +398,10 @@ export default function AdminDashboard() {
       {error && (
         <div className="rp-panel rp-err">
           <div>
-            <b>ດຶງລາຍງານບໍ່ສຳເລັດ</b>
+            <b>{t('db.errTitle')}</b>
             <div className="rp-sub">{error}</div>
           </div>
-          <button type="button" className="rp-btn solid" onClick={() => load()}>ລອງໃໝ່</button>
+          <button type="button" className="rp-btn solid" onClick={() => load()}>{t('db.retry')}</button>
         </div>
       )}
 
@@ -400,8 +413,8 @@ export default function AdminDashboard() {
           <section className="rp-panel rp-hero">
             <div className="rp-hero-top">
               <div>
-                <div className="rp-label">ຍອດຂາຍລວມ</div>
-                <div className="rp-big">{fmt(data.total.revenue)}<span>ກີບ</span></div>
+                <div className="rp-label">{t('db.totalSales')}</div>
+                <div className="rp-big">{fmt(data.total.revenue)}<span>{kip}</span></div>
               </div>
               <Delta cur={data.total.revenue} prev={prev ? prev.total.revenue : null} label={cmpLabel} />
             </div>
@@ -422,11 +435,11 @@ export default function AdminDashboard() {
                 return (
                   <div key={ch} className="rp-ch" style={{ borderLeftColor: color }}>
                     <div className="rp-ch-name">
-                      <span>{CHANNEL_LABEL[ch]}</span>
+                      <span>{t(CHANNEL_KEY[ch])}</span>
                       <span>{pct(c.revenue, data.total.revenue)}%</span>
                     </div>
                     <div className="rp-ch-val">{fmt(c.revenue)}</div>
-                    <div className="rp-sub">{fmt(c.bills)} ບິນ • {fmt(c.pieces)} ຊິ້ນ</div>
+                    <div className="rp-sub">{t('db.billsPcs', { b: fmt(c.bills), p: fmt(c.pieces) })}</div>
                     <Delta cur={c.revenue} prev={prev ? prev.channels[ch].revenue : null} />
                   </div>
                 );
@@ -435,17 +448,17 @@ export default function AdminDashboard() {
 
             <dl className="rp-strip">
               <div>
-                <dt>ຈຳນວນບິນ</dt>
+                <dt>{t('db.bills')}</dt>
                 <dd>{fmt(data.total.bills)}</dd>
                 <Delta cur={data.total.bills} prev={prev ? prev.total.bills : null} />
               </div>
               <div>
-                <dt>ສະເລ່ຍຕໍ່ບິນ</dt>
+                <dt>{t('db.avgBill')}</dt>
                 <dd>{fmt(avgOf(data.total))}</dd>
                 <Delta cur={avgOf(data.total)} prev={prev ? avgOf(prev.total) : null} />
               </div>
               <div>
-                <dt>ຈຳນວນຊິ້ນ</dt>
+                <dt>{t('db.pieces')}</dt>
                 <dd>{fmt(data.total.pieces)}</dd>
                 <Delta cur={data.total.pieces} prev={prev ? prev.total.pieces : null} />
               </div>
@@ -455,8 +468,8 @@ export default function AdminDashboard() {
           {/* ---------- ກຣາຟຍອດຂາຍ ---------- */}
           <section className="rp-panel">
             <h3 className="rp-h">
-              {data.daily.length === 1 && chartItems.length === 2 ? 'ຍອດຂາຍທຽບກັບມື້ກ່ອນ' : 'ຍອດຂາຍລາຍວັນ'}
-              <small>ແຕະທີ່ແທ່ງເພື່ອເບິ່ງລາຍລະອຽດ</small>
+              {data.daily.length === 1 && chartItems.length === 2 ? t('db.chartVsPrev') : t('db.chartDaily')}
+              <small>{t('db.chartHint')}</small>
             </h3>
             <SalesChart key={`${data.from}_${data.to}`} items={chartItems} />
           </section>
@@ -464,9 +477,9 @@ export default function AdminDashboard() {
           <div className="rp-2">
             {/* ---------- ວິທີຈ່າຍເງິນ ---------- */}
             <section className="rp-panel">
-              <h3 className="rp-h">ຍອດແຍກຕາມວິທີຈ່າຍເງິນ</h3>
+              <h3 className="rp-h">{t('db.payTitle')}</h3>
               {payList.length === 0 || payTotal === 0 ? (
-                <div className="rp-empty">ບໍ່ມີຂໍ້ມູນ</div>
+                <div className="rp-empty">{t('db.noData')}</div>
               ) : (
                 <div className="rp-pay">
                   <Donut
@@ -482,11 +495,11 @@ export default function AdminDashboard() {
                       <li key={p.method} className="rp-leg">
                         <i className="rp-dot lg" style={{ background: PAY_COLOR[p.method] || '#94a3b8' }} />
                         <div>
-                          <div className="rp-leg-n">{PAY_LABEL[p.method] || p.method}</div>
+                          <div className="rp-leg-n">{payName(p.method)}</div>
                           <div className="rp-sub">
-                            {fmt(p.bills)} ບິນ
-                            {p.online > 0 && ` • ອອນລາຍ ${p.online}`}
-                            {p.store > 0 && ` • ໜ້າຮ້ານ ${p.store}`}
+                            {fmt(p.bills)} {t('pos.bills')}
+                            {p.online > 0 && ` • ${t('db.online')} ${p.online}`}
+                            {p.store > 0 && ` • ${t('db.store')} ${p.store}`}
                           </div>
                         </div>
                         <div className="rp-num">
@@ -502,9 +515,9 @@ export default function AdminDashboard() {
 
             {/* ---------- ພະນັກງານ ---------- */}
             <section className="rp-panel">
-              <h3 className="rp-h">ຍອດຂາຍໜ້າຮ້ານແຍກຕາມພະນັກງານ</h3>
+              <h3 className="rp-h">{t('db.staffTitle')}</h3>
               {data.staff.length === 0 ? (
-                <div className="rp-empty">ບໍ່ມີຂໍ້ມູນ</div>
+                <div className="rp-empty">{t('db.noData')}</div>
               ) : (
                 <ul className="rp-list">
                   {data.staff.map((s) => (
@@ -519,7 +532,11 @@ export default function AdminDashboard() {
                         </div>
                       </div>
                       <div className="rp-sub">
-                        {fmt(s.bills)} ບິນ • ສະເລ່ຍ {fmt(s.bills ? Math.round(s.revenue / s.bills) : 0)} ຕໍ່ບິນ • {pct(s.revenue, staffTotal)}%
+                        {t('db.staffAvg', {
+                          b: fmt(s.bills),
+                          a: fmt(s.bills ? Math.round(s.revenue / s.bills) : 0),
+                          p: pct(s.revenue, staffTotal),
+                        })}
                       </div>
                     </li>
                   ))}
@@ -531,38 +548,38 @@ export default function AdminDashboard() {
           {/* ---------- ສິນຄ້າຂາຍດີ ---------- */}
           <section className="rp-panel">
             <h3 className="rp-h">
-              ສິນຄ້າຂາຍດີ Top 10
+              {t('db.topTitle')}
               <small>
-                <i className="rp-dot" style={{ background: ONLINE_COLOR }} />ອອນລາຍ
-                <i className="rp-dot" style={{ background: STORE_COLOR, marginLeft: 10 }} />ໜ້າຮ້ານ
+                <i className="rp-dot" style={{ background: ONLINE_COLOR }} />{t('db.online')}
+                <i className="rp-dot" style={{ background: STORE_COLOR, marginLeft: 10 }} />{t('db.store')}
               </small>
             </h3>
             {data.top.length === 0 ? (
-              <div className="rp-empty">ບໍ່ມີຂໍ້ມູນ</div>
+              <div className="rp-empty">{t('db.noData')}</div>
             ) : (
               <ol className="rp-list">
-                {data.top.map((t, i) => (
-                  <li key={t.product_id} className="rp-row">
+                {data.top.map((x, i) => (
+                  <li key={x.product_id} className="rp-row">
                     <span className={`rp-rank${i < 3 ? ' top' : ''}`}>{i + 1}</span>
                     <div className="rp-row-main">
-                      <div className="rp-name">{t.name}</div>
+                      <div className="rp-name">{x.name}</div>
                       <div className="rp-meter">
-                        <div className="rp-meter-in" style={{ width: `${ratio(t.qty, topMaxQty)}%` }}>
-                          <span style={{ flex: t.online_qty, background: ONLINE_COLOR }} />
-                          <span style={{ flex: t.store_qty, background: STORE_COLOR }} />
+                        <div className="rp-meter-in" style={{ width: `${ratio(x.qty, topMaxQty)}%` }}>
+                          <span style={{ flex: x.online_qty, background: ONLINE_COLOR }} />
+                          <span style={{ flex: x.store_qty, background: STORE_COLOR }} />
                         </div>
                       </div>
-                      <div className="rp-sub">ອອນລາຍ {fmt(t.online_qty)} • ໜ້າຮ້ານ {fmt(t.store_qty)}</div>
+                      <div className="rp-sub">{t('db.online')} {fmt(x.online_qty)} • {t('db.store')} {fmt(x.store_qty)}</div>
                     </div>
                     <div className="rp-num">
-                      <b>{fmt(t.revenue)}</b>
-                      <span>{fmt(t.qty)} ຊິ້ນ</span>
+                      <b>{fmt(x.revenue)}</b>
+                      <span>{fmt(x.qty)} {t('pos.pcs')}</span>
                     </div>
                   </li>
                 ))}
               </ol>
             )}
-            <div className="rp-note">ຍອດຂອງສິນຄ້າແຕ່ລະອັນຄິດກ່ອນຫັກສ່ວນລົດທັງບິນ</div>
+            <div className="rp-note">{t('db.topNote')}</div>
           </section>
         </div>
       )}

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { getAuthHeader } from '../../api.js';
 import ConfirmModal from '../../components/ConfirmModal.jsx';
+import { usePageT } from '../../useT.js';
+import bannerDict from '../../locales/banners.js';
 
 const MAX_MAIN = 8;
 
@@ -21,8 +23,9 @@ const plainBtnStyle = {
   padding: '10px 16px', borderRadius: 6, cursor: 'pointer',
 };
 
-// ---------- popup: ເພມແບນເນີຫຼັກ ----------
+// ---------- popup: ເພີ່ມແບນເນີຫຼັກ ----------
 function AddMainModal({ count, products, onClose, onAdded }) {
+  const { t } = usePageT(bannerDict);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState('');
   const [linkId, setLinkId] = useState('');
@@ -46,11 +49,11 @@ function AddMainModal({ count, products, onClose, onAdded }) {
   async function submit() {
     setError('');
     if (!file) {
-      setError('ກະລຸນາເລືອກຮບກອນ');
+      setError(t('bn.errPick'));
       return;
     }
     if (count >= MAX_MAIN) {
-      setError(`ມີແບນເນີຫຼັກໄດ້ສູງສຸດ ${MAX_MAIN} ຮູບ`);
+      setError(t('bn.errMax', { max: MAX_MAIN }));
       return;
     }
     setBusy(true);
@@ -70,9 +73,9 @@ function AddMainModal({ count, products, onClose, onAdded }) {
         onAdded();
         return;
       }
-      setError(data.error || 'ເພີ່ມແບນເນີບສຳເລັດ');
+      setError(data.error || t('bn.errAdd'));
     } catch (e) {
-      setError('ເຊືອມຕເຊີບເວີບໍ່ໄດ້');
+      setError(t('bn.errServer'));
     }
     setBusy(false);
   }
@@ -84,9 +87,9 @@ function AddMainModal({ count, products, onClose, onAdded }) {
         style={{ background: '#fff', color: '#1f2937', width: 520, maxWidth: '94%', maxHeight: '88vh', overflowY: 'auto', textAlign: 'left' }}
       >
         <button className="modal-close" style={{ color: '#1f2937' }} onClick={onClose}>✕</button>
-        <h2 style={{ color: 'var(--navy)', textAlign: 'center' }}>➕ ເພີ່ມແບນເນີ</h2>
+        <h2 style={{ color: 'var(--navy)', textAlign: 'center' }}>{t('bn.addTitle')}</h2>
         <p style={{ color: '#6b7280', fontSize: '0.85rem', margin: '0 0 12px' }}>
-          ຂະໜາດຮູບທີ່ແນະນຳ 1200×400 px (ອັດຕາສ່ວນ 3:1) ສູງສຸດ {MAX_MAIN} ຮູບ — ເລື່ອນເອງທຸກ 2 ວິນາທີ
+          {t('bn.addHint', { max: MAX_MAIN })}
         </p>
 
         <input type="file" accept="image/*" onChange={handlePick} />
@@ -100,10 +103,10 @@ function AddMainModal({ count, products, onClose, onAdded }) {
         )}
 
         <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: 4 }}>
-          ກົດແບນເນີແລ້ວໄປໜ້າສິນຄ້າ (ບໍ່ບັງຄັບ)
+          {t('bn.linkHint')}
         </div>
         <select value={linkId} onChange={(e) => setLinkId(e.target.value)} style={{ ...selectStyle, marginBottom: 10 }}>
-          <option value="">— ບໍ່ລິ້ງ —</option>
+          <option value="">{t('bn.noLink')}</option>
           {products.map((p) => (
             <option key={p.id} value={p.id}>{p.name}</option>
           ))}
@@ -111,9 +114,9 @@ function AddMainModal({ count, products, onClose, onAdded }) {
 
         <div style={{ color: '#dc2626', fontSize: '0.85rem', minHeight: 18 }}>{error}</div>
         <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-          <button onClick={onClose} style={{ ...plainBtnStyle, flex: 1 }}>ຍົກເລີກ</button>
+          <button onClick={onClose} style={{ ...plainBtnStyle, flex: 1 }}>{t('common.cancel')}</button>
           <button disabled={busy} onClick={submit} style={{ ...primaryBtnStyle, flex: 1 }}>
-            {busy ? '...' : 'ເພີ່ມແບນເນີ'}
+            {busy ? '...' : t('bn.addSubmit')}
           </button>
         </div>
       </div>
@@ -123,6 +126,7 @@ function AddMainModal({ count, products, onClose, onAdded }) {
 
 // ---------- ຊ່ອງແບນເນີຂ້າງ (ມີໄດ້ຊ່ອງລະ 1 ຮູບ) ----------
 function SideSlot({ title, slot, banner, products, onChanged }) {
+  const { t } = usePageT(bannerDict);
   const [file, setFile] = useState(null);
   const [preview, setPreview] = useState('');
   const [linkId, setLinkId] = useState('');
@@ -131,7 +135,7 @@ function SideSlot({ title, slot, banner, products, onChanged }) {
   const [deleteOpen, setDeleteOpen] = useState(false);
   const fileRef = useRef(null);
 
-  // ຊງຄ່າລິ້ງກັບຂໍມູນທີບັນທກແລ້ວ
+  // ຊິງຄ່າລິ້ງກັບຂໍ້ມູນທີ່ບັນທຶກແລ້ວ
   useEffect(() => {
     setLinkId(banner && banner.link_product_id ? String(banner.link_product_id) : '');
   }, [banner]);
@@ -152,7 +156,7 @@ function SideSlot({ title, slot, banner, products, onChanged }) {
 
   async function changeLink(value) {
     setLinkId(value);
-    if (!banner) return; // ຍງບມີຮູບ — ຈະສົງພ້ອມຕອນອັບໂຫລດ
+    if (!banner) return; // ຍັງບໍ່ມີຮູບ — ຈະສົ່ງພ້ອມຕອນອັບໂຫລດ
     try {
       await fetch(`/api/banners/${banner.id}`, {
         method: 'PUT',
@@ -169,7 +173,7 @@ function SideSlot({ title, slot, banner, products, onChanged }) {
   async function upload() {
     setError('');
     if (!file) {
-      setError('ກະລຸນາເລືອກຮບກອນ');
+      setError(t('bn.errPick'));
       return;
     }
     setBusy(true);
@@ -191,10 +195,10 @@ function SideSlot({ title, slot, banner, products, onChanged }) {
         if (fileRef.current) fileRef.current.value = '';
         onChanged();
       } else {
-        setError(data.error || 'ອັບໂຫລດບໍ່ສເລດ');
+        setError(data.error || t('bn.errUpload'));
       }
     } catch (e) {
-      setError('ເຊື່ອມຕໍ່ເຊີບເວີບໍ່ໄດ້');
+      setError(t('bn.errServer'));
     }
     setBusy(false);
   }
@@ -225,15 +229,15 @@ function SideSlot({ title, slot, banner, products, onChanged }) {
         {shownImage ? (
           <img src={shownImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         ) : (
-          'ຍັງບໍ່ມີຮູບ'
+          t('bn.noImage')
         )}
       </div>
 
       <input ref={fileRef} type="file" accept="image/*" onChange={handlePick} />
 
-      <div style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: 4 }}>ກົດແລ້ວໄປໜ້າສິນຄ້າ (ບໍ່ບັງຄັບ)</div>
+      <div style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: 4 }}>{t('bn.slotLinkHint')}</div>
       <select value={linkId} onChange={(e) => changeLink(e.target.value)} style={{ ...selectStyle, marginBottom: 8 }}>
-        <option value="">— ບໍ່ລິ້ງ —</option>
+        <option value="">{t('bn.noLink')}</option>
         {products.map((p) => (
           <option key={p.id} value={p.id}>{p.name}</option>
         ))}
@@ -242,16 +246,16 @@ function SideSlot({ title, slot, banner, products, onChanged }) {
       <div style={{ color: '#dc2626', fontSize: '0.85rem', minHeight: 18 }}>{error}</div>
       <div style={{ display: 'flex', gap: 8 }}>
         <button style={primaryBtnStyle} disabled={busy} onClick={upload}>
-          {busy ? '...' : (banner ? 'ປ່ຽນຮູບ' : 'ອັບໂຫລດ')}
+          {busy ? '...' : (banner ? t('bn.changeImg') : t('bn.upload'))}
         </button>
         {banner && (
-          <button className="del-btn" onClick={() => setDeleteOpen(true)}>ລຶບ</button>
+          <button className="del-btn" onClick={() => setDeleteOpen(true)}>{t('bn.del')}</button>
         )}
       </div>
 
       <ConfirmModal
         open={deleteOpen}
-        message="ຕ້ອງການລຶບແບນເນີນີ້ບໍ?"
+        message={t('bn.confirmDel')}
         danger
         onConfirm={confirmDelete}
         onCancel={() => setDeleteOpen(false)}
@@ -262,6 +266,7 @@ function SideSlot({ title, slot, banner, products, onChanged }) {
 
 // ---------- popup: ແບນເນີຂ້າງ 2 ຊ່ອງ ----------
 function SideModal({ side1, side2, products, onChanged, onClose }) {
+  const { t } = usePageT(bannerDict);
   return (
     <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div
@@ -269,19 +274,18 @@ function SideModal({ side1, side2, products, onChanged, onClose }) {
         style={{ background: '#fff', color: '#1f2937', width: 760, maxWidth: '94%', maxHeight: '88vh', overflowY: 'auto', textAlign: 'left' }}
       >
         <button className="modal-close" style={{ color: '#1f2937' }} onClick={onClose}>✕</button>
-        <h2 style={{ color: 'var(--navy)', textAlign: 'center' }}>🖼️ ແບນເນີຂ້າງ 2 ຊ່ອງ</h2>
+        <h2 style={{ color: 'var(--navy)', textAlign: 'center' }}>{t('bn.sideTitle')}</h2>
         <p style={{ color: '#6b7280', fontSize: '0.85rem', margin: '0 0 12px' }}>
-          ສະແດງຢູ່ຂ້າງແບນເນີຫຼັກ ຊ່ອງລະ 1 ຮູບ ບໍ່ເລື່ອນ — ຂະໜາດຮູບທີ່ແນະນ 600×200 px.
-          ເລືອກຮູບໃໝ່ແລ້ວກດ "ປ່ຽນຮູບ" ຮູບເກົາຈະຖືກແທນທີ່
+          {t('bn.sideHint')}
         </p>
 
         <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-          <SideSlot title="ຊ່ອງເທິງ" slot="side1" banner={side1} products={products} onChanged={onChanged} />
-          <SideSlot title="ຊ່ອງລຸ່ມ" slot="side2" banner={side2} products={products} onChanged={onChanged} />
+          <SideSlot title={t('bn.slotTop')} slot="side1" banner={side1} products={products} onChanged={onChanged} />
+          <SideSlot title={t('bn.slotBottom')} slot="side2" banner={side2} products={products} onChanged={onChanged} />
         </div>
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 14 }}>
-          <button onClick={onClose} style={plainBtnStyle}>ປິດ</button>
+          <button onClick={onClose} style={plainBtnStyle}>{t('bn.close')}</button>
         </div>
       </div>
     </div>
@@ -290,6 +294,7 @@ function SideModal({ side1, side2, products, onChanged, onClose }) {
 
 // ---------- ໜ້າຈັດການແບນເນີ ----------
 export default function AdminBanners() {
+  const { t } = usePageT(bannerDict);
   const [banners, setBanners] = useState([]);
   const [products, setProducts] = useState([]);
   const [addOpen, setAddOpen] = useState(false);
@@ -312,7 +317,7 @@ export default function AdminBanners() {
       const data = await res.json();
       setProducts(Array.isArray(data) ? data : []);
     } catch (e) {
-      // ບໍ່ເປັນຫຍັງ — ຍັງໃຊ້ໄດ້ ແຕບໍ່ມີລາຍຊື່ໃຫເລືອກລິ້ງ
+      // ບໍ່ເປັນຫຍັງ — ຍັງໃຊ້ໄດ້ ແຕ່ບໍ່ມີລາຍຊື່ໃຫ້ເລືອກລິ້ງ
     }
   }
 
@@ -326,7 +331,7 @@ export default function AdminBanners() {
     if (j < 0 || j >= mainBanners.length) return;
     const next = [...mainBanners];
     [next[index], next[j]] = [next[j], next[index]];
-    // ອັບເດດ state: ເອົາແບນເນີຫຼັກຕາມລຳດັບໃໝ່ + ແບນເນີຂ້າງຄືເກົາ
+    // ອັບເດດ state: ເອົາແບນເນີຫຼັກຕາມລຳດັບໃໝ່ + ແບນເນີຂ້າງຄືເກົ່າ
     setBanners([...next, ...banners.filter((b) => (b.slot || 'main') !== 'main')]);
     try {
       await fetch('/api/banners/reorder', {
@@ -369,16 +374,16 @@ export default function AdminBanners() {
     <div>
       {/* ---------- ປຸ່ມດ້ານເທິງ ---------- */}
       <div className="admin-card" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <button className="primary" onClick={() => setAddOpen(true)}>➕ ເພີ່ມແບນເນີ</button>
-        <button className="primary" onClick={() => setSideOpen(true)}>🖼️ ເພີ່ມແບນເນີຂ້າງ 2 ຊ່ອງ</button>
+        <button className="primary" onClick={() => setAddOpen(true)}>{t('bn.addBtn')}</button>
+        <button className="primary" onClick={() => setSideOpen(true)}>{t('bn.sideBtn')}</button>
       </div>
 
       {/* ---------- ແບນເນີຫຼັກທີ່ມີຢູ່ ---------- */}
       <div className="admin-card">
         <h3 style={{ margin: '0 0 12px', color: 'var(--navy)' }}>
-          ແບນເນີຫຼັກທັງໝົດ ({mainBanners.length}/{MAX_MAIN})
+          {t('bn.mainTitle', { n: mainBanners.length, max: MAX_MAIN })}
         </h3>
-        {mainBanners.length === 0 && <p style={{ color: '#6b7280' }}>ຍັງບໍ່ມີແບນເນີ</p>}
+        {mainBanners.length === 0 && <p style={{ color: '#6b7280' }}>{t('bn.none')}</p>}
 
         {mainBanners.map((b, idx) => (
           <div
@@ -399,15 +404,15 @@ export default function AdminBanners() {
               style={{ width: 240, maxWidth: '100%', aspectRatio: '3 / 1', objectFit: 'cover', borderRadius: 8, border: '1px solid #dfe3e8' }}
             />
             <div style={{ flex: '1 1 200px', minWidth: 180 }}>
-              <div style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: 4 }}>ລິ້ງໄປສິນຄ້າ</div>
+              <div style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: 4 }}>{t('bn.linkTo')}</div>
               <select value={b.link_product_id || ''} onChange={(e) => changeLink(b.id, e.target.value)} style={selectStyle}>
-                <option value="">— ບໍ່ລິ້ງ —</option>
+                <option value="">{t('bn.noLink')}</option>
                 {products.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
               </select>
             </div>
-            <button className="del-btn" onClick={() => setDeleteTarget(b.id)}>ລຶບ</button>
+            <button className="del-btn" onClick={() => setDeleteTarget(b.id)}>{t('bn.del')}</button>
           </div>
         ))}
       </div>
@@ -436,7 +441,7 @@ export default function AdminBanners() {
 
       <ConfirmModal
         open={!!deleteTarget}
-        message="ຕ້ອງການລຶບແບນເນີນີ້ບໍ?"
+        message={t('bn.confirmDel')}
         danger
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}

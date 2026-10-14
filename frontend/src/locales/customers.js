@@ -1,0 +1,40 @@
+export default {
+  lo: {
+    'cu.total': 'ລູກຄ້າສະໝັກແລ້ວທັງໝົດ: {n} ຄົນ',
+    'cu.thName': 'ຊື່',
+    'cu.thPhone': 'ເບີໂທ',
+    'cu.thOrders': 'ຈຳນວນອໍເດີ',
+    'cu.thJoined': 'ສະໝັກເມື່ອ',
+    'cu.resetPin': 'ຣີເຊັດ PIN',
+    'cu.confirmReset': 'ຢືນຢັນຣີເຊັດ PIN ຂອງເບີ {phone}?',
+    'cu.newPin': 'PIN ໃໝ່ຂອງລູກຄ້າ {phone} ຄື: {pin}\n\nກະລຸນາບອກລູກຄ້າຜ່ານແຊັດ/ໂທລະສັບ',
+    'cu.errReset': 'ຣີເຊັດບໍ່ສຳເລັດ',
+    'cu.errGeneric': 'ເກີດຂໍ້ຜິດພາດ',
+  },
+
+  th: {
+    'cu.total': 'ลูกค้าที่สมัครแล้วทั้งหมด: {n} คน',
+    'cu.thName': 'ชื่อ',
+    'cu.thPhone': 'เบอร์โทร',
+    'cu.thOrders': 'จำนวนออเดอร์',
+    'cu.thJoined': 'สมัครเมื่อ',
+    'cu.resetPin': 'รีเซ็ต PIN',
+    'cu.confirmReset': 'ยืนยันรีเซ็ต PIN ของเบอร์ {phone}?',
+    'cu.newPin': 'PIN ใหม่ของลูกค้า {phone} คือ: {pin}\n\nกรุณาแจ้งลูกค้าผ่านแชต/โทรศัพท์',
+    'cu.errReset': 'รีเซ็ตไม่สำเร็จ',
+    'cu.errGeneric': 'เกิดข้อผิดพลาด',
+  },
+
+  en: {
+    'cu.total': 'Registered customers: {n}',
+    'cu.thName': 'Name',
+    'cu.thPhone': 'Phone',
+    'cu.thOrders': 'Orders',
+    'cu.thJoined': 'Joined',
+    'cu.resetPin': 'Reset PIN',
+    'cu.confirmReset': 'Reset the PIN for {phone}?',
+    'cu.newPin': 'New PIN for {phone}: {pin}\n\nPlease tell the customer via chat or phone.',
+    'cu.errReset': 'Reset failed',
+    'cu.errGeneric': 'Something went wrong',
+  },
+};

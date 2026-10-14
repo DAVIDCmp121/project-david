@@ -2,6 +2,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useCart } from '../context/CartContext.jsx';
 import CustomerHeader from './CustomerHeader.jsx';
 import logoImg from '../assets/polo-logo.jpeg';
+import { usePageT } from '../useT.js';
+import dict from '../locales/cust-nav.js';
 
 const css = `
 .tb {
@@ -55,7 +57,8 @@ const css = `
 .tb-badge {
   position: absolute; top: 1px; right: 10px; min-width: 16px; height: 16px; padding: 0 4px;
   border-radius: 999px; background: #e53935; color: #fff; font-size: 10px; font-weight: 600;
-  display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px #fff;
+  display: flex; align-items: center; justify-content: center; box-shadow: 0 0 2px #fff;
+  box-shadow: 0 0 0 2px #fff;
 }
 @media (max-width: 700px) {
   .tb { padding-left: 12px; padding-right: 12px; }
@@ -68,6 +71,12 @@ const css = `
   .tb-btn { width: auto; padding: 4px 2px; }
   .tb-badge { right: calc(50% - 20px); }
 }
+/* จอแคบมาก: ปุ่มเลือกภาษาเหลือแค่ไอคอนโลก */
+@media (max-width: 420px) {
+  .tb-profile .lsw-btn { font-size: 0; gap: 0; padding: 9px 10px; }
+  .tb-profile .lsw-chev { display: none; }
+  .tb-brand h1 { font-size: 1.15rem; }
+}
 `;
 
 const svg = {
@@ -79,19 +88,20 @@ export default function TopBar({ search, onSearch }) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { cartCount } = useCart();
+  const { t } = usePageT(dict);
   const hasSearch = typeof onSearch === 'function';
 
   const items = [
-    { key: 'home', label: 'ໜ້າຫຼັກ', path: '/menu', icon: (
+    { key: 'home', label: t('cn.home'), path: '/menu', icon: (
       <svg {...svg}><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><polyline points="9 22 9 12 15 12 15 22" /></svg>
     ) },
-    { key: 'cart', label: 'ກະຕ່າ', path: '/menu/cart', badge: cartCount > 0 ? cartCount : null, icon: (
+    { key: 'cart', label: t('cn.cart'), path: '/menu/cart', badge: cartCount > 0 ? cartCount : null, icon: (
       <svg {...svg}><circle cx="9" cy="21" r="1" /><circle cx="20" cy="21" r="1" /><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" /></svg>
     ) },
-    { key: 'chat', label: 'ແຊັດ', path: '/menu/chat', icon: (
+    { key: 'chat', label: t('cn.chat'), path: '/menu/chat', icon: (
       <svg {...svg}><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" /></svg>
     ) },
-    { key: 'orders', label: 'ອໍເດີ', path: '/menu/orders', icon: (
+    { key: 'orders', label: t('cn.orders'), path: '/menu/orders', icon: (
       <svg {...svg}><path d="M9 11l3 3L22 4" /><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" /></svg>
     ) },
   ];
@@ -114,9 +124,9 @@ export default function TopBar({ search, onSearch }) {
               type="text"
               value={search || ''}
               onChange={(e) => onSearch(e.target.value)}
-              placeholder="ຄົ້ນຫາສິນຄ້າ..."
+              placeholder={t('cn.search')}
             />
-            {search && <button className="tb-clear" aria-label="ລ້າງ" onClick={() => onSearch('')}>✕</button>}
+            {search && <button className="tb-clear" aria-label={t('cn.clear')} onClick={() => onSearch('')}>✕</button>}
           </div>
         )}
 

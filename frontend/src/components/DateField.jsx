@@ -1,15 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { usePageT } from '../useT.js';
+import dict, { MONTHS, WEEKDAYS } from '../locales/datefield.js';
 
-// ช่องเลือกวันที่แบบวัน/เดือน/ปี (dd/mm/yyyy) พร้อมปฏิทินภาษาລາວ
+// ช่องเลือกวันที่แบบวัน/เดือน/ปี (dd/mm/yyyy) พร้อมปฏิทินหลายภาษา
 // value / onChange ใช้รูปแบบ 'YYYY-MM-DD' เหมือน <input type="date"> เดิม
 // min = วันที่ก่อนหน้านี้จะเป็นสีจางและกดไม่ได้
-
-const MONTHS = [
-  'ມັງກອນ', 'ກຸມພາ', 'ມີນາ', 'ເມສາ', 'ພຶດສະພາ', 'ມິຖຸນາ',
-  'ກໍລະກົດ', 'ສິງຫາ', 'ກັນຍາ', 'ຕຸລາ', 'ພະຈິກ', 'ທັນວາ',
-];
-const WEEKDAYS = ['ອາ', 'ຈ', 'ຄ', 'ພ', 'ພຫ', 'ສຸ', 'ສ']; // ອາທິດ ຈັນ ອັງຄານ ພຸດ ພະຫັດ ສຸກ ເສົາ
 
 const POP_W = 292;
 const POP_H = 340;
@@ -75,6 +71,10 @@ function fmtDisplay(key) {
 }
 
 export default function DateField({ value, onChange, min, placeholder = 'dd/mm/yyyy', style }) {
+  const { t, lang } = usePageT(dict);
+  const months = MONTHS[lang] || MONTHS.lo;
+  const weekdays = WEEKDAYS[lang] || WEEKDAYS.lo;
+
   const val = (value || '').slice(0, 10);
   const minKey = (min || '').slice(0, 10);
   const today = todayKey();
@@ -179,14 +179,14 @@ export default function DateField({ value, onChange, min, placeholder = 'dd/mm/y
             <style>{css}</style>
 
             <div className="df-head">
-              <button type="button" className="df-nav" onClick={() => shiftMonth(-1)} aria-label="prev">‹</button>
-              <div className="df-title">{MONTHS[view.m]} {view.y}</div>
-              <button type="button" className="df-nav" onClick={() => shiftMonth(1)} aria-label="next">›</button>
+              <button type="button" className="df-nav" onClick={() => shiftMonth(-1)} aria-label={t('df.prev')}>‹</button>
+              <div className="df-title">{months[view.m]} {view.y}</div>
+              <button type="button" className="df-nav" onClick={() => shiftMonth(1)} aria-label={t('df.next')}>›</button>
             </div>
 
             <div className="df-grid">
-              {WEEKDAYS.map((w) => (
-                <div key={w} className="df-wd">{w}</div>
+              {weekdays.map((w, i) => (
+                <div key={i} className="df-wd">{w}</div>
               ))}
               {cells.map((d, i) => {
                 if (d === null) return <div key={`b${i}`} />;
@@ -202,8 +202,8 @@ export default function DateField({ value, onChange, min, placeholder = 'dd/mm/y
             </div>
 
             <div className="df-foot">
-              <button type="button" className="df-link" onClick={() => pick('')}>ລ້າງ</button>
-              <button type="button" className="df-link" disabled={todayDisabled} onClick={() => pick(today)}>ມື້ນີ້</button>
+              <button type="button" className="df-link" onClick={() => pick('')}>{t('df.clear')}</button>
+              <button type="button" className="df-link" disabled={todayDisabled} onClick={() => pick(today)}>{t('common.today')}</button>
             </div>
           </div>,
           document.body

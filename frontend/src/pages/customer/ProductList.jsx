@@ -6,6 +6,8 @@ import CategoryBar from '../../components/CategoryBar.jsx';
 import { CartProvider, useCart } from '../../context/CartContext.jsx';
 import { API_BASE, apiGet, apiPost, apiDelete } from '../../api';
 import { ImageBadges, PriceBlock } from '../../components/ProductBadges.jsx';
+import { usePageT } from '../../useT.js';
+import dict from '../../locales/cust-home.js';
 import '../../styles/home.css';
 
 const extraCss = `
@@ -59,14 +61,18 @@ const extraCss = `
 
 // ---------- การ์ดสินค้า (แบบ Shopee) ----------
 function MiniCard({ p, isFav, busy, cartCount, onOpen, onFav, onCart, onBuy }) {
+  const { t } = usePageT(dict);
   const soldOut = p.stock <= 0;
+  const sizeText = `${t('common.size')}: ${p.size || '-'}`;
+  const colorText = `${t('common.color')}: ${p.color || '-'}`;
+
   return (
     <div className="hm-card" onClick={() => onOpen(p.id)}>
       <div className="hm-card-img">
         <ImageBadges product={p} />
         {p.image && <img src={`${API_BASE}${p.image}`} alt={p.name} />}
-        {soldOut && <div className="hm-soldout">ສິນຄ້າໝົດ</div>}
-        <button className="hm-fav" aria-label="ຖືກໃຈ" onClick={(e) => onFav(e, p.id)}>
+        {soldOut && <div className="hm-soldout">{t('common.soldOut')}</div>}
+        <button className="hm-fav" aria-label={t('common.favorite')} onClick={(e) => onFav(e, p.id)}>
           <svg
             width="16" height="16" viewBox="0 0 24 24"
             fill={isFav ? '#e53935' : 'none'}
@@ -81,16 +87,16 @@ function MiniCard({ p, isFav, busy, cartCount, onOpen, onFav, onCart, onBuy }) {
       <div className="hm-card-body">
         <h3 className="hm-name" title={p.name}>{p.name}</h3>
 
-        <div className="hm-meta" title={`ໄຊສ໌: ${p.size || '-'}`}>ໄຊສ໌: {p.size || '-'}</div>
-        <div className="hm-meta" title={`ສີ: ${p.color || '-'}`}>ສີ: {p.color || '-'}</div>
+        <div className="hm-meta" title={sizeText}>{sizeText}</div>
+        <div className="hm-meta" title={colorText}>{colorText}</div>
 
         <div className="hm-price-slot">
           <PriceBlock product={p} />
         </div>
 
         <div className="hm-stockrow">
-          <span>ເຫຼືອ: {p.stock} ອັນ</span>
-          <span>{p.sold_count > 0 ? `ຂາຍແລ້ວ ${p.sold_count} ຊິ້ນ` : ''}</span>
+          <span>{t('common.stockLeft', { n: p.stock })}</span>
+          <span>{p.sold_count > 0 ? t('ch.sold', { n: p.sold_count }) : ''}</span>
         </div>
 
         <div className="hm-actions">
@@ -99,11 +105,12 @@ function MiniCard({ p, isFav, busy, cartCount, onOpen, onFav, onCart, onBuy }) {
             disabled={soldOut || busy}
             onClick={(e) => { e.stopPropagation(); onBuy(p); }}
           >
-            {soldOut ? 'ສິນຄ້າໝົດ' : (busy ? '...' : 'ຊື້ເລີຍ')}
+            {soldOut ? t('common.soldOut') : (busy ? '...' : t('common.buyNow'))}
           </button>
           <button
             className="hm-cart"
-            title="ເພີ່ມລົງກະຕ່າ"
+            title={t('common.addToCart')}
+            aria-label={t('common.addToCart')}
             disabled={soldOut || busy}
             onClick={(e) => { e.stopPropagation(); onCart(p); }}
           >
@@ -122,6 +129,7 @@ function MiniCard({ p, isFav, busy, cartCount, onOpen, onFav, onCart, onBuy }) {
 
 // ---------- ป๊อปอัปเลือกไซส์ ----------
 function SizeModal({ product, inCart, onCancel, onConfirm, busy }) {
+  const { t } = usePageT(dict);
   const [size, setSize] = useState('');
   const [qty, setQty] = useState(1);
   const [error, setError] = useState(false);
@@ -145,13 +153,14 @@ function SizeModal({ product, inCart, onCancel, onConfirm, busy }) {
           <div>
             <div className="sz-name">{product.name}</div>
             <div className="sz-sub">
-              ເຫຼືອ: {product.stock} ອັນ{inCart > 0 ? ` · ໃນກະຕ່າ ${inCart} ອັນ` : ''}
+              {t('common.stockLeft', { n: product.stock })}
+              {inCart > 0 ? ` · ${t('ch.inCart', { n: inCart })}` : ''}
             </div>
           </div>
         </div>
 
         <div className="sz-title">
-          ເລືອກໄຊສ໌{size && <span style={{ color: 'var(--gold)', marginLeft: 6 }}>: {size}</span>}
+          {t('ch.chooseSize')}{size && <span style={{ color: 'var(--gold)', marginLeft: 6 }}>: {size}</span>}
         </div>
         <div className={`sz-sizes${error ? ' err' : ''}`}>
           {options.map((s) => (
@@ -165,22 +174,22 @@ function SizeModal({ product, inCart, onCancel, onConfirm, busy }) {
             </button>
           ))}
         </div>
-        {error && <div className="sz-err">ກະລຸນາເລືອກໄຊສ໌ກ່ອນ</div>}
+        {error && <div className="sz-err">{t('ch.pickSizeFirst')}</div>}
 
         <div className="sz-qty-row">
-          <span className="sz-title" style={{ margin: 0 }}>ຈຳນວນ</span>
+          <span className="sz-title" style={{ margin: 0 }}>{t('common.quantity')}</span>
           <div className="sz-qty">
             <button type="button" disabled={qty <= 1} onClick={() => setQty((q) => Math.max(1, q - 1))}>−</button>
             <span>{qty}</span>
             <button type="button" disabled={qty >= maxQty} onClick={() => setQty((q) => Math.min(maxQty, q + 1))}>+</button>
           </div>
         </div>
-        {maxQty <= 0 && <div className="sz-err">ໃນກະຕ່າຄົບຕາມສະຕັອກແລ້ວ</div>}
+        {maxQty <= 0 && <div className="sz-err">{t('ch.cartFull')}</div>}
 
         <div className="sz-actions">
-          <button type="button" className="sz-cancel" onClick={onCancel}>ຍົກເລີກ</button>
+          <button type="button" className="sz-cancel" onClick={onCancel}>{t('common.cancel')}</button>
           <button type="button" className="sz-confirm" disabled={busy || maxQty <= 0} onClick={submit}>
-            {busy ? '...' : 'ເພີ່ມກະຕ່າ'}
+            {busy ? '...' : t('ch.addBtn')}
           </button>
         </div>
       </div>
@@ -189,6 +198,7 @@ function SizeModal({ product, inCart, onCancel, onConfirm, busy }) {
 }
 
 function ProductListInner() {
+  const { t } = usePageT(dict);
   const [products, setProducts] = useState(null);
   const [banners, setBanners] = useState([]);
   const [loadError, setLoadError] = useState(false);
@@ -289,17 +299,17 @@ function ProductListInner() {
     }
     setBusyId(product.id);
     try {
-      const { ok, data } = await apiPost('/api/cart', { product_id: product.id, quantity: 1 });
+      const { ok } = await apiPost('/api/cart', { product_id: product.id, quantity: 1 });
       if (ok) {
-        showToast('ເພີ່ມລົງກະຕ່າແລ້ວ', 1500);
+        showToast(t('common.addedToCart'), 1500);
         refreshCartCount();
         loadCartQty();
       } else {
-        showToast(data.error || 'ເພີ່ມລົງກະຕ່າບໍ່ສຳເລັດ', 2000);
+        showToast(t('common.addFail'), 2000);
       }
     } catch (err) {
       console.error(err);
-      showToast('ເພີ່ມລົງກະຕ່າບໍ່ສຳເລັດ', 2000);
+      showToast(t('common.addFail'), 2000);
     } finally {
       setBusyId(null);
     }
@@ -309,22 +319,22 @@ function ProductListInner() {
     if (!sizeProduct) return;
     setSizeBusy(true);
     try {
-      const { ok, data } = await apiPost('/api/cart', {
+      const { ok } = await apiPost('/api/cart', {
         product_id: sizeProduct.id,
         quantity,
         size,
       });
       if (ok) {
         setSizeProduct(null);
-        showToast('ເພີ່ມລົງກະຕ່າແລ້ວ', 1500);
+        showToast(t('common.addedToCart'), 1500);
         refreshCartCount();
         loadCartQty();
       } else {
-        showToast((data && data.error) || 'ເພີ່ມລົງກະຕ່າບໍ່ສຳເລັດ', 2200);
+        showToast(t('common.addFail'), 2200);
       }
     } catch (err) {
       console.error(err);
-      showToast('ເພີ່ມລົງກະຕ່າບໍ່ສຳເລັດ', 2200);
+      showToast(t('common.addFail'), 2200);
     } finally {
       setSizeBusy(false);
     }
@@ -338,9 +348,9 @@ function ProductListInner() {
     }
     setBusyId(product.id);
     try {
-      const { ok, data } = await apiPost('/api/cart', { product_id: product.id, quantity: 1 });
+      const { ok } = await apiPost('/api/cart', { product_id: product.id, quantity: 1 });
       if (!ok) {
-        showToast(data.error || 'ເພີ່ມສິນຄ້າບໍ່ສຳເລັດ', 2000);
+        showToast(t('ch.buyFail'), 2000);
         return;
       }
       refreshCartCount();
@@ -368,10 +378,10 @@ function ProductListInner() {
     : null;
 
   const headingText = keyword
-    ? `ຜົນການຄົ້ນຫາ (${filteredProducts ? filteredProducts.length : 0})`
+    ? t('ch.searchResult', { n: filteredProducts ? filteredProducts.length : 0 })
     : currentCategory
       ? `${currentCategory} (${filteredProducts ? filteredProducts.length : 0})`
-      : 'ສິນຄ້າທັງໝົດ';
+      : t('ch.allProducts');
 
   return (
     <div className="customer-shell">
@@ -393,16 +403,16 @@ function ProductListInner() {
 
       <main style={{ paddingBottom: 24 }}>
         {products === null && !loadError && (
-          <p style={{ padding: 20, color: '#ccc' }}>ກຳລັງໂຫລດ...</p>
+          <p style={{ padding: 20, color: '#ccc' }}>{t('common.loading')}</p>
         )}
         {loadError && (
           <div style={{ padding: 20, color: '#ccc' }}>
-            <p>ໂຫລດຂໍ້ມູນສິນຄ້າບໍ່ສຳເລັດ ກະລຸນາລອງໃໝ່</p>
-            <button onClick={loadProducts}>ລອງໃໝ່</button>
+            <p>{t('ch.loadFail')}</p>
+            <button onClick={loadProducts}>{t('common.retry')}</button>
           </div>
         )}
         {products && products.length === 0 && (
-          <p style={{ padding: 20, color: '#ccc' }}>ຍັງບໍ່ມີສິນຄ້າ</p>
+          <p style={{ padding: 20, color: '#ccc' }}>{t('ch.empty')}</p>
         )}
 
         {products && products.length > 0 && (
@@ -418,7 +428,7 @@ function ProductListInner() {
 
             {filteredProducts.length === 0 ? (
               <p style={{ padding: 20, textAlign: 'center', color: '#6b7280' }}>
-                ບໍ່ພົບສິນຄ້າທີ່ຄົ້ນຫາ
+                {t('ch.noResult')}
               </p>
             ) : (
               <div className="hm-grid">

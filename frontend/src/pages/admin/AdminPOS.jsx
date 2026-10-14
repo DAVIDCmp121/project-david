@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getAuthHeader } from '../../api.js';
+import { usePageT } from '../../useT.js';
+import posDict from '../../locales/pos.js';
 
 const fmt = (n) => Number(n || 0).toLocaleString('en-US');
 const LOW_STOCK = 5; // ສະຕັອກເຫຼືອເທົ່ານີ້ຫຼືໜ້ອຍກວ່າ ສະແດງປ້າຍເຕືອນ
 
 const PAY = [
-  { key: 'cash', label: 'ເງິນສົດ' },
-  { key: 'transfer', label: 'ໂອນ' },
+  { key: 'cash', labelKey: 'pos.cash' },
+  { key: 'transfer', labelKey: 'pos.transfer' },
 ];
 
 function billTime(iso) {
@@ -92,6 +94,7 @@ function CatIcon({ kind }) {
 }
 
 function CategoryBar({ categories, total, active, onSelect }) {
+  const { t } = usePageT(posDict);
   const wrapRef = useRef(null);
   const [w, setW] = useState(640);
   const [open, setOpen] = useState(false);
@@ -156,7 +159,7 @@ function CategoryBar({ categories, total, active, onSelect }) {
           <CatIcon kind="all" />
           <span className="pos-cat-n">{total}</span>
         </span>
-        <span className="pos-cat-l">ທັງໝົດ</span>
+        <span className="pos-cat-l">{t('common.all')}</span>
       </button>
 
       {visible.map((c) => (
@@ -184,7 +187,7 @@ function CategoryBar({ categories, total, active, onSelect }) {
             aria-expanded={open}
             aria-haspopup="true"
           >
-            ເພີ່ມເຕີມ
+            {t('pos.more')}
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="m6 9 6 6 6-6" />
             </svg>
@@ -348,6 +351,8 @@ const css = `
 `;
 
 export default function AdminPOS() {
+  const { t } = usePageT(posDict);
+
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [q, setQ] = useState('');
@@ -372,7 +377,7 @@ export default function AdminPOS() {
       const data = await res.json();
       if (Array.isArray(data)) setProducts(data);
     } catch (e) {
-      setError('ໂຫຼດລາຍການສິນຄ້າບໍ່ສຳເລັດ');
+      setError(t('pos.errLoad'));
     }
     setLoadingProducts(false);
   }
@@ -410,14 +415,14 @@ export default function AdminPOS() {
   }, [categories, category]);
 
   const filtered = useMemo(() => {
-    const t = q.trim().toLowerCase();
+    const kw = q.trim().toLowerCase();
     return products.filter((p) => {
       if (category !== 'all' && (p.category || '').trim() !== category) return false;
-      if (!t) return true;
+      if (!kw) return true;
       return (
-        (p.name || '').toLowerCase().includes(t) ||
-        (p.category || '').toLowerCase().includes(t) ||
-        (p.color || '').toLowerCase().includes(t)
+        (p.name || '').toLowerCase().includes(kw) ||
+        (p.category || '').toLowerCase().includes(kw) ||
+        (p.color || '').toLowerCase().includes(kw)
       );
     });
   }, [products, q, category]);
@@ -440,7 +445,11 @@ export default function AdminPOS() {
     setError('');
     const have = inCart(v.id);
     if (have >= v.stock_qty) {
-      setError(`"${p.name}"${v.size ? ` ໄຊສ໌ ${v.size}` : ''} ມີສະຕັອກພຽງ ${v.stock_qty} ອັນ`);
+      setError(
+        v.size
+          ? t('pos.errMaxSize', { name: p.name, size: v.size, n: v.stock_qty })
+          : t('pos.errMax', { name: p.name, n: v.stock_qty })
+      );
       return;
     }
     setCart((prev) => {
@@ -467,7 +476,7 @@ export default function AdminPOS() {
   function handlePick(p) {
     const vs = p.variants;
     if (vs.length === 0) {
-      setError('ສິນຄ້ານີ້ຍັງບໍ່ມີຂໍ້ມູນສະຕັອກ');
+      setError(t('pos.errNoStock'));
       return;
     }
     // ມີໄຊສ໌ດຽວ → ເພີ່ມເລີຍ; ຫຼາຍໄຊສ໌ → ໃຫ້ເລືອກ
@@ -517,11 +526,11 @@ export default function AdminPOS() {
   async function confirmSale() {
     setError('');
     if (cart.length === 0) {
-      setError('ຍັງບໍ່ມີສິນຄ້າໃນບິນ');
+      setError(t('pos.errEmpty'));
       return;
     }
     if (shortCash) {
-      setError('ເງິນທີ່ຮັບມາໜ້ອຍກວ່າຍອດທີ່ຕ້ອງຈ່າຍ');
+      setError(t('pos.errShort'));
       return;
     }
     setSaving(true);
@@ -539,7 +548,7 @@ export default function AdminPOS() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data.error || 'ບັນທຶກການຂາຍບໍ່ສຳເລັດ');
+        setError(data.error || t('pos.errSave'));
         // ສະຕັອກອາດປ່ຽນ ໂຫຼດໃໝ່ເພື່ອໃຫ້ຕົວເລກຖືກຕ້ອງ
         loadProducts();
       } else {
@@ -552,10 +561,12 @@ export default function AdminPOS() {
         loadToday();
       }
     } catch (e) {
-      setError('ເຊື່ອມຕໍ່ເຊີບເວີບໍ່ໄດ້');
+      setError(t('pos.errServer'));
     }
     setSaving(false);
   }
+
+  const kip = t('common.kip');
 
   return (
     <div className="pos">
@@ -565,20 +576,20 @@ export default function AdminPOS() {
       {today && (
         <dl className="pos-panel pos-stats" style={{ margin: 0 }}>
           <div className="pos-stat main">
-            <dt>ຍອດຂາຍໜ້າຮ້ານມື້ນີ້</dt>
-            <dd>{fmt(today.total)} <span className="pos-sub">ກີບ</span></dd>
+            <dt>{t('pos.todaySales')}</dt>
+            <dd>{fmt(today.total)} <span className="pos-sub">{kip}</span></dd>
           </div>
           <div className="pos-stat">
-            <dt>ເງິນສົດ</dt>
+            <dt>{t('pos.cash')}</dt>
             <dd>{fmt(today.cash)}</dd>
           </div>
           <div className="pos-stat">
-            <dt>ໂອນ</dt>
+            <dt>{t('pos.transfer')}</dt>
             <dd>{fmt(today.transfer)}</dd>
           </div>
           <div className="pos-stat">
-            <dt>ຈຳນວນບິນ</dt>
-            <dd>{fmt(today.count)} <span className="pos-sub">ບິນ • {fmt(today.pieces)} ຊິ້ນ</span></dd>
+            <dt>{t('pos.billCount')}</dt>
+            <dd>{fmt(today.count)} <span className="pos-sub">{t('pos.bills')} • {fmt(today.pieces)} {t('pos.pcs')}</span></dd>
           </div>
         </dl>
       )}
@@ -588,7 +599,7 @@ export default function AdminPOS() {
         <div className="pos-panel">
           <input
             className="pos-search"
-            placeholder="🔍 ຄົ້ນຫາສິນຄ້າ (ຊື່ / ໝວດ / ສີ)"
+            placeholder={t('pos.searchPh')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => {
@@ -629,30 +640,34 @@ export default function AdminPOS() {
                       <span className={onSale ? 'sale' : ''}>{fmt(p.price)}</span>
                     </div>
                     <div className={`pos-stock${out ? ' out' : low ? ' low' : ''}`}>
-                      {out ? 'ໝົດ' : low ? `ໃກ້ໝົດ • ເຫຼືອ ${totalStock}` : `ເຫຼືອ ${totalStock}`}
+                      {out
+                        ? t('pos.soldOut')
+                        : low
+                          ? t('pos.nearOut', { n: totalStock })
+                          : t('pos.left', { n: totalStock })}
                     </div>
                   </button>
                 );
               })}
             </div>
           )}
-          {!loadingProducts && filtered.length === 0 && <div className="pos-empty">ບໍ່ພົບສິນຄ້າ</div>}
+          {!loadingProducts && filtered.length === 0 && <div className="pos-empty">{t('pos.noProducts')}</div>}
         </div>
 
         {/* ---------- ຂວາ: ບິນ ---------- */}
         <div className="pos-panel pos-cart" ref={cartRef}>
           <div className="pos-cart-h">
             <h3>
-              ບິນຂາຍ{' '}
-              {pieces > 0 && <span className="pos-sub" style={{ fontWeight: 500 }}>• {pieces} ຊິ້ນ</span>}
+              {t('pos.bill')}{' '}
+              {pieces > 0 && <span className="pos-sub" style={{ fontWeight: 500 }}>• {pieces} {t('pos.pcs')}</span>}
             </h3>
             {cart.length > 0 && (
-              <button type="button" className="pos-link" onClick={resetBill}>ລ້າງບິນ</button>
+              <button type="button" className="pos-link" onClick={resetBill}>{t('pos.clearBill')}</button>
             )}
           </div>
 
           {cart.length === 0 ? (
-            <div className="pos-hint">ກົດເລືອກສິນຄ້າທາງຊ້າຍເພື່ອເພີ່ມເຂົ້າບິນ</div>
+            <div className="pos-hint">{t('pos.hintPick')}</div>
           ) : (
             <div className="pos-lines">
               {cart.map((c) => (
@@ -665,10 +680,10 @@ export default function AdminPOS() {
                     <div className="pos-sub">{fmt(c.price)} × {c.quantity} = <b style={{ color: '#111827' }}>{fmt(c.price * c.quantity)}</b></div>
                   </div>
                   <div className="pos-step">
-                    <button type="button" aria-label="ລົດ" onClick={() => changeQty(c.variant_id, -1)}>−</button>
+                    <button type="button" aria-label={t('pos.dec')} onClick={() => changeQty(c.variant_id, -1)}>−</button>
                     <b>{c.quantity}</b>
-                    <button type="button" aria-label="ເພີ່ມ" disabled={c.quantity >= c.max} onClick={() => changeQty(c.variant_id, 1)}>+</button>
-                    <button type="button" className="del" aria-label="ລຶບ" onClick={() => removeLine(c.variant_id)}>✕</button>
+                    <button type="button" aria-label={t('pos.inc')} disabled={c.quantity >= c.max} onClick={() => changeQty(c.variant_id, 1)}>+</button>
+                    <button type="button" className="del" aria-label={t('pos.del')} onClick={() => removeLine(c.variant_id)}>✕</button>
                   </div>
                 </div>
               ))}
@@ -677,39 +692,39 @@ export default function AdminPOS() {
 
           <div className="pos-fields">
             <div>
-              <label className="pos-lbl">ສ່ວນລົດ (ກີບ)</label>
+              <label className="pos-lbl">{t('pos.discountKip')}</label>
               <input className="pos-in" type="number" min="0" inputMode="numeric" value={discount} onChange={(e) => setDiscount(e.target.value)} />
             </div>
             <div>
-              <label className="pos-lbl">ເບີລູກຄ້າ (ບໍ່ບັງຄັບ)</label>
-              <input className="pos-in" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="ຖ້າເປັນສະມາຊິກ" />
+              <label className="pos-lbl">{t('pos.custPhone')}</label>
+              <input className="pos-in" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={t('pos.custPhonePh')} />
             </div>
           </div>
 
-          <div className="pos-seg" role="group" aria-label="ວິທີຈ່າຍເງິນ">
+          <div className="pos-seg" role="group" aria-label={t('pos.payMethod')}>
             {PAY.map((p) => (
               <button key={p.key} type="button" aria-pressed={payment === p.key} className={payment === p.key ? 'on' : ''} onClick={() => setPayment(p.key)}>
-                {p.label}
+                {t(p.labelKey)}
               </button>
             ))}
           </div>
 
           {payment === 'cash' && (
             <div>
-              <label className="pos-lbl">ເງິນທີ່ຮັບມາ (ກີບ)</label>
+              <label className="pos-lbl">{t('pos.receivedKip')}</label>
               <input className="pos-in" type="number" min="0" inputMode="numeric" value={received} onChange={(e) => setReceived(e.target.value)} />
               {quick.length > 0 && (
                 <div className="pos-quick">
                   {quick.map((v) => (
                     <button key={v} type="button" onClick={() => setReceived(String(v))}>
-                      {v === total ? 'ພໍດີ' : fmt(v)}
+                      {v === total ? t('pos.exact') : fmt(v)}
                     </button>
                   ))}
                 </div>
               )}
               {received !== '' && (
                 <div className={`pos-change ${change >= 0 ? 'ok' : 'bad'}`}>
-                  <span>{change >= 0 ? 'ເງິນທອນ' : 'ຍັງຂາດ'}</span>
+                  <span>{change >= 0 ? t('pos.change') : t('pos.short')}</span>
                   <b>{fmt(Math.abs(change))}</b>
                 </div>
               )}
@@ -717,30 +732,34 @@ export default function AdminPOS() {
           )}
 
           <div className="pos-sum">
-            <div className="pos-sumrow"><span>ລວມສິນຄ້າ</span><span>{fmt(subtotal)}</span></div>
+            <div className="pos-sumrow"><span>{t('pos.subtotal')}</span><span>{fmt(subtotal)}</span></div>
             {discountNum > 0 && (
-              <div className="pos-sumrow disc"><span>ສ່ວນລົດ</span><span>−{fmt(discountNum)}</span></div>
+              <div className="pos-sumrow disc"><span>{t('pos.discount')}</span><span>−{fmt(discountNum)}</span></div>
             )}
             <div className="pos-total">
-              <span>ຍອດຕ້ອງຈ່າຍ</span>
-              <b>{fmt(total)} <span className="pos-sub" style={{ fontWeight: 600 }}>ກີບ</span></b>
+              <span>{t('pos.totalDue')}</span>
+              <b>{fmt(total)} <span className="pos-sub" style={{ fontWeight: 600 }}>{kip}</span></b>
             </div>
           </div>
 
           {error && <div className="pos-err" role="alert">{error}</div>}
 
           <button type="button" className="pos-go" disabled={saving || cart.length === 0 || shortCash} onClick={confirmSale}>
-            {saving ? 'ກຳລັງບັນທຶກ...' : cart.length === 0 ? 'ຢືນຢັນການຂາຍ' : `ຢືນຢັນການຂາຍ • ${fmt(total)} ກີບ`}
+            {saving
+              ? t('pos.saving')
+              : cart.length === 0
+                ? t('pos.confirmSale')
+                : `${t('pos.confirmSale')} • ${fmt(total)} ${kip}`}
           </button>
 
           {/* ບິນລ່າສຸດຂອງມື້ນີ້ */}
           {today && today.bills.length > 0 && (
             <div className="pos-recent">
-              <h4>ບິນລ່າສຸດ (ຍົກເລີກບິນໄດ້ທີ່ໜ້າອໍເດີ)</h4>
+              <h4>{t('pos.recent')}</h4>
               {today.bills.map((b) => (
                 <div key={b.id} className="pos-rrow">
                   <span>
-                    #{b.id} {billTime(b.created_at) && `• ${billTime(b.created_at)} `}• {b.qty} ຊິ້ນ • {b.payment_method === 'transfer' ? 'ໂອນ' : 'ເງິນສົດ'}
+                    #{b.id} {billTime(b.created_at) && `• ${billTime(b.created_at)} `}• {b.qty} {t('pos.pcs')} • {b.payment_method === 'transfer' ? t('pos.transfer') : t('pos.cash')}
                   </span>
                   <b>{fmt(b.total)}</b>
                 </div>
@@ -753,8 +772,8 @@ export default function AdminPOS() {
       {/* ປຸ່ມລອຍ (ໜ້າຈໍນ້ອຍ) ເພື່ອເລື່ອນໄປທີ່ບິນ */}
       {cart.length > 0 && (
         <button type="button" className="pos-fab" onClick={() => cartRef.current && cartRef.current.scrollIntoView({ behavior: 'smooth' })}>
-          <span>ເບິ່ງບິນ • {pieces} ຊິ້ນ</span>
-          <span>{fmt(total)} ກີບ</span>
+          <span>{t('pos.viewBill', { n: pieces })}</span>
+          <span>{fmt(total)} {kip}</span>
         </button>
       )}
 
@@ -764,7 +783,7 @@ export default function AdminPOS() {
           <div className="modal-box" style={{ background: '#fff', color: '#1f2937', maxWidth: 380 }}>
             <button className="modal-close" style={{ color: '#1f2937' }} onClick={() => setPickProduct(null)}>✕</button>
             <h3 style={{ marginTop: 0 }}>{pickProduct.name}</h3>
-            <div style={{ color: '#6b7280', fontSize: '0.88rem', marginBottom: 10 }}>ເລືອກໄຊສ໌</div>
+            <div style={{ color: '#6b7280', fontSize: '0.88rem', marginBottom: 10 }}>{t('pos.pickSize')}</div>
             <div className="pos-sizes">
               {pickProduct.variants.map((v) => {
                 const left = v.stock_qty - inCart(v.id);
@@ -778,7 +797,7 @@ export default function AdminPOS() {
                     onClick={() => { addVariant(pickProduct, v); setPickProduct(null); }}
                   >
                     <b>{v.size || '-'}</b>
-                    <small>{out ? 'ໝົດ' : `ເຫຼືອ ${left}`}</small>
+                    <small>{out ? t('pos.soldOut') : t('pos.left', { n: left })}</small>
                   </button>
                 );
               })}
@@ -791,7 +810,7 @@ export default function AdminPOS() {
       {receipt && (
         <div className="modal-overlay">
           <div className="modal-box" style={{ background: '#fff', color: '#1f2937', maxWidth: 400 }}>
-            <h3 style={{ marginTop: 0, textAlign: 'center', color: '#047857' }}>✅ ຂາຍສຳເລັດ (ບິນ #{receipt.id})</h3>
+            <h3 style={{ marginTop: 0, textAlign: 'center', color: '#047857' }}>✅ {t('pos.saleDone', { id: receipt.id })}</h3>
             {receipt.lines.map((l) => (
               <div key={l.variant_id} className="pos-rc-row">
                 <span>{l.name}{l.size ? ` (${l.size})` : ''} × {l.quantity}</span>
@@ -801,25 +820,25 @@ export default function AdminPOS() {
             <div style={{ borderTop: '1px solid #e5e7eb', marginTop: 8, paddingTop: 8 }}>
               {receipt.discount > 0 && (
                 <div className="pos-rc-row" style={{ color: '#dc2626' }}>
-                  <span>ສ່ວນລົດ</span><span>−{fmt(receipt.discount)}</span>
+                  <span>{t('pos.discount')}</span><span>−{fmt(receipt.discount)}</span>
                 </div>
               )}
               <div className="pos-rc-row" style={{ fontWeight: 700, fontSize: '1.1rem' }}>
-                <span>ຍອດລວມ</span><span>{fmt(receipt.total)} ກີບ</span>
+                <span>{t('pos.grandTotal')}</span><span>{fmt(receipt.total)} {kip}</span>
               </div>
               {receipt.received !== null && (
                 <>
                   <div className="pos-rc-row">
-                    <span>ຮັບເງິນ</span><span>{fmt(receipt.received)}</span>
+                    <span>{t('pos.receivedMoney')}</span><span>{fmt(receipt.received)}</span>
                   </div>
                   <div className="pos-change ok">
-                    <span>ເງິນທອນ</span>
+                    <span>{t('pos.change')}</span>
                     <b>{fmt(receipt.received - receipt.total)}</b>
                   </div>
                 </>
               )}
             </div>
-            <button type="button" className="pos-go" style={{ marginTop: 14 }} onClick={() => setReceipt(null)}>ຂາຍບິນຕໍ່ໄປ</button>
+            <button type="button" className="pos-go" style={{ marginTop: 14 }} onClick={() => setReceipt(null)}>{t('pos.nextSale')}</button>
           </div>
         </div>
       )}

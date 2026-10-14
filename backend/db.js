@@ -34,6 +34,29 @@ async function tableExists(table) {
   return Number(rows[0].c) > 0;
 }
 
+// orders.product_id / quantity ເປັນຂອງແບບເກົ່າ (1 ອໍເດີ = 1 ສິນຄ້າ)
+// ລະບົບໃໝ່ເກັບສິນຄ້າໃນ order_items ແລ້ວ ຈຶ່ງຕ້ອງໃຫ້ສອງຊ່ອງນີ້ເປັນ NULL / ມີຄ່າເລີ່ມຕົ້ນໄດ້
+// (ກວດກ່ອນ ຖ້າແກ້ແລ້ວຈະບໍ່ ALTER ຊ້ຳ)
+async function relaxLegacyOrderColumns() {
+  try {
+    const [cols] = await pool.query(
+      `SELECT COLUMN_NAME, IS_NULLABLE, COLUMN_DEFAULT FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders'
+         AND COLUMN_NAME IN ('product_id', 'quantity')`
+    );
+    const pid = cols.find((c) => c.COLUMN_NAME === 'product_id');
+    const qty = cols.find((c) => c.COLUMN_NAME === 'quantity');
+    if (pid && pid.IS_NULLABLE === 'NO') {
+      await pool.query('ALTER TABLE orders MODIFY product_id INT NULL');
+    }
+    if (qty && qty.COLUMN_DEFAULT === null) {
+      await pool.query('ALTER TABLE orders MODIFY quantity INT NOT NULL DEFAULT 1');
+    }
+  } catch (err) {
+    console.warn('⚠️ relaxLegacyOrderColumns:', err.message);
+  }
+}
+
 // ເພີ່ມຄອລຳ size ໃຫ້ cart_items / order_items ແລະ ແກ້ unique key ຂອງຕະກຣ້າ
 // ໃຫ້ສິນຄ້າດຽວກັນແຕ່ຄົນລະໄຊສ໌ ໃສ່ໄດ້ຫຼາຍແຖວ
 async function migrateSizes() {
@@ -238,11 +261,12 @@ async function initDb() {
     ) CHARACTER SET utf8mb4
   `);
 
+  // product_id / quantity ເປັນຊ່ອງແບບເກົ່າ (ສິນຄ້າຕົວຈິງຢູ່ໃນ order_items) ຈຶ່ງໃຫ້ NULL ໄດ້
   await pool.query(`
     CREATE TABLE IF NOT EXISTS orders (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      product_id INT NOT NULL,
-      quantity INT NOT NULL,
+      product_id INT NULL,
+      quantity INT NOT NULL DEFAULT 1,
       status VARCHAR(50) DEFAULT 'pending',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       customer_phone VARCHAR(20),
@@ -254,6 +278,39 @@ async function initDb() {
       cancelled_by VARCHAR(20) DEFAULT NULL,
       FOREIGN KEY (product_id) REFERENCES products(id),
       FOREIGN KEY (customer_id) REFERENCES customers(id)
+    )
+  `);
+  await relaxLegacyOrderColumns();
+
+  // ລາຍການສິນຄ້າໃນແຕ່ລະອໍເດີ (1 ອໍເດີ ມີໄດ້ຫຼາຍສິນຄ້າ / ຫຼາຍໄຊສ໌)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS order_items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      order_id INT NOT NULL,
+      product_id INT NOT NULL,
+      quantity INT NOT NULL,
+      price_at_order DECIMAL(10,2) NOT NULL,
+      size VARCHAR(50) NOT NULL DEFAULT '',
+      variant_id INT NULL,
+      INDEX idx_oi_order (order_id),
+      INDEX idx_oi_product (product_id),
+      FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+      FOREIGN KEY (product_id) REFERENCES products(id)
+    )
+  `);
+
+  // ຕະກຣ້າສິນຄ້າ (unique ຕາມ ລູກຄ້າ + ສິນຄ້າ + ໄຊສ໌)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS cart_items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      customer_id INT NOT NULL,
+      product_id INT NOT NULL,
+      quantity INT NOT NULL DEFAULT 1,
+      size VARCHAR(50) NOT NULL DEFAULT '',
+      added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_cart_cust_prod_size (customer_id, product_id, size),
+      FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+      FOREIGN KEY (product_id) REFERENCES products(id)
     )
   `);
 
@@ -317,6 +374,8 @@ async function initDb() {
 
   await addColumnIfMissing('orders', 'user_coupon_id', 'INT NULL');
   await addColumnIfMissing('orders', 'discount_amount', 'INT NOT NULL DEFAULT 0');
+  // ຄ່າສົ່ງທີ່ເກັບຕອນສັ່ງຊື້ (ເກັບເປັນ snapshot — ຖ້າຮ້ານປ່ຽນລາຄາຄ່າສົ່ງພາຍຫຼັງ ອໍເດີເກົ່າບໍ່ປ່ຽນຕາມ)
+  await addColumnIfMissing('orders', 'shipping_fee', 'INT NOT NULL DEFAULT 0');
 
   // ໃສ່ຄູປອງຕົວຢ່າງຄັ້ງທຳອິດເທົ່ານັ້ນ (ປັບຕົວເລກໄດ້ຕາມຕ້ອງການ)
   const [cnt] = await pool.query('SELECT COUNT(*) AS c FROM coupons');
