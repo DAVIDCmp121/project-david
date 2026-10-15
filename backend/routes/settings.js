@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+console.log('✅ settings.js (shipping) โหลดแล้ว จาก', __filename);
 const { pool } = require('../db');
 const multer = require('multer');
 const path = require('path');

@@ -26,15 +26,28 @@ import AdminCoupons from './pages/admin/AdminCoupons.jsx';
 import AdminPOS from './pages/admin/AdminPOS.jsx';
 import AdminDashboard from './pages/admin/AdminDashboard.jsx';
 import AdminLayout from './components/AdminLayout.jsx';
+import RequireRole from './components/RequireRole.jsx';
 
 import StaffLogin from './pages/staff/StaffLogin.jsx';
+
+const BOTH = ['admin', 'staff']; // แอดมินและพนักงานเข้าได้
+const ADMIN_ONLY = ['admin']; // เฉพาะแอดมิน (ปรับตามที่ต้องการ)
+
+// หน้าหลังบ้าน: ครอบด้วย Route Guard + เมนูแอดมิน
+function adminPage(active, page, roles = BOTH) {
+  return (
+    <RequireRole roles={roles}>
+      <AdminLayout active={active}>{page}</AdminLayout>
+    </RequireRole>
+  );
+}
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/menu" replace />} />
 
-      {/* ---------- ຝັ່ງລູກຄ້າ ---------- */}
+      {/* ---------- ฝั่งลูกค้า ---------- */}
       <Route path="/menu" element={<ProductList />} />
       <Route path="/menu/product/:id" element={<ProductDetail />} />
       <Route path="/menu/login" element={<CustomerLogin />} />
@@ -49,91 +62,21 @@ export default function App() {
       <Route path="/menu/profile/coupons" element={<Coupons />} />
       <Route path="/menu/favorites" element={<Favorites />} />
 
-      {/* ---------- ຝັ່ງພະນັກງານ ---------- */}
+      {/* ---------- ฝั่งพนักงาน ---------- */}
       <Route path="/staff/login" element={<StaffLogin />} />
 
-      {/* ---------- ຝັ່ງແອດມິນ ---------- */}
+      {/* ---------- ฝั่งแอดมิน ---------- */}
       <Route path="/admin/login" element={<AdminLogin />} />
-      <Route
-        path="/admin"
-        element={
-          <AdminLayout active="products">
-            <AdminProducts />
-          </AdminLayout>
-        }
-      />
-      <Route
-        path="/admin/pos"
-        element={
-          <AdminLayout active="pos">
-            <AdminPOS />
-          </AdminLayout>
-        }
-      />
-      <Route
-        path="/admin/dashboard"
-        element={
-          <AdminLayout active="dashboard">
-            <AdminDashboard />
-          </AdminLayout>
-        }
-      />
-      <Route
-        path="/admin/orders"
-        element={
-          <AdminLayout active="orders">
-            <AdminOrders />
-          </AdminLayout>
-        }
-      />
-      <Route
-        path="/admin/qrcode"
-        element={
-          <AdminLayout active="qrcode">
-            <AdminQrCode />
-          </AdminLayout>
-        }
-      />
-      <Route
-        path="/admin/banners"
-        element={
-          <AdminLayout active="banners">
-            <AdminBanners />
-          </AdminLayout>
-        }
-      />
-      <Route
-        path="/admin/coupons"
-        element={
-          <AdminLayout active="coupons">
-            <AdminCoupons />
-          </AdminLayout>
-        }
-      />
-      <Route
-        path="/admin/chat"
-        element={
-          <AdminLayout active="chat">
-            <AdminChat />
-          </AdminLayout>
-        }
-      />
-      <Route
-        path="/admin/customers"
-        element={
-          <AdminLayout active="customers">
-            <AdminCustomers />
-          </AdminLayout>
-        }
-      />
-      <Route
-        path="/admin/staff"
-        element={
-          <AdminLayout active="staff">
-            <AdminStaff />
-          </AdminLayout>
-        }
-      />
+      <Route path="/admin" element={adminPage('products', <AdminProducts />)} />
+      <Route path="/admin/pos" element={adminPage('pos', <AdminPOS />)} />
+      <Route path="/admin/dashboard" element={adminPage('dashboard', <AdminDashboard />)} />
+      <Route path="/admin/orders" element={adminPage('orders', <AdminOrders />)} />
+      <Route path="/admin/qrcode" element={adminPage('qrcode', <AdminQrCode />)} />
+      <Route path="/admin/banners" element={adminPage('banners', <AdminBanners />)} />
+      <Route path="/admin/coupons" element={adminPage('coupons', <AdminCoupons />)} />
+      <Route path="/admin/chat" element={adminPage('chat', <AdminChat />)} />
+      <Route path="/admin/customers" element={adminPage('customers', <AdminCustomers />)} />
+      <Route path="/admin/staff" element={adminPage('staff', <AdminStaff />, ADMIN_ONLY)} />
     </Routes>
   );
 }

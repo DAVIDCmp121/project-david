@@ -5,6 +5,7 @@ import ConfirmModal from '../../components/ConfirmModal.jsx';
 import { CartProvider } from '../../context/CartContext.jsx';
 import { API_BASE, apiGet, apiPost, apiUpload } from '../../api.js';
 import { usePageT } from '../../useT.js';
+import { buildLaoQr } from '../../laoqr.js';
 import dict from '../../locales/cust-checkout.js';
 
 const STEP_KEYS = ['co.step1', 'co.step2'];
@@ -407,6 +408,36 @@ function DropSelect({ value, onChange, options, placeholder, disabled }) {
   );
 }
 
+// QR ທີ່ຝັງຍອດເງິນ (Dynamic) — ສ້າງໃໝ່ທຸກຄັ້ງທີ່ຍອດປ່ຽນ
+// ຖ້າສ້າງບໍ່ສຳເລັດ ຈຶ່ງໃຊ້ຮູບ QR ເດີມທີ່ແອດມິນອັບໂຫລດໄວ້ແທນ
+function DynamicQr({ amount, fallback, alt }) {
+  const [src, setSrc] = useState('');
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    setFailed(false);
+    buildLaoQr(amount)
+      .then((url) => {
+        if (alive) setSrc(url);
+      })
+      .catch((err) => {
+        console.error('ສ້າງ QR ບໍ່ສຳເລັດ:', err);
+        if (alive) {
+          setSrc('');
+          setFailed(true);
+        }
+      });
+    return () => {
+      alive = false;
+    };
+  }, [amount]);
+
+  if (src) return <img src={src} alt={alt} className="payment-qr" />;
+  if (failed && fallback) return <img src={fallback} alt={alt} className="payment-qr" />;
+  return null;
+}
+
 function CheckoutInner() {
   const { t } = usePageT(dict);
   const kip = t('common.kip');
@@ -433,8 +464,7 @@ function CheckoutInner() {
   const [branchId, setBranchId] = useState('');
   const [branchLoading, setBranchLoading] = useState(false);
 
-  const [qrImage, setQrImage] = useState('');
-  const [qrMissing, setQrMissing] = useState(false);
+  const [qrImage, setQrImage] = useState(''); // ຮູບ QR ເດີມ (ໃຊ້ເປັນສຳຮອງເທົ່ານັ້ນ)
   const [slipFile, setSlipFile] = useState(null);
   const [slipPreview, setSlipPreview] = useState('');
   const [confirming, setConfirming] = useState(false);
@@ -504,8 +534,6 @@ function CheckoutInner() {
 
       if (qrRes.ok && qrRes.data.qrImage) {
         setQrImage(qrRes.data.qrImage);
-      } else {
-        setQrMissing(true);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1070,12 +1098,9 @@ function CheckoutInner() {
                 <div className="co-card">
                   {payMethod === 'transfer' ? (
                     <>
-                      {qrImage && (
-                        <div className="co-qr-wrap">
-                          <img src={qrImage} alt={t('co.qrAlt')} className="payment-qr" />
-                        </div>
-                      )}
-                      {qrMissing && <p>{t('co.qrMissing')}</p>}
+                      <div className="co-qr-wrap">
+                        <DynamicQr amount={total} fallback={qrImage} alt={t('co.qrAlt')} />
+                      </div>
 
                       <div className="co-amount">
                         <div className="co-amount-label">{t('co.amountTransfer')}</div>

@@ -78,6 +78,10 @@ router.get('/me', (req, res) => {
   if (!token) return res.status(401).json({ error: 'ຍັງບໍ່ໄດ້ເຂົ້າສູ່ລະບົບ' });
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+    // token ลูกค้าไม่ใช่แอดมิน
+    if (decoded.customerId || !decoded.id) {
+      return res.status(401).json({ error: 'ບໍ່ແມ່ນບັນຊີແອດມິນ' });
+    }
     res.json({ id: decoded.id, username: decoded.username, name: decoded.name, role: decoded.role || 'admin' });
   } catch {
     res.status(401).json({ error: 'ເຊດຊັນໝົດອາຍຸ ກະລຸນາເຂົ້າສູ່ລະບົບໃໝ່' });

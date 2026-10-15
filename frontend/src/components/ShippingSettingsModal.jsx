@@ -42,7 +42,7 @@ export default function ShippingSettingsModal({ open, onClose, onSaved }) {
     setLoading(true);
     (async () => {
       try {
-        const r = await apiGet('/api/settings/shipping');
+        const r = await apiGet('/api/shipping-config');
         if (!alive) return;
         if (r.ok) {
           setFee(String(Number(r.data.flat_fee) || 0));
@@ -74,7 +74,7 @@ export default function ShippingSettingsModal({ open, onClose, onSaved }) {
     setSaving(true);
     setMsg('');
     try {
-      const r = await apiPut('/api/settings/shipping', { flat_fee: feeN, free_min: minN });
+      const r = await apiPut('/api/shipping-config', { flat_fee: feeN, free_min: minN });
       if (r.ok && r.data && r.data.success) {
         setSaving(false);
         if (onSaved) onSaved(t('ss.saved'));

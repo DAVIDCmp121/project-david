@@ -50,6 +50,7 @@ app.use('/uploads', express.static(path.join(__dirname, './public/uploads')));
 // Serve ໄຟລ໌ React ທີ່ Build ແລ້ວ
 app.use(express.static(path.join(__dirname, '../frontend/dist')));
 
+app.use('/api/shipping-config', require('./routes/shipping-settings'));
 app.use('/api/settings', settingsRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/customer-auth', customerAuthRouter);
