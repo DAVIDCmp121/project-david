@@ -62,6 +62,7 @@ export default {
     'co.copy': 'ຄັດລອກ',
     'co.copied': 'ຄັດລອກແລ້ວ ✓',
     'co.transferExact': 'ກະລຸນາໂອນໃຫ້ຕົງຕາມຍອດນີ້',
+    'co.missingTitle': 'ຍັງຕ້ອງເຮັດກ່ອນຢືນຢັນ:',
   },
   th: {
     'co.step1': 'เลือกขนส่ง',
@@ -126,6 +127,7 @@ export default {
     'co.copy': 'คัดลอก',
     'co.copied': 'คัดลอกแล้ว ✓',
     'co.transferExact': 'กรุณาโอนให้ตรงตามยอดนี้',
+    'co.missingTitle': 'ยังต้องทำก่อนยืนยัน:',
   },
   en: {
     'co.step1': 'Choose carrier',
@@ -190,5 +192,6 @@ export default {
     'co.copy': 'Copy',
     'co.copied': 'Copied ✓',
     'co.transferExact': 'Please transfer this exact amount',
+    'co.missingTitle': 'Still needed before you can place the order:',
   },
 };

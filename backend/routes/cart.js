@@ -4,9 +4,11 @@ const { pool } = require('../db');
 const requireCustomerAuth = require('../middleware/requireCustomerAuth');
 const { EFFECTIVE_PRICE_SQL, PROMO_ACTIVE_SQL, parseSizeOptions } = require('../utils/pricing');
 const { findVariant } = require('../utils/variants');
+const { getShippingConfig } = require('../utils/shipping');
 
 // ດຶງຕະກຣ້າຂອງລູກຄ້າທີ່ login ຢູ່
 // stock = ສະຕັອກຂອງໄຊສ໌ທີ່ລູກຄ້າເລືອກ (ຖ້າບໍ່ມີ variant ຈະໃຊ້ products.stock ແທນ)
+// shipping = ຄ່າສົ່ງ + ຍອດຂັ້ນຕ່ຳທີ່ສົ່ງຟຣີ (ໃຫ້ໜ້າກະຕ່າສະແດງແຖບ "ຊື້ອີກ X ສົ່ງຟຣີ")
 router.get('/', requireCustomerAuth, async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -48,7 +50,9 @@ router.get('/', requireCustomerAuth, async (req, res) => {
       return { ...it, stock: sq !== undefined ? sq : it.stock };
     });
 
-    res.json({ success: true, items });
+    const shipping = await getShippingConfig(pool);
+
+    res.json({ success: true, items, shipping });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, error: 'ດຶງຂໍ້ມູນຕະກຣ້າບໍ່ສຳເລັດ' });

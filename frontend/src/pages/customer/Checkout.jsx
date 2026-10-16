@@ -11,6 +11,24 @@ import dict from '../../locales/cust-checkout.js';
 const STEP_KEYS = ['co.step1', 'co.step2'];
 const MAX_SAVED_ADDRESSES = 5;
 
+// คีย์ที่ตะกร้าใช้ส่งต่อคูปองที่เลือก (ต้องตรงกับ Cart.jsx)
+const COUPON_KEY = 'polo_coupon_key';
+
+function readSavedCouponKey() {
+  try {
+    return sessionStorage.getItem(COUPON_KEY) || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function saveCouponKey(key) {
+  try {
+    if (key) sessionStorage.setItem(COUPON_KEY, key);
+    else sessionStorage.removeItem(COUPON_KEY);
+  } catch (e) {}
+}
+
 // key ຕ້ອງກົງກັບ VALID_CARRIERS ໃນ backend/routes/orders.js
 // ໂລໂກ້ຢູ່ frontend/public/carriers/<key>.png (ຖ້າບໍ່ມີ ຈະສະແດງຕົວອັກສອນແທນ)
 const CARRIERS = [
@@ -269,6 +287,16 @@ const css = `
   display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
 }
 
+/* ກ່ອງບອກສິ່ງທີ່ຍັງຂາດກ່ອນຢືນຢັນ */
+.co-missing {
+  margin-top: 22px; padding: 12px 14px; border-radius: 14px; background: #fff7ed;
+  border: 1px solid #fed7aa; color: #9a3412; font-size: 0.88rem;
+}
+.co-missing-title { font-weight: 800; margin-bottom: 6px; }
+.co-missing ul { margin: 0; padding-left: 18px; }
+.co-missing li { margin: 2px 0; }
+.co-missing + .co-bar { margin-top: 12px; }
+
 /* ແຖບຢືນຢັນຕິດຂອບລຸ່ມຈໍ */
 .co-bar {
   position: sticky; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 40;
@@ -290,6 +318,10 @@ const css = `
 }
 .co-bar-confirm:hover:not(:disabled) { filter: brightness(1.06); }
 .co-bar-confirm:disabled { opacity: 0.6; cursor: default; }
+
+:root[data-theme='dark'] .co-missing {
+  background: rgba(249, 115, 22, 0.1); border-color: rgba(251, 146, 60, 0.4); color: #fdba74;
+}
 
 @media (max-width: 800px) {
   .co-grid { grid-template-columns: minmax(0, 1fr); gap: 22px; }
@@ -471,8 +503,9 @@ function CheckoutInner() {
   const [copied, setCopied] = useState(false);
 
   // ຄູປອງໃນກະເປົາຂອງລູກຄ້າ + ກຸ່ມຄູປອງທີ່ເລືອກໃຊ້ (ຄູປອງຊ້ຳກັນຖືກລວມເປັນກຸ່ມດຽວ)
+  // ເລີ່ມຕົ້ນດ້ວຍຄູປອງທີ່ລູກຄ້າເລືອກມາຈາກໜ້າກະຕ່າ (ຖ້າມີ)
   const [coupons, setCoupons] = useState([]);
-  const [couponKey, setCouponKey] = useState(null);
+  const [couponKey, setCouponKey] = useState(readSavedCouponKey);
 
   // ຄ່າສົ່ງ (ມາຈາກ backend): flat_fee = ຄ່າສົ່ງເໝົາ, free_min = ຍອດຂັ້ນຕ່ຳສົ່ງຟຣີ
   const [shipCfg, setShipCfg] = useState({ flat_fee: 0, free_min: 0 });
@@ -487,6 +520,12 @@ function CheckoutInner() {
     const fn = notice && notice.onClose;
     setNotice(null);
     if (fn) fn();
+  }
+
+  function pickCoupon(key) {
+    const next = couponKey === key ? null : key;
+    setCouponKey(next);
+    saveCouponKey(next);
   }
 
   useEffect(() => {
@@ -629,7 +668,9 @@ function CheckoutInner() {
       });
     return [...map.values()];
   })();
-  const selectedCoupon = (couponGroups.find((g) => g.key === couponKey) || {}).rep;
+  const pickedCoupon = (couponGroups.find((g) => g.key === couponKey) || {}).rep;
+  // ໃຊ້ຄູປອງທີ່ເລືອກໄດ້ກໍຕໍ່ເມື່ອຍອດຖືງຂັ້ນຕ່ຳ (ກັນກໍລະນີເລືອກຈາກກະຕ່າແລ້ວຍອດປ່ຽນ)
+  const selectedCoupon = pickedCoupon && subtotal >= pickedCoupon.min_order ? pickedCoupon : undefined;
   const discount = selectedCoupon ? calcDiscount(selectedCoupon, subtotal) : 0;
 
   const shippingEnabled = shipCfg.flat_fee > 0;
@@ -641,6 +682,18 @@ function CheckoutInner() {
   const selectedBranch = branches.find((b) => b.branch_id === branchId);
   const addressIsNew =
     address.trim() !== '' && !savedAddrs.some((a) => a.address.trim() === address.trim());
+
+  // ສິ່ງທີ່ຍັງຂາດກ່ອນຢືນຢັນ (ສະແດງເປັນກ່ອງແຈ້ງເຕືອນເທິງແຖບຢືນຢັນ)
+  const missing = [];
+  if (!/^\+?\d{8,15}$/.test(phone.replace(/\s/g, ''))) missing.push(t('co.alertPhone'));
+  if (usesBranch) {
+    if (!provinceId) missing.push(t('co.alertProvince'));
+    else if (!district) missing.push(t('co.alertDistrict'));
+    else if (!branchId) missing.push(t('co.alertBranch'));
+  } else if (!address.trim()) {
+    missing.push(t('co.alertAddress'));
+  }
+  if (payMethod === 'transfer' && !slipFile) missing.push(t('co.alertSlip'));
 
   function goStep(n) {
     setStep(n);
@@ -737,6 +790,9 @@ function CheckoutInner() {
       const { ok, data } = await apiUpload('/api/orders', formData);
 
       if (ok) {
+        // ສັ່ງຊື້ສຳເລັດ → ລ້າງຄູປອງທີ່ຈຳໄວ້ຈາກກະຕ່າ
+        saveCouponKey(null);
+
         // ★ ຂໍ້ຄວາມສະຫຼຸບອໍເດີທີ່ສົ່ງເຂົ້າແຊັດ ຄົງເປັນພາສາລາວສະເໝີ ແລະ ແຍກເປັນບັນທັດ
         //   (ໜ້າແຊັດ parse ຕາມບັນທັດ ແລະ ແອດມິນອ່ານ) — ຢ່າແປ ຫຼື ປ່ຽນຊື່ຫົວຂໍ້ (ຄ່າສິນຄ້າ/ຄ່າສົ່ງ/ລວມ...)
         const addrText = data.address || address.trim();
@@ -1023,13 +1079,14 @@ function CheckoutInner() {
                     couponGroups.map((g) => {
                       const c = g.rep;
                       const ok = subtotal >= c.min_order;
+                      const isSelected = !!selectedCoupon && couponKey === g.key;
                       return (
                         <button
                           type="button"
                           key={g.key}
                           disabled={!ok}
-                          className={`co-coupon${couponKey === g.key ? ' selected' : ''}`}
-                          onClick={() => setCouponKey(couponKey === g.key ? null : g.key)}
+                          className={`co-coupon${isSelected ? ' selected' : ''}`}
+                          onClick={() => pickCoupon(g.key)}
                         >
                           <div>
                             <div className="co-coupon-name">
@@ -1144,6 +1201,18 @@ function CheckoutInner() {
                 </div>
               </div>
             </div>
+
+            {/* ===== ສິ່ງທີ່ຍັງຂາດກ່ອນຢືນຢັນ ===== */}
+            {missing.length > 0 && (
+              <div className="co-missing">
+                <div className="co-missing-title">{t('co.missingTitle')}</div>
+                <ul>
+                  {missing.map((m) => (
+                    <li key={m}>{m}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* ===== ແຖບຢືນຢັນ (ຕິດຂອບລຸ່ມຈໍ) ===== */}
             <div className="co-bar">

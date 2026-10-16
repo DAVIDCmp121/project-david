@@ -4,11 +4,22 @@ import TopBar from '../../components/TopBar.jsx';
 import { CartProvider, useCart } from '../../context/CartContext.jsx';
 import { API_BASE, apiGet, apiPost, apiDelete } from '../../api';
 import { ImageBadges, PriceBlock } from '../../components/ProductBadges.jsx';
+import ProductReviews, { Stars } from '../../components/ProductReviews.jsx';
 import { usePageT } from '../../useT.js';
-import dict from '../../locales/cust-product.js';
+import baseDict from '../../locales/cust-product.js';
+import extraDict from '../../locales/cust-product-extra.js';
+
+// รวมข้อความเดิม + ข้อความใหม่ (ของใหม่ไม่ทับของเดิม ยกเว้นคีย์ซ้ำ)
+const dict = {
+  lo: { ...(baseDict.lo || {}), ...(extraDict.lo || {}) },
+  th: { ...(baseDict.th || {}), ...(extraDict.th || {}) },
+  en: { ...(baseDict.en || {}), ...(extraDict.en || {}) },
+};
 
 const AUTO_SLIDE_MS = 3000;
 const LOW_STOCK_SHOW = 3; // ເຫຼືອບໍ່ເກີນນີ້ ຈະສະແດງ "ເຫຼືອ N ອັນ"
+const RELATED_MAX = 8;
+const RELATED_MIN_SAME_CATEGORY = 4;
 
 const layoutCss = `
 .pd-track::-webkit-scrollbar { display: none; }
@@ -25,6 +36,61 @@ const layoutCss = `
   .pd-left { position: static; }
   .pd-right { padding-top: 14px; }
 }
+
+/* ---------- ปุ่มแชร์ ---------- */
+.pd-icon-btn {
+  width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--cust-border);
+  background: #fff; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0; color: #6b7280; padding: 0;
+}
+.pd-icon-btn:hover { border-color: var(--gold); color: var(--gold); }
+:root[data-theme='dark'] .pd-icon-btn {
+  background: rgba(25, 25, 29, 0.85); border-color: rgba(255, 255, 255, 0.12); color: #b4b4bc;
+}
+:root[data-theme='dark'] .pd-icon-btn:hover { border-color: rgba(201, 162, 39, 0.6); color: #e8c25a; }
+
+/* ---------- ดาวเฉลี่ยใต้ชื่อสินค้า ---------- */
+.pd-rating-line {
+  display: inline-flex; align-items: center; gap: 6px; margin: 2px 0 6px;
+  background: none; border: none; padding: 0; cursor: pointer;
+  font-size: 0.85rem; color: var(--cust-text-muted); font-family: inherit;
+}
+
+/* ---------- สินค้าที่เกี่ยวข้อง ---------- */
+.pd-related { max-width: 1000px; margin: 0 auto; padding: 8px 16px 40px; }
+.pd-related-title { font-size: 1.05rem; font-weight: 700; margin: 0 0 12px; color: var(--cust-text); }
+.pd-related-row {
+  display: flex; gap: 12px; overflow-x: auto; padding: 2px 2px 8px;
+  scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch;
+}
+.pd-rel-card {
+  flex: 0 0 156px; scroll-snap-align: start; background: #fff;
+  border: 1px solid var(--cust-border); border-radius: 10px; overflow: hidden;
+  cursor: pointer; display: flex; flex-direction: column;
+  transition: box-shadow 0.15s, transform 0.15s;
+}
+.pd-rel-card:hover { box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1); transform: translateY(-2px); }
+.pd-rel-img { position: relative; width: 100%; aspect-ratio: 1 / 1; background: #f4f4f2; }
+.pd-rel-img img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
+.pd-rel-body { padding: 8px 10px 10px; }
+.pd-rel-name {
+  font-size: 0.84rem; line-height: 1.3; color: var(--cust-text); margin: 0 0 4px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; height: 2.6em;
+}
+.pd-rel-price { height: 1.7em; display: flex; align-items: center; overflow: hidden; }
+@media (max-width: 600px) { .pd-rel-card { flex-basis: 140px; } }
+
+:root[data-theme='dark'] .pd-rel-card {
+  background: linear-gradient(160deg, #1f1f24 0%, #151518 100%);
+  border-color: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+}
+:root[data-theme='dark'] .pd-rel-card:hover {
+  border-color: rgba(201, 162, 39, 0.4);
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.6), 0 0 22px rgba(201, 162, 39, 0.15);
+}
+:root[data-theme='dark'] .pd-rel-img { background: #26262b; }
 `;
 
 const sectionTitle = { fontSize: '1rem', color: 'var(--cust-text)', margin: '0 0 8px' };
@@ -33,6 +99,28 @@ const chipStyle = {
   borderRadius: 999, padding: '4px 12px', fontSize: '0.8rem', color: 'var(--cust-text-muted)',
 };
 
+// สต็อกรวมของสินค้าในรายการ (ถ้ามี variants ให้รวมจากไซส์ที่เปิดขาย)
+function listStock(p) {
+  if (Array.isArray(p.variants) && p.variants.length > 0) {
+    return p.variants.reduce((sum, v) => sum + (Number(v.stock_qty) || 0), 0);
+  }
+  return Number(p.stock) || 0;
+}
+
+// เลือกสินค้าที่เกี่ยวข้อง: หมวดเดียวกันก่อน ไม่พอค่อยเติมด้วยสินค้าขายดี
+function pickRelated(list, currentId) {
+  const me = list.find((p) => Number(p.id) === Number(currentId));
+  const myCat = me ? (me.category || '').trim() : '';
+  const others = list.filter((p) => Number(p.id) !== Number(currentId) && listStock(p) > 0);
+  const best = (a, b) => (b.sold_count || 0) - (a.sold_count || 0) || b.id - a.id;
+
+  const same = myCat ? others.filter((p) => (p.category || '').trim() === myCat).sort(best) : [];
+  if (same.length >= RELATED_MIN_SAME_CATEGORY) return same.slice(0, RELATED_MAX);
+
+  const rest = others.filter((p) => !same.includes(p)).sort(best);
+  return [...same, ...rest].slice(0, RELATED_MAX);
+}
+
 function ProductDetailInner() {
   const { t } = usePageT(dict);
   const { id } = useParams();
@@ -40,6 +128,7 @@ function ProductDetailInner() {
   const { refreshCartCount } = useCart();
 
   const [product, setProduct] = useState(null);
+  const [related, setRelated] = useState([]);
   const [loadError, setLoadError] = useState(false);
   const [qty, setQty] = useState(1);
   const [busy, setBusy] = useState(false);
@@ -49,10 +138,13 @@ function ProductDetailInner() {
   const [isFav, setIsFav] = useState(false);
   const [selectedSize, setSelectedSize] = useState('');
   const [sizeError, setSizeError] = useState(false);
+  const [rvStats, setRvStats] = useState({ average: 0, count: 0 }); // ມາຈາກ ProductReviews
   const trackRef = useRef(null);
 
   useEffect(() => {
     load();
+    loadRelated();
+    window.scrollTo(0, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -64,6 +156,7 @@ function ProductDetailInner() {
     setIsFav(false);
     setSelectedSize('');
     setSizeError(false);
+    setRvStats({ average: 0, count: 0 });
     try {
       const { ok, data } = await apiGet(`/api/products/${id}`);
       if (ok && data && data.id) setProduct(data);
@@ -78,6 +171,21 @@ function ProductDetailInner() {
     } catch (err) {
       // ບໍ່ login ຫຼື error — ປ່ອຍເປັນ false
     }
+  }
+
+  async function loadRelated() {
+    setRelated([]);
+    try {
+      const { ok, data } = await apiGet('/api/products');
+      if (ok && Array.isArray(data)) setRelated(pickRelated(data, id));
+    } catch (err) {
+      // ไม่มีสินค้าที่เกี่ยวข้อง ก็ไม่เป็นไร
+    }
+  }
+
+  function scrollToReviews() {
+    const el = document.getElementById('reviews');
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   function showToast(msg, ms = 1800) {
@@ -141,6 +249,36 @@ function ProductDetailInner() {
     } catch (err) {
       console.error(err);
     }
+  }
+
+  // แชร์: ใช้ลิงก์ /share/product/ID ของ backend (มี Open Graph ให้ LINE/Facebook แสดงรูป+ชื่อ+ราคา)
+  // ตอนทดสอบบน localhost ใช้ลิงก์หน้าเว็บตรงๆ
+  async function shareProduct() {
+    const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+    const url = isLocal
+      ? window.location.href
+      : `${API_BASE || window.location.origin}/share/product/${product.id}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: product.name, url });
+        return;
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') return; // ผู้ใช้ปิดเมนูแชร์เอง
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch (err) {
+      const ta = document.createElement('textarea');
+      ta.value = url;
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+      } catch (e2) {}
+      document.body.removeChild(ta);
+    }
+    showToast(t('cp.linkCopied'));
   }
 
   function pickSize(s) {
@@ -343,25 +481,49 @@ function ProductDetailInner() {
             <div className="pd-right">
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
                 <h1 style={{ fontSize: '1.3rem', margin: '0 0 4px', color: 'var(--cust-text)' }}>{product.name}</h1>
-                <button
-                  onClick={toggleFavorite}
-                  aria-label={t('common.favorite')}
-                  style={{
-                    width: 38, height: 38, borderRadius: '50%', border: '1px solid var(--cust-border)',
-                    background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    cursor: 'pointer', flexShrink: 0,
-                  }}
-                >
-                  <svg
-                    width="20" height="20" viewBox="0 0 24 24"
-                    fill={isFav ? '#e53935' : 'none'}
-                    stroke={isFav ? '#e53935' : '#9ca3af'}
-                    strokeWidth="2"
+                <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+                  <button
+                    type="button"
+                    className="pd-icon-btn"
+                    onClick={shareProduct}
+                    aria-label={t('cp.share')}
+                    title={t('cp.share')}
                   >
-                    <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z" />
-                  </svg>
-                </button>
+                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="18" cy="5" r="3" />
+                      <circle cx="6" cy="12" r="3" />
+                      <circle cx="18" cy="19" r="3" />
+                      <path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={toggleFavorite}
+                    aria-label={t('common.favorite')}
+                    style={{
+                      width: 38, height: 38, borderRadius: '50%', border: '1px solid var(--cust-border)',
+                      background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      cursor: 'pointer', flexShrink: 0,
+                    }}
+                  >
+                    <svg
+                      width="20" height="20" viewBox="0 0 24 24"
+                      fill={isFav ? '#e53935' : 'none'}
+                      stroke={isFav ? '#e53935' : '#9ca3af'}
+                      strokeWidth="2"
+                    >
+                      <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21.2l7.8-7.8 1-1a5.5 5.5 0 0 0 0-7.8z" />
+                    </svg>
+                  </button>
+                </div>
               </div>
+
+              {/* ดาวเฉลี่ย — กดแล้วเลื่อนไปส่วนรีวิว */}
+              {rvStats.count > 0 && (
+                <button type="button" className="pd-rating-line" onClick={scrollToReviews}>
+                  <Stars value={rvStats.average} size={16} />
+                  <span>{rvStats.average} ({rvStats.count})</span>
+                </button>
+              )}
 
               <PriceBlock product={product} large />
               {product.is_promo && product.promo_end && (
@@ -500,6 +662,36 @@ function ProductDetailInner() {
           </div>
         )}
       </div>
+
+      {/* ---------- รีวิวสินค้า (แยกเป็นคอมโพเนนต์ ProductReviews.jsx) ---------- */}
+      {product && <ProductReviews key={id} productId={id} onStats={setRvStats} />}
+
+      {/* ---------- สินค้าที่เกี่ยวข้อง (อยู่นอก pd-layout เพื่อไม่กระทบสไตล์ธีมมืดเดิม) ---------- */}
+      {product && related.length > 0 && (
+        <section className="pd-related">
+          <h2 className="pd-related-title">{t('cp.related')}</h2>
+          <div className="pd-related-row">
+            {related.map((p) => (
+              <div
+                key={p.id}
+                className="pd-rel-card"
+                onClick={() => navigate(`/menu/product/${p.id}`)}
+              >
+                <div className="pd-rel-img">
+                  <ImageBadges product={p} />
+                  {p.image && <img src={`${API_BASE}${p.image}`} alt={p.name} />}
+                </div>
+                <div className="pd-rel-body">
+                  <h3 className="pd-rel-name" title={p.name}>{p.name}</h3>
+                  <div className="pd-rel-price">
+                    <PriceBlock product={p} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

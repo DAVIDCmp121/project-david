@@ -431,6 +431,34 @@ async function initDb() {
   `);
   await addColumnIfMissing('banners', 'slot', "VARCHAR(20) DEFAULT 'main'");
 
+  // ===== ຣີວິວສິນຄ້າ (ລູກຄ້າຣີວິວສິນຄ້າດຽວກັນໄດ້ຫຼາຍຄັ້ງ + ແນບຮູບໄດ້) =====
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS product_reviews (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      product_id INT NOT NULL,
+      customer_id INT NOT NULL,
+      order_id INT NULL,
+      rating TINYINT NOT NULL,
+      comment TEXT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_review_product (product_id)
+    ) CHARACTER SET utf8mb4
+  `);
+  // ຮູບທີ່ແນບ — ເກັບເປັນ JSON array ຂອງ URL
+  await addColumnIfMissing('product_reviews', 'images', 'TEXT NULL');
+  // ລຶບ unique key ເກົ່າ (ແຕ່ກ່ອນຣີວິວໄດ້ຄັ້ງດຽວ) — ກວດກ່ອນ ຖ້າລຶບແລ້ວຈະບໍ່ລຶບຊ້ຳ
+  try {
+    const [oldIdx] = await pool.query(
+      `SELECT COUNT(*) AS c FROM information_schema.STATISTICS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'product_reviews'
+         AND INDEX_NAME = 'uq_review_cust_prod'`
+    );
+    if (Number(oldIdx[0].c) > 0) {
+      await pool.query('ALTER TABLE product_reviews DROP INDEX uq_review_cust_prod');
+    }
+  } catch (err) {
+    console.warn('⚠️ ລຶບ uq_review_cust_prod ບໍ່ໄດ້:', err.message);
+  }
   await migrateSizes();
   await migrateVariants();
 

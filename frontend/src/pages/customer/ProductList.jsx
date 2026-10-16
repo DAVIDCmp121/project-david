@@ -21,6 +21,41 @@ const extraCss = `
   box-shadow: 0 0 0 2px #fff; pointer-events: none;
 }
 
+/* ---------- ป้ายใกล้หมด (มุมล่างซ้ายของรูป) ---------- */
+.hm-low {
+  position: absolute; left: 8px; bottom: 8px; z-index: 2;
+  background: #f97316; color: #fff; font-size: 11px; font-weight: 700; line-height: 1;
+  padding: 4px 9px; border-radius: 999px; pointer-events: none;
+  box-shadow: 0 2px 6px rgba(249, 115, 22, 0.35);
+}
+
+/* ---------- แถบเรียงลำดับ / ตัวกรอง ---------- */
+.hm-toolbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 12px;
+}
+.hm-sort { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--cust-text-muted, #6b7280); }
+.hm-sort select {
+  height: 34px; padding: 0 10px; border-radius: 999px;
+  border: 1px solid var(--cust-border, #e5e7eb); background: #fff;
+  color: var(--cust-text, #1f2937); font-size: 0.82rem; cursor: pointer; max-width: 190px;
+}
+.hm-chip {
+  height: 34px; padding: 0 14px; border-radius: 999px;
+  border: 1px solid var(--cust-border, #e5e7eb); background: #fff;
+  color: var(--cust-text, #1f2937); font-size: 0.82rem; cursor: pointer; white-space: nowrap;
+}
+.hm-chip:hover { border-color: var(--gold); }
+.hm-chip.active { background: var(--gold); border-color: var(--gold); color: #fff; font-weight: 700; }
+
+:root[data-theme='dark'] .hm-sort select,
+:root[data-theme='dark'] .hm-chip {
+  background: #1c1c20; border-color: rgba(255, 255, 255, 0.1); color: #e4e4e7;
+}
+:root[data-theme='dark'] .hm-chip:hover { border-color: rgba(201, 162, 39, 0.6); }
+:root[data-theme='dark'] .hm-chip.active {
+  background: linear-gradient(135deg, #f0d77a, #c9a227); border-color: transparent; color: #1c1505;
+}
+
 .sz-overlay {
   position: fixed; inset: 0; z-index: 200;
   background: rgba(0, 0, 0, 0.45);
@@ -59,10 +94,32 @@ const extraCss = `
 .sz-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
 `;
 
+const LOW_STOCK = 5; // เหลือไม่เกินนี้ = ขึ้นป้าย "ใกล้หมด"
+
+// สต็อกรวมของสินค้า: ถ้ามี variants ให้รวมจากไซส์ที่เปิดขาย ไม่งั้นใช้ products.stock
+function totalStock(p) {
+  if (Array.isArray(p.variants) && p.variants.length > 0) {
+    return p.variants.reduce((sum, v) => sum + (Number(v.stock_qty) || 0), 0);
+  }
+  return Number(p.stock) || 0;
+}
+
+function sortProducts(list, key) {
+  const arr = [...list];
+  const price = (p) => Number(p.final_price != null ? p.final_price : p.price) || 0;
+  if (key === 'newest') arr.sort((a, b) => b.id - a.id);
+  else if (key === 'best') arr.sort((a, b) => (b.sold_count || 0) - (a.sold_count || 0) || b.id - a.id);
+  else if (key === 'priceAsc') arr.sort((a, b) => price(a) - price(b));
+  else if (key === 'priceDesc') arr.sort((a, b) => price(b) - price(a));
+  return arr; // 'default' = ลำดับที่แอดมินจัดไว้
+}
+
 // ---------- การ์ดสินค้า (แบบ Shopee) ----------
 function MiniCard({ p, isFav, busy, cartCount, onOpen, onFav, onCart, onBuy }) {
   const { t } = usePageT(dict);
-  const soldOut = p.stock <= 0;
+  const stock = totalStock(p);
+  const soldOut = stock <= 0;
+  const lowStock = !soldOut && stock <= LOW_STOCK;
   const sizeText = `${t('common.size')}: ${p.size || '-'}`;
   const colorText = `${t('common.color')}: ${p.color || '-'}`;
 
@@ -72,6 +129,7 @@ function MiniCard({ p, isFav, busy, cartCount, onOpen, onFav, onCart, onBuy }) {
         <ImageBadges product={p} />
         {p.image && <img src={`${API_BASE}${p.image}`} alt={p.name} />}
         {soldOut && <div className="hm-soldout">{t('common.soldOut')}</div>}
+        {lowStock && <span className="hm-low">{t('ch.lowStock')}</span>}
         <button className="hm-fav" aria-label={t('common.favorite')} onClick={(e) => onFav(e, p.id)}>
           <svg
             width="16" height="16" viewBox="0 0 24 24"
@@ -95,7 +153,7 @@ function MiniCard({ p, isFav, busy, cartCount, onOpen, onFav, onCart, onBuy }) {
         </div>
 
         <div className="hm-stockrow">
-          <span>{t('common.stockLeft', { n: p.stock })}</span>
+          <span>{t('common.stockLeft', { n: stock })}</span>
           <span>{p.sold_count > 0 ? t('ch.sold', { n: p.sold_count }) : ''}</span>
         </div>
 
@@ -135,7 +193,8 @@ function SizeModal({ product, inCart, onCancel, onConfirm, busy }) {
   const [error, setError] = useState(false);
 
   const options = product.size_options || [];
-  const maxQty = Math.max(0, product.stock - inCart);
+  const stock = totalStock(product);
+  const maxQty = Math.max(0, stock - inCart);
 
   function submit() {
     if (!size) {
@@ -153,7 +212,7 @@ function SizeModal({ product, inCart, onCancel, onConfirm, busy }) {
           <div>
             <div className="sz-name">{product.name}</div>
             <div className="sz-sub">
-              {t('common.stockLeft', { n: product.stock })}
+              {t('common.stockLeft', { n: stock })}
               {inCart > 0 ? ` · ${t('ch.inCart', { n: inCart })}` : ''}
             </div>
           </div>
@@ -206,6 +265,9 @@ function ProductListInner() {
   const [toast, setToast] = useState('');
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('');
+  const [sortKey, setSortKey] = useState('default');
+  const [onlyPromo, setOnlyPromo] = useState(false);
+  const [onlyStock, setOnlyStock] = useState(false);
   const [favIds, setFavIds] = useState(new Set());
   const [cartQty, setCartQty] = useState({}); // { product_id: จำนวนชิ้นรวมทุกไซส์ }
   const [sizeProduct, setSizeProduct] = useState(null); // สินค้าที่กำลังเลือกไซส์ในป๊อปอัป
@@ -369,13 +431,17 @@ function ProductListInner() {
 
   const keyword = search.trim().toLowerCase();
 
-  const filteredProducts = products
-    ? products.filter((p) => {
-        if (currentCategory && (p.category || '').trim() !== currentCategory) return false;
-        if (keyword && !(p.name || '').toLowerCase().includes(keyword)) return false;
-        return true;
-      })
-    : null;
+  let filteredProducts = null;
+  if (products) {
+    filteredProducts = products.filter((p) => {
+      if (currentCategory && (p.category || '').trim() !== currentCategory) return false;
+      if (keyword && !(p.name || '').toLowerCase().includes(keyword)) return false;
+      if (onlyPromo && !p.is_promo) return false;
+      if (onlyStock && totalStock(p) <= 0) return false;
+      return true;
+    });
+    filteredProducts = sortProducts(filteredProducts, sortKey);
+  }
 
   const headingText = keyword
     ? t('ch.searchResult', { n: filteredProducts ? filteredProducts.length : 0 })
@@ -403,16 +469,16 @@ function ProductListInner() {
 
       <main style={{ paddingBottom: 24 }}>
         {products === null && !loadError && (
-          <p style={{ padding: 20, color: '#ccc' }}>{t('common.loading')}</p>
+          <p style={{ padding: 20, color: 'var(--cust-text-muted, #6b7280)' }}>{t('common.loading')}</p>
         )}
         {loadError && (
-          <div style={{ padding: 20, color: '#ccc' }}>
+          <div style={{ padding: 20, color: 'var(--cust-text-muted, #6b7280)' }}>
             <p>{t('ch.loadFail')}</p>
             <button onClick={loadProducts}>{t('common.retry')}</button>
           </div>
         )}
         {products && products.length === 0 && (
-          <p style={{ padding: 20, color: '#ccc' }}>{t('ch.empty')}</p>
+          <p style={{ padding: 20, color: 'var(--cust-text-muted, #6b7280)' }}>{t('ch.empty')}</p>
         )}
 
         {products && products.length > 0 && (
@@ -424,6 +490,33 @@ function ProductListInner() {
                 selected={currentCategory}
                 onSelect={setActiveCategory}
               />
+            </div>
+
+            <div className="hm-toolbar">
+              <label className="hm-sort">
+                <span>{t('ch.sortLabel')}</span>
+                <select value={sortKey} onChange={(e) => setSortKey(e.target.value)}>
+                  <option value="default">{t('ch.sortDefault')}</option>
+                  <option value="newest">{t('ch.sortNewest')}</option>
+                  <option value="best">{t('ch.sortBest')}</option>
+                  <option value="priceAsc">{t('ch.sortPriceAsc')}</option>
+                  <option value="priceDesc">{t('ch.sortPriceDesc')}</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                className={`hm-chip${onlyPromo ? ' active' : ''}`}
+                onClick={() => setOnlyPromo((v) => !v)}
+              >
+                {t('ch.onlyPromo')}
+              </button>
+              <button
+                type="button"
+                className={`hm-chip${onlyStock ? ' active' : ''}`}
+                onClick={() => setOnlyStock((v) => !v)}
+              >
+                {t('ch.onlyInStock')}
+              </button>
             </div>
 
             {filteredProducts.length === 0 ? (
