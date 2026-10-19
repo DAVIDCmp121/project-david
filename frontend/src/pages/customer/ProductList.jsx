@@ -6,6 +6,8 @@ import CategoryBar from '../../components/CategoryBar.jsx';
 import { CartProvider, useCart } from '../../context/CartContext.jsx';
 import { API_BASE, apiGet, apiPost, apiDelete } from '../../api';
 import { ImageBadges, PriceBlock } from '../../components/ProductBadges.jsx';
+import { usePageT } from '../../useT.js';
+import dict from '../../locales/cust-home.js';
 import '../../styles/home.css';
 
 const extraCss = `
@@ -17,6 +19,41 @@ const extraCss = `
   font-size: 11px; font-weight: 700; line-height: 1;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 0 0 2px #fff; pointer-events: none;
+}
+
+/* ---------- ป้ายใกล้หมด (มุมล่างซ้ายของรูป) ---------- */
+.hm-low {
+  position: absolute; left: 8px; bottom: 8px; z-index: 2;
+  background: #f97316; color: #fff; font-size: 11px; font-weight: 700; line-height: 1;
+  padding: 4px 9px; border-radius: 999px; pointer-events: none;
+  box-shadow: 0 2px 6px rgba(249, 115, 22, 0.35);
+}
+
+/* ---------- แถบเรียงลำดับ / ตัวกรอง ---------- */
+.hm-toolbar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 12px;
+}
+.hm-sort { display: flex; align-items: center; gap: 6px; font-size: 0.8rem; color: var(--cust-text-muted, #6b7280); }
+.hm-sort select {
+  height: 34px; padding: 0 10px; border-radius: 999px;
+  border: 1px solid var(--cust-border, #e5e7eb); background: #fff;
+  color: var(--cust-text, #1f2937); font-size: 0.82rem; cursor: pointer; max-width: 190px;
+}
+.hm-chip {
+  height: 34px; padding: 0 14px; border-radius: 999px;
+  border: 1px solid var(--cust-border, #e5e7eb); background: #fff;
+  color: var(--cust-text, #1f2937); font-size: 0.82rem; cursor: pointer; white-space: nowrap;
+}
+.hm-chip:hover { border-color: var(--gold); }
+.hm-chip.active { background: var(--gold); border-color: var(--gold); color: #fff; font-weight: 700; }
+
+:root[data-theme='dark'] .hm-sort select,
+:root[data-theme='dark'] .hm-chip {
+  background: #1c1c20; border-color: rgba(255, 255, 255, 0.1); color: #e4e4e7;
+}
+:root[data-theme='dark'] .hm-chip:hover { border-color: rgba(201, 162, 39, 0.6); }
+:root[data-theme='dark'] .hm-chip.active {
+  background: linear-gradient(135deg, #f0d77a, #c9a227); border-color: transparent; color: #1c1505;
 }
 
 .sz-overlay {
@@ -57,16 +94,43 @@ const extraCss = `
 .sz-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
 `;
 
+const LOW_STOCK = 5; // เหลือไม่เกินนี้ = ขึ้นป้าย "ใกล้หมด"
+
+// สต็อกรวมของสินค้า: ถ้ามี variants ให้รวมจากไซส์ที่เปิดขาย ไม่งั้นใช้ products.stock
+function totalStock(p) {
+  if (Array.isArray(p.variants) && p.variants.length > 0) {
+    return p.variants.reduce((sum, v) => sum + (Number(v.stock_qty) || 0), 0);
+  }
+  return Number(p.stock) || 0;
+}
+
+function sortProducts(list, key) {
+  const arr = [...list];
+  const price = (p) => Number(p.final_price != null ? p.final_price : p.price) || 0;
+  if (key === 'newest') arr.sort((a, b) => b.id - a.id);
+  else if (key === 'best') arr.sort((a, b) => (b.sold_count || 0) - (a.sold_count || 0) || b.id - a.id);
+  else if (key === 'priceAsc') arr.sort((a, b) => price(a) - price(b));
+  else if (key === 'priceDesc') arr.sort((a, b) => price(b) - price(a));
+  return arr; // 'default' = ลำดับที่แอดมินจัดไว้
+}
+
 // ---------- การ์ดสินค้า (แบบ Shopee) ----------
 function MiniCard({ p, isFav, busy, cartCount, onOpen, onFav, onCart, onBuy }) {
-  const soldOut = p.stock <= 0;
+  const { t } = usePageT(dict);
+  const stock = totalStock(p);
+  const soldOut = stock <= 0;
+  const lowStock = !soldOut && stock <= LOW_STOCK;
+  const sizeText = `${t('common.size')}: ${p.size || '-'}`;
+  const colorText = `${t('common.color')}: ${p.color || '-'}`;
+
   return (
     <div className="hm-card" onClick={() => onOpen(p.id)}>
       <div className="hm-card-img">
         <ImageBadges product={p} />
         {p.image && <img src={`${API_BASE}${p.image}`} alt={p.name} />}
-        {soldOut && <div className="hm-soldout">ສິນຄ້າໝົດ</div>}
-        <button className="hm-fav" aria-label="ຖືກໃຈ" onClick={(e) => onFav(e, p.id)}>
+        {soldOut && <div className="hm-soldout">{t('common.soldOut')}</div>}
+        {lowStock && <span className="hm-low">{t('ch.lowStock')}</span>}
+        <button className="hm-fav" aria-label={t('common.favorite')} onClick={(e) => onFav(e, p.id)}>
           <svg
             width="16" height="16" viewBox="0 0 24 24"
             fill={isFav ? '#e53935' : 'none'}
@@ -81,16 +145,16 @@ function MiniCard({ p, isFav, busy, cartCount, onOpen, onFav, onCart, onBuy }) {
       <div className="hm-card-body">
         <h3 className="hm-name" title={p.name}>{p.name}</h3>
 
-        <div className="hm-meta" title={`ໄຊສ໌: ${p.size || '-'}`}>ໄຊສ໌: {p.size || '-'}</div>
-        <div className="hm-meta" title={`ສີ: ${p.color || '-'}`}>ສີ: {p.color || '-'}</div>
+        <div className="hm-meta" title={sizeText}>{sizeText}</div>
+        <div className="hm-meta" title={colorText}>{colorText}</div>
 
         <div className="hm-price-slot">
           <PriceBlock product={p} />
         </div>
 
         <div className="hm-stockrow">
-          <span>ເຫຼືອ: {p.stock} ອັນ</span>
-          <span>{p.sold_count > 0 ? `ຂາຍແລ້ວ ${p.sold_count} ຊິ້ນ` : ''}</span>
+          <span>{t('common.stockLeft', { n: stock })}</span>
+          <span>{p.sold_count > 0 ? t('ch.sold', { n: p.sold_count }) : ''}</span>
         </div>
 
         <div className="hm-actions">
@@ -99,11 +163,12 @@ function MiniCard({ p, isFav, busy, cartCount, onOpen, onFav, onCart, onBuy }) {
             disabled={soldOut || busy}
             onClick={(e) => { e.stopPropagation(); onBuy(p); }}
           >
-            {soldOut ? 'ສິນຄ້າໝົດ' : (busy ? '...' : 'ຊື້ເລີຍ')}
+            {soldOut ? t('common.soldOut') : (busy ? '...' : t('common.buyNow'))}
           </button>
           <button
             className="hm-cart"
-            title="ເພີ່ມລົງກະຕ່າ"
+            title={t('common.addToCart')}
+            aria-label={t('common.addToCart')}
             disabled={soldOut || busy}
             onClick={(e) => { e.stopPropagation(); onCart(p); }}
           >
@@ -122,12 +187,14 @@ function MiniCard({ p, isFav, busy, cartCount, onOpen, onFav, onCart, onBuy }) {
 
 // ---------- ป๊อปอัปเลือกไซส์ ----------
 function SizeModal({ product, inCart, onCancel, onConfirm, busy }) {
+  const { t } = usePageT(dict);
   const [size, setSize] = useState('');
   const [qty, setQty] = useState(1);
   const [error, setError] = useState(false);
 
   const options = product.size_options || [];
-  const maxQty = Math.max(0, product.stock - inCart);
+  const stock = totalStock(product);
+  const maxQty = Math.max(0, stock - inCart);
 
   function submit() {
     if (!size) {
@@ -145,13 +212,14 @@ function SizeModal({ product, inCart, onCancel, onConfirm, busy }) {
           <div>
             <div className="sz-name">{product.name}</div>
             <div className="sz-sub">
-              ເຫຼືອ: {product.stock} ອັນ{inCart > 0 ? ` · ໃນກະຕ່າ ${inCart} ອັນ` : ''}
+              {t('common.stockLeft', { n: stock })}
+              {inCart > 0 ? ` · ${t('ch.inCart', { n: inCart })}` : ''}
             </div>
           </div>
         </div>
 
         <div className="sz-title">
-          ເລືອກໄຊສ໌{size && <span style={{ color: 'var(--gold)', marginLeft: 6 }}>: {size}</span>}
+          {t('ch.chooseSize')}{size && <span style={{ color: 'var(--gold)', marginLeft: 6 }}>: {size}</span>}
         </div>
         <div className={`sz-sizes${error ? ' err' : ''}`}>
           {options.map((s) => (
@@ -165,22 +233,22 @@ function SizeModal({ product, inCart, onCancel, onConfirm, busy }) {
             </button>
           ))}
         </div>
-        {error && <div className="sz-err">ກະລຸນາເລືອກໄຊສ໌ກ່ອນ</div>}
+        {error && <div className="sz-err">{t('ch.pickSizeFirst')}</div>}
 
         <div className="sz-qty-row">
-          <span className="sz-title" style={{ margin: 0 }}>ຈຳນວນ</span>
+          <span className="sz-title" style={{ margin: 0 }}>{t('common.quantity')}</span>
           <div className="sz-qty">
             <button type="button" disabled={qty <= 1} onClick={() => setQty((q) => Math.max(1, q - 1))}>−</button>
             <span>{qty}</span>
             <button type="button" disabled={qty >= maxQty} onClick={() => setQty((q) => Math.min(maxQty, q + 1))}>+</button>
           </div>
         </div>
-        {maxQty <= 0 && <div className="sz-err">ໃນກະຕ່າຄົບຕາມສະຕັອກແລ້ວ</div>}
+        {maxQty <= 0 && <div className="sz-err">{t('ch.cartFull')}</div>}
 
         <div className="sz-actions">
-          <button type="button" className="sz-cancel" onClick={onCancel}>ຍົກເລີກ</button>
+          <button type="button" className="sz-cancel" onClick={onCancel}>{t('common.cancel')}</button>
           <button type="button" className="sz-confirm" disabled={busy || maxQty <= 0} onClick={submit}>
-            {busy ? '...' : 'ເພີ່ມກະຕ່າ'}
+            {busy ? '...' : t('ch.addBtn')}
           </button>
         </div>
       </div>
@@ -189,6 +257,7 @@ function SizeModal({ product, inCart, onCancel, onConfirm, busy }) {
 }
 
 function ProductListInner() {
+  const { t } = usePageT(dict);
   const [products, setProducts] = useState(null);
   const [banners, setBanners] = useState([]);
   const [loadError, setLoadError] = useState(false);
@@ -196,6 +265,9 @@ function ProductListInner() {
   const [toast, setToast] = useState('');
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('');
+  const [sortKey, setSortKey] = useState('default');
+  const [onlyPromo, setOnlyPromo] = useState(false);
+  const [onlyStock, setOnlyStock] = useState(false);
   const [favIds, setFavIds] = useState(new Set());
   const [cartQty, setCartQty] = useState({}); // { product_id: จำนวนชิ้นรวมทุกไซส์ }
   const [sizeProduct, setSizeProduct] = useState(null); // สินค้าที่กำลังเลือกไซส์ในป๊อปอัป
@@ -289,17 +361,17 @@ function ProductListInner() {
     }
     setBusyId(product.id);
     try {
-      const { ok, data } = await apiPost('/api/cart', { product_id: product.id, quantity: 1 });
+      const { ok } = await apiPost('/api/cart', { product_id: product.id, quantity: 1 });
       if (ok) {
-        showToast('ເພີ່ມລົງກະຕ່າແລ້ວ', 1500);
+        showToast(t('common.addedToCart'), 1500);
         refreshCartCount();
         loadCartQty();
       } else {
-        showToast(data.error || 'ເພີ່ມລົງກະຕ່າບໍ່ສຳເລັດ', 2000);
+        showToast(t('common.addFail'), 2000);
       }
     } catch (err) {
       console.error(err);
-      showToast('ເພີ່ມລົງກະຕ່າບໍ່ສຳເລັດ', 2000);
+      showToast(t('common.addFail'), 2000);
     } finally {
       setBusyId(null);
     }
@@ -309,22 +381,22 @@ function ProductListInner() {
     if (!sizeProduct) return;
     setSizeBusy(true);
     try {
-      const { ok, data } = await apiPost('/api/cart', {
+      const { ok } = await apiPost('/api/cart', {
         product_id: sizeProduct.id,
         quantity,
         size,
       });
       if (ok) {
         setSizeProduct(null);
-        showToast('ເພີ່ມລົງກະຕ່າແລ້ວ', 1500);
+        showToast(t('common.addedToCart'), 1500);
         refreshCartCount();
         loadCartQty();
       } else {
-        showToast((data && data.error) || 'ເພີ່ມລົງກະຕ່າບໍ່ສຳເລັດ', 2200);
+        showToast(t('common.addFail'), 2200);
       }
     } catch (err) {
       console.error(err);
-      showToast('ເພີ່ມລົງກະຕ່າບໍ່ສຳເລັດ', 2200);
+      showToast(t('common.addFail'), 2200);
     } finally {
       setSizeBusy(false);
     }
@@ -338,9 +410,9 @@ function ProductListInner() {
     }
     setBusyId(product.id);
     try {
-      const { ok, data } = await apiPost('/api/cart', { product_id: product.id, quantity: 1 });
+      const { ok } = await apiPost('/api/cart', { product_id: product.id, quantity: 1 });
       if (!ok) {
-        showToast(data.error || 'ເພີ່ມສິນຄ້າບໍ່ສຳເລັດ', 2000);
+        showToast(t('ch.buyFail'), 2000);
         return;
       }
       refreshCartCount();
@@ -359,19 +431,23 @@ function ProductListInner() {
 
   const keyword = search.trim().toLowerCase();
 
-  const filteredProducts = products
-    ? products.filter((p) => {
-        if (currentCategory && (p.category || '').trim() !== currentCategory) return false;
-        if (keyword && !(p.name || '').toLowerCase().includes(keyword)) return false;
-        return true;
-      })
-    : null;
+  let filteredProducts = null;
+  if (products) {
+    filteredProducts = products.filter((p) => {
+      if (currentCategory && (p.category || '').trim() !== currentCategory) return false;
+      if (keyword && !(p.name || '').toLowerCase().includes(keyword)) return false;
+      if (onlyPromo && !p.is_promo) return false;
+      if (onlyStock && totalStock(p) <= 0) return false;
+      return true;
+    });
+    filteredProducts = sortProducts(filteredProducts, sortKey);
+  }
 
   const headingText = keyword
-    ? `ຜົນການຄົ້ນຫາ (${filteredProducts ? filteredProducts.length : 0})`
+    ? t('ch.searchResult', { n: filteredProducts ? filteredProducts.length : 0 })
     : currentCategory
       ? `${currentCategory} (${filteredProducts ? filteredProducts.length : 0})`
-      : 'ສິນຄ້າທັງໝົດ';
+      : t('ch.allProducts');
 
   return (
     <div className="customer-shell">
@@ -393,16 +469,16 @@ function ProductListInner() {
 
       <main style={{ paddingBottom: 24 }}>
         {products === null && !loadError && (
-          <p style={{ padding: 20, color: '#ccc' }}>ກຳລັງໂຫລດ...</p>
+          <p style={{ padding: 20, color: 'var(--cust-text-muted, #6b7280)' }}>{t('common.loading')}</p>
         )}
         {loadError && (
-          <div style={{ padding: 20, color: '#ccc' }}>
-            <p>ໂຫລດຂໍ້ມູນສິນຄ້າບໍ່ສຳເລັດ ກະລຸນາລອງໃໝ່</p>
-            <button onClick={loadProducts}>ລອງໃໝ່</button>
+          <div style={{ padding: 20, color: 'var(--cust-text-muted, #6b7280)' }}>
+            <p>{t('ch.loadFail')}</p>
+            <button onClick={loadProducts}>{t('common.retry')}</button>
           </div>
         )}
         {products && products.length === 0 && (
-          <p style={{ padding: 20, color: '#ccc' }}>ຍັງບໍ່ມີສິນຄ້າ</p>
+          <p style={{ padding: 20, color: 'var(--cust-text-muted, #6b7280)' }}>{t('ch.empty')}</p>
         )}
 
         {products && products.length > 0 && (
@@ -416,9 +492,36 @@ function ProductListInner() {
               />
             </div>
 
+            <div className="hm-toolbar">
+              <label className="hm-sort">
+                <span>{t('ch.sortLabel')}</span>
+                <select value={sortKey} onChange={(e) => setSortKey(e.target.value)}>
+                  <option value="default">{t('ch.sortDefault')}</option>
+                  <option value="newest">{t('ch.sortNewest')}</option>
+                  <option value="best">{t('ch.sortBest')}</option>
+                  <option value="priceAsc">{t('ch.sortPriceAsc')}</option>
+                  <option value="priceDesc">{t('ch.sortPriceDesc')}</option>
+                </select>
+              </label>
+              <button
+                type="button"
+                className={`hm-chip${onlyPromo ? ' active' : ''}`}
+                onClick={() => setOnlyPromo((v) => !v)}
+              >
+                {t('ch.onlyPromo')}
+              </button>
+              <button
+                type="button"
+                className={`hm-chip${onlyStock ? ' active' : ''}`}
+                onClick={() => setOnlyStock((v) => !v)}
+              >
+                {t('ch.onlyInStock')}
+              </button>
+            </div>
+
             {filteredProducts.length === 0 ? (
               <p style={{ padding: 20, textAlign: 'center', color: '#6b7280' }}>
-                ບໍ່ພົບສິນຄ້າທີ່ຄົ້ນຫາ
+                {t('ch.noResult')}
               </p>
             ) : (
               <div className="hm-grid">

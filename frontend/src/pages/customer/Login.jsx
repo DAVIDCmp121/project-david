@@ -4,8 +4,37 @@ import { apiGet, apiPost, saveToken } from '../../api.js';
 import LoginShell, {
   PhoneIcon, LockIcon, UserIcon, CalendarIcon, EyeIcon,
 } from '../../components/LoginShell.jsx';
+import { usePageT } from '../../useT.js';
+import dict from '../../locales/cust-login.js';
+
+// ແປງວັນເກີດທີ່ລູກຄ້າພິມ (25/12/2000 ຫຼື 2000-12-25) ເປັນ YYYY-MM-DD ທີ່ backend ໃຊ້ປຽບທຽບ
+// ຖ້າຮູບແບບຜິດ ຫຼື ເປັນວັນທີ່ບໍ່ມີຈິງ ຫຼື ເປັນອະນາຄົດ ຈະຄືນຄ່າວ່າງ
+function normBirth(s) {
+  const v = String(s || '').trim();
+  let y;
+  let m;
+  let d;
+  let x = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(v);
+  if (x) {
+    y = x[1]; m = x[2]; d = x[3];
+  } else {
+    x = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/.exec(v);
+    if (!x) return '';
+    d = x[1]; m = x[2]; y = x[3];
+  }
+  const dt = new Date(Number(y), Number(m) - 1, Number(d));
+  if (
+    dt.getFullYear() !== Number(y) ||
+    dt.getMonth() !== Number(m) - 1 ||
+    dt.getDate() !== Number(d)
+  ) return '';
+  if (dt > new Date()) return '';
+  return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+}
 
 export default function CustomerLogin() {
+  const { t } = usePageT(dict);
+
   const [tab, setTab] = useState('login');
   const [loginPhone, setLoginPhone] = useState('');
   const [loginPin, setLoginPin] = useState('');
@@ -35,35 +64,62 @@ export default function CustomerLogin() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ຂໍ້ຄວາມເມື່ອຖືກລັອກ: "ລອງໃໝ່ໃນ 5 ນາທີ" (backend ສົ່ງ seconds_left ມາໃຫ້)
+  function lockedText(data) {
+    const s = Math.ceil(Number(data && data.seconds_left));
+    if (!s || s < 0) return t('cl.errLockedGeneric');
+    const when = s >= 60 ? t('cl.timeMin', { n: Math.ceil(s / 60) }) : t('cl.timeSec', { n: s });
+    return t('cl.errLocked', { when });
+  }
+
   async function submitLogin() {
     setAuthError('');
     if (!loginPhone || !loginPin) {
-      setAuthError('ກະລຸນາປ້ອນເບີໂທ ແລະ PIN');
+      setAuthError(t('cl.errLoginEmpty'));
       return;
     }
-    const { data } = await apiPost('/api/customer-auth/login', { phone: loginPhone, pin: loginPin });
-    if (data.success) {
-      saveToken(data.token);
-      navigate('/menu');
-    } else {
-      setAuthError(data.error || 'ເຂົ້າສູ່ລະບົບບໍ່ສຳເລັດ');
+    try {
+      const { status, data } = await apiPost('/api/customer-auth/login', { phone: loginPhone, pin: loginPin });
+      if (status === 429) {
+        setAuthError(lockedText(data));
+        return;
+      }
+      if (data && data.success) {
+        saveToken(data.token);
+        navigate('/menu');
+      } else {
+        setAuthError(t('cl.errLoginFail'));
+      }
+    } catch (err) {
+      console.error(err);
+      setAuthError(t('cl.errConn'));
     }
   }
 
   async function submitRegister() {
     setAuthError('');
     if (!regPhone || !regPin || !regBirthDate) {
-      setAuthError('ກະລຸນາປ້ອນເບີໂທ, PIN ແລະ ວັນເດືອນປີເກີດ');
+      setAuthError(t('cl.errRegEmpty'));
       return;
     }
-    const { data } = await apiPost('/api/customer-auth/register', {
-      phone: regPhone, pin: regPin, name: regName, birth_date: regBirthDate,
-    });
-    if (data.success) {
-      saveToken(data.token);
-      navigate('/menu');
-    } else {
-      setAuthError(data.error || 'ສະໝັກສະມາຊິກບໍ່ສຳເລັດ');
+    const birth = normBirth(regBirthDate);
+    if (!birth) {
+      setAuthError(t('cl.errBirthFormat'));
+      return;
+    }
+    try {
+      const { data } = await apiPost('/api/customer-auth/register', {
+        phone: regPhone, pin: regPin, name: regName, birth_date: birth,
+      });
+      if (data && data.success) {
+        saveToken(data.token);
+        navigate('/menu');
+      } else {
+        setAuthError(t('cl.errRegFail'));
+      }
+    } catch (err) {
+      console.error(err);
+      setAuthError(t('cl.errConn'));
     }
   }
 
@@ -71,65 +127,78 @@ export default function CustomerLogin() {
     setFpError('');
     setFpSuccess('');
     if (!fpPhone || !fpBirthDate || !fpNewPin || !fpNewPinConfirm) {
-      setFpError('ກະລຸນາປ້ອນຂໍ້ມູນໃຫ້ຄົບ');
+      setFpError(t('cl.fpEmpty'));
       return;
     }
     if (fpNewPin !== fpNewPinConfirm) {
-      setFpError('PIN ໃໝ່ ແລະ ຢືນຢັນ PIN ບໍ່ຕົງກັນ');
+      setFpError(t('cl.fpMismatch'));
       return;
     }
-    const res = await fetch('/api/customer-auth/forgot-pin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone: fpPhone, birth_date: fpBirthDate, new_pin: fpNewPin }),
-    });
-    const data = await res.json();
-    if (data.success) {
-      setFpSuccess(data.message || 'ຕັ້ງ PIN ໃໝ່ສຳເລັດ');
-      setTimeout(() => {
-        setForgotOpen(false);
-        setLoginPhone(fpPhone);
-      }, 1500);
-    } else {
-      setFpError(data.error || 'ຣີເຊັດ PIN ບໍ່ສຳເລັດ');
+    const birth = normBirth(fpBirthDate);
+    if (!birth) {
+      setFpError(t('cl.errBirthFormat'));
+      return;
+    }
+    try {
+      const { status, data } = await apiPost('/api/customer-auth/forgot-pin', {
+        phone: fpPhone, birth_date: birth, new_pin: fpNewPin,
+      });
+      if (status === 429) {
+        setFpError(lockedText(data));
+        return;
+      }
+      if (data && data.success) {
+        setFpSuccess(t('cl.fpOk'));
+        setTimeout(() => {
+          setForgotOpen(false);
+          setLoginPhone(fpPhone);
+        }, 1500);
+      } else {
+        setFpError(t('cl.fpFail'));
+      }
+    } catch (err) {
+      console.error(err);
+      setFpError(t('cl.errConn'));
     }
   }
 
   const footer =
     tab === 'login' ? (
-      <>ຍັງບໍ່ມີບັນຊີ? <button onClick={() => { setTab('register'); setAuthError(''); }}>ສ້າງບັນຊີໃໝ່</button></>
+      <>{t('cl.noAccount')} <button onClick={() => { setTab('register'); setAuthError(''); }}>{t('cl.createAccount')}</button></>
     ) : (
-      <>ມີບັນຊີແລ້ວ? <button onClick={() => { setTab('login'); setAuthError(''); }}>ເຂົ້າສູ່ລະບົບ</button></>
+      <>{t('cl.haveAccount')} <button onClick={() => { setTab('login'); setAuthError(''); }}>{t('cl.submitLogin')}</button></>
     );
 
   return (
     <>
       <LoginShell
-        badge="ສຳລັບລູກຄ້າ"
-        subtitle={tab === 'login' ? 'ກະລຸນາເຂົ້າສູ່ລະບົບເພື່ອເຂົ້າໜ້າຮ້ານ' : 'ສະໝັກສະມາຊິກໃໝ່ເພື່ອເລີ່ມຊື້ເຄື່ອງ'}
+        badge={t('cl.badge')}
+        subtitle={tab === 'login' ? t('cl.subLogin') : t('cl.subRegister')}
         footer={footer}
       >
         {tab === 'login' && (
           <>
             <div className="lg-field">
               <span className="lg-field-icon"><PhoneIcon /></span>
-              <input type="tel" placeholder="ເບີໂທລະສັບ" value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} />
+              <input type="tel" placeholder={t('cl.phone')} value={loginPhone} onChange={(e) => setLoginPhone(e.target.value)} />
             </div>
             <div className="lg-field">
               <span className="lg-field-icon"><LockIcon /></span>
               <input
                 type={showLoginPin ? 'text' : 'password'}
-                placeholder="ລະຫັດ PIN"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder={t('cl.pin')}
                 value={loginPin}
                 onChange={(e) => setLoginPin(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') submitLogin(); }}
               />
-              <button type="button" className="lg-eye-btn" onClick={() => setShowLoginPin((v) => !v)} aria-label="ສະແດງ/ເຊື່ອງ PIN">
+              <button type="button" className="lg-eye-btn" onClick={() => setShowLoginPin((v) => !v)} aria-label={t('cl.togglePin')}>
                 <EyeIcon off={showLoginPin} />
               </button>
             </div>
-            <button className="lg-submit" onClick={submitLogin}>ເຂົ້າສູ່ລະບົບ</button>
-            <p className="lg-forgot" onClick={() => setForgotOpen(true)}>ລືມ PIN?</p>
+            <button className="lg-submit" onClick={submitLogin}>{t('cl.submitLogin')}</button>
+            <p className="lg-forgot" onClick={() => setForgotOpen(true)}>{t('cl.forgot')}</p>
           </>
         )}
 
@@ -137,29 +206,31 @@ export default function CustomerLogin() {
           <>
             <div className="lg-field">
               <span className="lg-field-icon"><UserIcon /></span>
-              <input type="text" placeholder="ຊື່ (ບໍ່ບັງຄັບ)" value={regName} onChange={(e) => setRegName(e.target.value)} />
+              <input type="text" placeholder={t('cl.name')} value={regName} onChange={(e) => setRegName(e.target.value)} />
             </div>
             <div className="lg-field">
               <span className="lg-field-icon"><PhoneIcon /></span>
-              <input type="tel" placeholder="ເບີໂທລະສັບ" value={regPhone} onChange={(e) => setRegPhone(e.target.value)} />
+              <input type="tel" placeholder={t('cl.phone')} value={regPhone} onChange={(e) => setRegPhone(e.target.value)} />
             </div>
             <div className="lg-field">
               <span className="lg-field-icon"><LockIcon /></span>
               <input
                 type={showRegPin ? 'text' : 'password'}
-                placeholder="ຕັ້ງລະຫັດ PIN (4-6 ໂຕເລກ)"
+                inputMode="numeric"
+                maxLength={6}
+                placeholder={t('cl.setPin')}
                 value={regPin}
-                onChange={(e) => setRegPin(e.target.value)}
+                onChange={(e) => setRegPin(e.target.value.replace(/\D/g, ''))}
               />
-              <button type="button" className="lg-eye-btn" onClick={() => setShowRegPin((v) => !v)} aria-label="ສະແດງ/ເຊື່ອງ PIN">
+              <button type="button" className="lg-eye-btn" onClick={() => setShowRegPin((v) => !v)} aria-label={t('cl.togglePin')}>
                 <EyeIcon off={showRegPin} />
               </button>
             </div>
             <div className="lg-field">
               <span className="lg-field-icon"><CalendarIcon /></span>
-              <input type="text" placeholder="ວັນເດືອນປີເກີດ (ໃຊ້ຢືນຢັນຕົວຕົນ)" value={regBirthDate} onChange={(e) => setRegBirthDate(e.target.value)} />
+              <input type="text" inputMode="numeric" placeholder={t('cl.birth')} value={regBirthDate} onChange={(e) => setRegBirthDate(e.target.value)} />
             </div>
-            <button className="lg-submit" onClick={submitRegister}>ສະໝັກສະມາຊິກ</button>
+            <button className="lg-submit" onClick={submitRegister}>{t('cl.submitRegister')}</button>
           </>
         )}
 
@@ -169,14 +240,14 @@ export default function CustomerLogin() {
       {forgotOpen && (
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setForgotOpen(false); }}>
           <div className="modal-box" style={{ background: '#fff', color: '#1f2937' }}>
-            <button className="modal-close" onClick={() => setForgotOpen(false)}>✕</button>
-            <h2>ຣີເຊັດລະຫັດ PIN</h2>
-            <p>ກະລຸນາປ້ອນເບີໂທ ແລະ ວັນເດືອນປີເກີດທີ່ໃຊ້ຕອນສະໝັກ ເພື່ອຕັ້ງ PIN ໃໝ່</p>
-            <input type="tel" placeholder="ເບີໂທລະສັບ" value={fpPhone} onChange={(e) => setFpPhone(e.target.value)} />
-            <input type="text" placeholder="ວັນເດືອນປີເກີດ" value={fpBirthDate} onChange={(e) => setFpBirthDate(e.target.value)} />
-            <input type="password" placeholder="ຕັ້ງ PIN ໃໝ່ (4-6 ໂຕເລກ)" value={fpNewPin} onChange={(e) => setFpNewPin(e.target.value)} />
-            <input type="password" placeholder="ຢືນຢັນ PIN ໃໝ່" value={fpNewPinConfirm} onChange={(e) => setFpNewPinConfirm(e.target.value)} />
-            <button className="auth-submit" onClick={submitForgotPin}>ຕັ້ງ PIN ໃໝ່</button>
+            <button className="modal-close" onClick={() => setForgotOpen(false)} aria-label={t('cl.close')}>✕</button>
+            <h2>{t('cl.fpTitle')}</h2>
+            <p>{t('cl.fpDesc')}</p>
+            <input type="tel" placeholder={t('cl.phone')} value={fpPhone} onChange={(e) => setFpPhone(e.target.value)} />
+            <input type="text" inputMode="numeric" placeholder={t('cl.fpBirth')} value={fpBirthDate} onChange={(e) => setFpBirthDate(e.target.value)} />
+            <input type="password" inputMode="numeric" maxLength={6} placeholder={t('cl.fpNewPin')} value={fpNewPin} onChange={(e) => setFpNewPin(e.target.value.replace(/\D/g, ''))} />
+            <input type="password" inputMode="numeric" maxLength={6} placeholder={t('cl.fpConfirmPin')} value={fpNewPinConfirm} onChange={(e) => setFpNewPinConfirm(e.target.value.replace(/\D/g, ''))} />
+            <button className="auth-submit" onClick={submitForgotPin}>{t('cl.fpSubmit')}</button>
             <div className="auth-error">{fpError}</div>
             <div className="auth-success">{fpSuccess}</div>
           </div>

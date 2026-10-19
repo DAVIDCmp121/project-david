@@ -1,3 +1,5 @@
+import { useLang } from '../i18n.jsx';
+
 // จดรูปแบบตัวเลข: 129500.00 -> 129,500
 export function formatPrice(n) {
   const v = Number(n);
@@ -5,8 +7,9 @@ export function formatPrice(n) {
   return v.toLocaleString('en-US', { maximumFractionDigits: 2 });
 }
 
-// ป้ายบนรปสินค้า (มุมบนซ้าย): ขายดี + จัดโปร
+// ป้ายบนรูปสินค้า (มุมบนซ้าย): ขายดี + จัดโปร
 export function ImageBadges({ product }) {
+  const { t } = useLang();
   if (!product.is_bestseller && !product.is_promo) return null;
 
   const original = Number(product.price);
@@ -33,7 +36,7 @@ export function ImageBadges({ product }) {
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
           </svg>
-          ສິນຄ້າຂາຍດີ
+          {t('badge.bestseller')}
         </span>
       )}
 
@@ -46,7 +49,7 @@ export function ImageBadges({ product }) {
           }}
         >
           <span style={{ background: 'rgba(255,255,255,0.95)', color: '#dc2626', padding: '3px 9px' }}>
-            ຈັດໂປຣ
+            {t('badge.promo')}
           </span>
           {pct > 0 && (
             <span style={{ background: '#dc2626', color: '#fff', padding: '3px 9px' }}>
@@ -61,6 +64,9 @@ export function ImageBadges({ product }) {
 
 // ราคา: ถ้ามีโปร = ราคาเดิมขีดฆ่าอยู่ซ้าย / ราคาโปรสีแดงอยู่ขวา (แถวเดียวกัน)
 export function PriceBlock({ product, large = false }) {
+  const { t } = useLang();
+  const kip = t('common.kip');
+
   const rowStyle = {
     display: 'flex',
     alignItems: 'baseline',
@@ -81,7 +87,7 @@ export function PriceBlock({ product, large = false }) {
             fontSize: large ? '1.25rem' : '0.98rem',
           }}
         >
-          {formatPrice(product.price)} ກີບ
+          {formatPrice(product.price)} {kip}
         </span>
       </div>
     );
@@ -98,7 +104,7 @@ export function PriceBlock({ product, large = false }) {
           minWidth: 0,
         }}
       >
-        {formatPrice(product.price)}{large ? ' ກີບ' : ''}
+        {formatPrice(product.price)}{large ? ` ${kip}` : ''}
       </s>
       <span
         style={{
@@ -108,7 +114,7 @@ export function PriceBlock({ product, large = false }) {
           flexShrink: 0,
         }}
       >
-        {formatPrice(product.final_price)} ກີບ
+        {formatPrice(product.final_price)} {kip}
       </span>
     </div>
   );

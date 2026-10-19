@@ -1,18 +1,44 @@
 export const API_BASE = import.meta.env.VITE_API_URL || '';
 
-const TOKEN_KEY = 'auth_token';
+const ADMIN_TOKEN_KEY = 'auth_token';
+const CUSTOMER_TOKEN_KEY = 'customer_auth_token';
+
+// หน้าไหนใช้ token ของใคร: /admin และ /staff = แอดมิน/พนักงาน, อื่นๆ = ลูกค้า
+function inStaffArea() {
+  const p = window.location.pathname;
+  return p.startsWith('/admin') || p.startsWith('/staff');
+}
+
+function tokenKey() {
+  return inStaffArea() ? ADMIN_TOKEN_KEY : CUSTOMER_TOKEN_KEY;
+}
+
+// ย้าย token ลูกค้าเก่าที่เคยเก็บไว้ใน auth_token ไปที่กุญแจลูกค้า (ทำครั้งเดียว)
+function migrateLegacyCustomerToken() {
+  try {
+    if (localStorage.getItem(CUSTOMER_TOKEN_KEY)) return;
+    const legacy = localStorage.getItem(ADMIN_TOKEN_KEY);
+    if (!legacy) return;
+    const payload = JSON.parse(atob(legacy.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (payload && payload.customerId) {
+      localStorage.setItem(CUSTOMER_TOKEN_KEY, legacy);
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
+    }
+  } catch (e) {}
+}
 
 export function saveToken(token) {
-  if (token) localStorage.setItem(TOKEN_KEY, token);
+  if (token) localStorage.setItem(tokenKey(), token);
 }
 
 export function clearToken() {
-  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(tokenKey());
 }
 
-// ✅ ໃໝ່: export ໄວ້ໃຫ້ໄຟລ໌ທີ່ຍັງໃຊ້ fetch() ກົງໆ (ບໍ່ຜ່ານ helper) ເອີ້ນໃຊ້ໄດ້
+// export ไว้ให้ไฟล์ที่ยังใช้ fetch() ตรงๆ (ไม่ผ่าน helper) เรียกใช้ได้
 export function getAuthHeader() {
-  const token = localStorage.getItem(TOKEN_KEY);
+  if (!inStaffArea()) migrateLegacyCustomerToken();
+  const token = localStorage.getItem(tokenKey());
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 

@@ -2,11 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { getAuthHeader } from '../../api.js';
 import ConfirmModal from '../../components/ConfirmModal.jsx';
 import DateField from '../../components/DateField.jsx';
+import PaymentQrModal from '../../components/PaymentQrModal.jsx';
+import { usePageT } from '../../useT.js';
+import dict from '../../locales/products.js';
 
 const MAX_IMAGES = 6;
 const NEW_CATEGORY = '__new__';
 const SIZE_OPTIONS = ['S', 'M', 'L', 'XL', 'XXL', '3XL'];
 const DEFAULTS_KEY = 'adminProductDefaults';
+const DEFAULT_LOW_ALERT = 2; // ເຕືອນເມື່ອເຫຼືອບໍ່ເກີນນີ້ (ຄ່າເລີ່ມຕົ້ນ)
 const emptyForm = { name: '', price: '', size: '', color: '', stock: '', description: '' };
 
 const primaryBtnStyle = {
@@ -55,8 +59,16 @@ function parseSizes(str) {
   return (str || '').split(/[\/\\,]+/).map((s) => s.trim()).filter(Boolean);
 }
 
+// ສີຂອງຕົວເລກສະຕັອກ: ໝົດ = ແດງ, ໃກ້ໝົດ = ສົ້ມ
+function stockColor(qty, low) {
+  if (qty <= 0) return '#dc2626';
+  if (qty <= low) return '#d97706';
+  return 'inherit';
+}
+
 // ---------- ຟອມເພີມ / ແກໄຂ / ຄັດລອກສິນຄ້າ (popup) ----------
 function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
+  const { t } = usePageT(dict);
   const isEdit = mode === 'edit';
   const isCopy = mode === 'copy';
   const needsLoad = isEdit || isCopy;
@@ -81,6 +93,10 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
   const [images, setImages] = useState([]);
   const [sizeRows, setSizeRows] = useState(Array.isArray(d.sizeRows) ? d.sizeRows : []);
   const [sizeSelectable, setSizeSelectable] = useState(!!d.sizeSelectable);
+  // ສະຕັອກແຍກຕາມໄຊສ໌: { 'M': { qty: '5', low: '2' }, ... } (ໃຊ້ເມື່ອໃຫ້ລູກຄ້າເລືອກໄຊສ໌)
+  const [variantStock, setVariantStock] = useState({});
+  // ຈຳນວນເຕືອນຂອງສິນຄ້າທີ່ບໍ່ມີໄຊສ໌
+  const [lowSingle, setLowSingle] = useState(String(DEFAULT_LOW_ALERT));
   const [promoActive, setPromoActive] = useState(false);
   const [promoPercent, setPromoPercent] = useState('');
   const [promoPrice, setPromoPrice] = useState('');
@@ -91,7 +107,7 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [notice, setNotice] = useState('');
+  const [notice, setNotice] = useState(''); // ເກັບແຕ່ຊື່ສິນຄ້າ ແລ້ວແປຕອນສະແດງ
   const [dropActive, setDropActive] = useState(false);
 
   const fileRef = useRef(null);
@@ -114,22 +130,43 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
       try {
         const res = await fetch(`/api/products/${productId}`);
         const p = await res.json();
+
+        const vs = Array.isArray(p.variants) ? p.variants : [];
+        const selectable = !!p.size_selectable;
+        const single = vs.find((v) => v.size === '') || (selectable ? null : vs[0]) || null;
+
         setForm({
           name: p.name || '',
           price: p.price ?? '',
           size: p.size || '',
           // ຄັດລອກ: ລ້າງສີ ແລະ ສະຕັອກ ເພາະມັກຈະຕ່າງກັນ
           color: isCopy ? '' : (p.color || ''),
-          stock: isCopy ? '' : (p.stock ?? ''),
+          stock: isCopy ? '' : (single ? single.stock_qty : (p.stock ?? '')),
           description: p.description || '',
         });
+
+        // ສະຕັອກແຍກໄຊສ໌
+        const map = {};
+        if (selectable) {
+          vs.forEach((v) => {
+            if (v.size) {
+              map[v.size] = {
+                qty: isCopy ? '' : String(v.stock_qty),
+                low: String(v.low_stock_alert ?? DEFAULT_LOW_ALERT),
+              };
+            }
+          });
+        }
+        setVariantStock(map);
+        setLowSingle(String(single ? (single.low_stock_alert ?? DEFAULT_LOW_ALERT) : DEFAULT_LOW_ALERT));
+
         setCategoryChoice(p.category || '');
         setPromoActive(!!p.promo_active);
         setPromoPrice(p.promo_price ?? '');
         setPromoStart(p.promo_start || '');
         setPromoEnd(p.promo_end || '');
         setBsMode(p.bestseller_mode || 'auto');
-        setSizeSelectable(!!p.size_selectable);
+        setSizeSelectable(selectable);
         // ຄັດລອກ: ບໍ່ເອົາຮູບມານຳ (ຕ້ອງເພີ່ມຮູບໃໝ່)
         if (!isCopy) {
           setImages((p.images || []).map((url) => ({ key: nextKey(), url })));
@@ -141,7 +178,7 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
         );
         setShowMore(true);
       } catch (e) {
-        setError('ໂຫລດຂໍ້ມູນສິນຄ້າບໍ່ສຳເລັດ');
+        setError(t('p.loadFail'));
       }
       setLoading(false);
     })();
@@ -183,11 +220,11 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
     if (picked.length === 0) return;
     const slots = MAX_IMAGES - imagesRef.current.length;
     if (slots <= 0) {
-      alert(`ອັບໂຫລດໄດ້ສູງສຸດ ${MAX_IMAGES} ຮູບ`);
+      alert(t('p.maxImages', { n: MAX_IMAGES }));
       return;
     }
     if (picked.length > slots) {
-      alert(`ເພີ່ມໄດ້ອີກ ${slots} ຮູບ ລະບົບຈະໃຊ້ ${slots} ຮູບທຳອິດ`);
+      alert(t('p.imagesSlots', { n: slots }));
     }
     const added = picked.slice(0, slots).map((file) => ({
       key: nextKey(),
@@ -238,6 +275,17 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
     setSizeRows((prev) => prev.filter((_, idx) => idx !== i));
   }
 
+  // ອ່ານ / ແກ້ສະຕັອກຂອງໄຊສ໌ໜຶ່ງ
+  function getVS(size) {
+    return variantStock[size] || { qty: '', low: String(DEFAULT_LOW_ALERT) };
+  }
+  function setVS(size, field, value) {
+    setVariantStock((prev) => {
+      const cur = prev[size] || { qty: '', low: String(DEFAULT_LOW_ALERT) };
+      return { ...prev, [size]: { ...cur, [field]: value } };
+    });
+  }
+
   // ກົດເລືອກໄຊສ໌ (S / M / L ...)
   function toggleSize(opt) {
     const cur = parseSizes(form.size);
@@ -277,12 +325,13 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
     setCategoryChoice('');
     setSizeRows([]);
     setSizeSelectable(false);
+    setVariantStock({});
   }
 
   // ກົດ Enter ເພື່ອຂ້າມໄປຊ່ອງຕໍ່ໄປ / Ctrl+Enter ເພື່ອບັນທຶກແລ້ວເພີ່ມຕໍ່
   function handleKeyDown(e) {
     if (e.key !== 'Enter') return;
-    const t = e.target;
+    const tg = e.target;
     if (e.ctrlKey || e.metaKey) {
       if (!isEdit) {
         e.preventDefault();
@@ -290,41 +339,64 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
       }
       return;
     }
-    if (t.tagName === 'TEXTAREA' || t.tagName === 'BUTTON') return;
-    if (t.tagName === 'INPUT' && (t.type === 'checkbox' || t.type === 'file')) return;
+    if (tg.tagName === 'TEXTAREA' || tg.tagName === 'BUTTON') return;
+    if (tg.tagName === 'INPUT' && (tg.type === 'checkbox' || tg.type === 'file')) return;
     e.preventDefault();
     const box = boxRef.current;
     if (!box) return;
     const items = Array.from(
       box.querySelectorAll('input:not([type=file]):not([type=checkbox]), select, textarea')
     ).filter((el) => !el.disabled && el.offsetParent !== null);
-    const i = items.indexOf(t);
+    const i = items.indexOf(tg);
     if (i >= 0 && i < items.length - 1) items[i + 1].focus();
+  }
+
+  // ສ້າງລາຍການ variants ທີ່ຈະສົ່ງໄປ backend
+  function buildVariantsPayload() {
+    if (sizeSelectable) {
+      return parseSizes(form.size).map((s) => {
+        const v = getVS(s);
+        return {
+          size: s,
+          stock_qty: Math.max(0, parseInt(v.qty, 10) || 0),
+          low_stock_alert: Math.max(0, parseInt(v.low, 10) || 0),
+        };
+      });
+    }
+    return [{
+      size: '',
+      stock_qty: Math.max(0, parseInt(form.stock, 10) || 0),
+      low_stock_alert: Math.max(0, parseInt(lowSingle, 10) || 0),
+    }];
   }
 
   function validateAndSave(andNext) {
     setError('');
     setNotice('');
     if (!form.name || !form.price) {
-      setError('ກະລຸນາໃສ່ຊື່ສິນຄ້າ ແລະ ລາຄາ');
+      setError(t('p.errNamePrice'));
+      return;
+    }
+    if (sizeSelectable && parseSizes(form.size).length === 0) {
+      setError(t('p.errSize'));
       return;
     }
     if (categoryChoice === NEW_CATEGORY && !newCategory.trim()) {
-      setError('ກະລຸນາໃສ່ຊື່ໝວດໃໝ່');
+      setError(t('p.errNewCat'));
       return;
     }
     if (promoActive) {
       const pp = Number(promoPrice);
       if (!pp || pp <= 0) {
-        setError('ກະລຸນາໃສ່ລາຄາໂປຣ');
+        setError(t('p.errPromoPrice'));
         return;
       }
       if (pp >= Number(form.price)) {
-        setError('ລາຄາໂປຣຕ້ອງຕ່ຳກວ່າລາຄາປົກກະຕິ');
+        setError(t('p.errPromoLower'));
         return;
       }
       if (promoStart && promoEnd && promoStart > promoEnd) {
-        setError('ວັນເລີ່ມໂປຣຕ້ອງມາກ່ອນວັນສິ້ນສຸດ');
+        setError(t('p.errPromoDates'));
         return;
       }
     }
@@ -337,12 +409,16 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
     setError('');
 
     const category = resolveCategory();
+    const variantsPayload = buildVariantsPayload();
+    const totalStock = variantsPayload.reduce((sum, v) => sum + v.stock_qty, 0);
+
     const fd = new FormData();
     fd.append('name', form.name);
     fd.append('price', form.price);
     fd.append('size', form.size);
     fd.append('color', form.color);
-    fd.append('stock', form.stock === '' ? 0 : form.stock);
+    fd.append('stock', totalStock);
+    fd.append('variants', JSON.stringify(variantsPayload));
     fd.append('description', form.description);
     fd.append('category', category);
     fd.append('size_chart', JSON.stringify(sizeRows));
@@ -379,6 +455,7 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
           images.forEach((i) => i.preview && URL.revokeObjectURL(i.preview));
           setImages([]);
           setForm((f) => ({ ...f, name: '', color: '', stock: '' }));
+          setVariantStock({});
           setCategoryChoice(category);
           setNewCategory('');
           setPromoActive(false);
@@ -388,7 +465,7 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
           setPromoEnd('');
           setBsMode('auto');
           setHasDefaults(true);
-          setNotice(`ເພີ່ມ "${savedName}" ສຳເລັດ ✅ ພ້ອມເພີ່ມຊິ້ນຕໍ່ໄປ`);
+          setNotice(savedName);
           setSaving(false);
           onSaved(true);
           if (boxRef.current) boxRef.current.scrollTo({ top: 0, behavior: 'smooth' });
@@ -399,9 +476,9 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
         return;
       }
       const data = await res.json().catch(() => ({}));
-      setError(data.error || (isEdit ? 'ອັບເດດສິນຄ້າບໍ່ສຳເລັດ' : 'ເພີ່ມສິນຄ້າບໍ່ສຳເລັດ'));
+      setError(data.error || (isEdit ? t('p.updateFail') : t('p.addFail')));
     } catch (e) {
-      setError('ເຊື່ອມຕໍ່ເຊີບເວີບໍ່ໄດ້');
+      setError(t('p.serverFail'));
     }
     setSaving(false);
     setConfirmOpen(false);
@@ -418,9 +495,13 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
     categoryOptions.push(categoryChoice);
   }
 
-  const selectedSizes = parseSizes(form.size).map((s) => s.toUpperCase());
-  const title = isEdit ? 'ແກ້ໄຂສິນຄ້າ' : isCopy ? 'ຄັດລອກສິນຄ້າ' : 'ເພີ່ມສິນຄ້າໃໝ່';
+  const parsedSizes = parseSizes(form.size);
+  const selectedSizes = parsedSizes.map((s) => s.toUpperCase());
+  const title = isEdit ? t('p.titleEdit') : isCopy ? t('p.titleCopy') : t('p.titleAdd');
   const hasRememberedMore = !isEdit && !isCopy && (form.description || sizeRows.length > 0);
+  const stockTotalPreview = sizeSelectable
+    ? parsedSizes.reduce((sum, s) => sum + (parseInt(getVS(s).qty, 10) || 0), 0)
+    : null;
 
   return (
     <>
@@ -435,78 +516,97 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
           <h2 style={{ color: 'var(--navy)', textAlign: 'center' }}>{title}</h2>
 
           {loading ? (
-            <p style={{ textAlign: 'center' }}>ກຳລັງໂຫລດ...</p>
+            <p style={{ textAlign: 'center' }}>{t('p.loading')}</p>
           ) : (
             <>
               {notice && (
                 <div style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#047857', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: '0.88rem' }}>
-                  {notice}
+                  {t('p.addedNext', { name: notice })}
                 </div>
               )}
 
               {isCopy && (
                 <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', color: '#1d4ed8', borderRadius: 8, padding: '8px 12px', marginBottom: 10, fontSize: '0.85rem' }}>
-                  ຄັດລອກຂໍ້ມູນຈາກສິນຄ້າເດີມ — ແກ້ຊື່, ສີ, ສະຕັອກ ແລະ ເພີ່ມຮູບໃໝ່
+                  {t('p.copyBanner')}
                 </div>
               )}
 
               {hasDefaults && !isEdit && !isCopy && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: '0.8rem', color: '#6b7280', marginBottom: 8 }}>
-                  <span>ໃຊ້ໝວດ, ລາຄາ, ໄຊສ໌ ຈາກຊິ້ນກ່ອນໃຫ້ແລ້ວ</span>
+                  <span>{t('p.defaultsUsed')}</span>
                   <button
                     type="button"
                     onClick={handleClearDefaults}
                     style={{ border: 'none', background: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '0.8rem', padding: 0, textDecoration: 'underline' }}
                   >
-                    ລ້າງຄ່າທີ່ຈື່ໄວ້
+                    {t('p.clearDefaults')}
                   </button>
                 </div>
               )}
 
               <input
                 ref={nameRef}
-                placeholder="ຊື່ສິນຄ້າ"
+                placeholder={t('p.name')}
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
               />
 
-              <div style={{ fontWeight: 600, margin: '6px 0' }}>ໝວດສິນຄ້າ</div>
+              <div style={{ fontWeight: 600, margin: '6px 0' }}>{t('p.category')}</div>
               <select
                 value={categoryChoice}
                 onChange={(e) => setCategoryChoice(e.target.value)}
                 style={selectStyle}
               >
-                <option value="">— ບໍ່ມີໝວດ —</option>
+                <option value="">{t('p.noCategory')}</option>
                 {categoryOptions.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
-                <option value={NEW_CATEGORY}>＋ ສ້າງໝວດໃໝ່...</option>
+                <option value={NEW_CATEGORY}>{t('p.newCategory')}</option>
               </select>
               {categoryChoice === NEW_CATEGORY && (
                 <input
-                  placeholder="ຊື່ໝວດໃໝ່ (ເຊັ່ນ ກະເປົາ, ເສື້ອ, ໂສ້ງ)"
+                  placeholder={t('p.newCategoryPh')}
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
                   maxLength={100}
                 />
               )}
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                <input
-                  placeholder="ລາຄາ"
-                  type="number"
-                  value={form.price}
-                  onChange={(e) => setForm({ ...form, price: e.target.value })}
-                />
-                <input
-                  placeholder="ຈຳນວນສະຕັອກ"
-                  type="number"
-                  value={form.stock}
-                  onChange={(e) => setForm({ ...form, stock: e.target.value })}
-                />
-              </div>
+              <input
+                placeholder={t('p.price')}
+                type="number"
+                value={form.price}
+                onChange={(e) => setForm({ ...form, price: e.target.value })}
+              />
 
-              <div style={{ fontWeight: 600, margin: '6px 0' }}>ໄຊສ໌</div>
+              {/* ສິນຄ້າທີ່ບໍ່ມີໄຊສ໌: ກອກສະຕັອກຊ່ອງດຽວ */}
+              {!sizeSelectable && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: '#6b7280', margin: '0 0 2px' }}>{t('p.stockQty')}</div>
+                    <input
+                      placeholder={t('p.stockQty')}
+                      type="number"
+                      min="0"
+                      value={form.stock}
+                      onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                      style={{ margin: 0 }}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: '#6b7280', margin: '0 0 2px' }}>{t('p.lowAlert')}</div>
+                    <input
+                      type="number"
+                      min="0"
+                      value={lowSingle}
+                      onChange={(e) => setLowSingle(e.target.value)}
+                      style={{ margin: 0 }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div style={{ fontWeight: 600, margin: '10px 0 6px' }}>{t('p.size')}</div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
                 {SIZE_OPTIONS.map((opt) => {
                   const active = selectedSizes.includes(opt);
@@ -529,7 +629,7 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
                 })}
               </div>
               <input
-                placeholder="ໄຊສ໌ (ເຊັ່ນ M\L\XL) — ກົດປຸ່ມຂ້າງເທິງ ຫຼື ພິມເອງ"
+                placeholder={t('p.sizePh')}
                 value={form.size}
                 onChange={(e) => setForm({ ...form, size: e.target.value })}
               />
@@ -540,18 +640,59 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
                   onChange={(e) => setSizeSelectable(e.target.checked)}
                   style={{ width: 'auto', margin: 0 }}
                 />
-                ໃຫ້ລູກຄ້າເລືອກໄຊສ໌ (ແຍກໄຊສ໌ດ້ວຍ / ຫຼື \)
+                {t('p.sizeSelectable')}
               </label>
+
+              {/* ສິນຄ້າທີ່ໃຫ້ເລືອກໄຊສ໌: ຕາຕະລາງກອກສະຕັອກແຍກຕາມໄຊສ໌ */}
               {sizeSelectable && (
-                <div style={{ fontSize: '0.8rem', color: '#6b7280', margin: '0 0 10px' }}>
-                  ຕົວເລືອກທີ່ລູກຄ້າຈະເຫັນ: {parseSizes(form.size).join(' | ') || '—'}
+                <div style={{ border: '1px solid #dfe3e8', borderRadius: 10, padding: 10, margin: '6px 0 12px', background: '#fafafa' }}>
+                  <div style={{ fontWeight: 600, marginBottom: 6 }}>{t('p.stockPerSize')}</div>
+                  {parsedSizes.length === 0 ? (
+                    <div style={{ fontSize: '0.85rem', color: '#6b7280' }}>
+                      {t('p.pickSizeFirst')}
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr 1fr', gap: 6, fontSize: '0.78rem', color: '#6b7280', marginBottom: 4 }}>
+                        <span>{t('p.size')}</span>
+                        <span>{t('p.qty')}</span>
+                        <span>{t('p.lowAlert')}</span>
+                      </div>
+                      {parsedSizes.map((s) => {
+                        const v = getVS(s);
+                        return (
+                          <div key={s} style={{ display: 'grid', gridTemplateColumns: '70px 1fr 1fr', gap: 6, marginBottom: 6, alignItems: 'center' }}>
+                            <span style={{ fontWeight: 700 }}>{s}</span>
+                            <input
+                              type="number"
+                              min="0"
+                              placeholder="0"
+                              value={v.qty}
+                              onChange={(e) => setVS(s, 'qty', e.target.value)}
+                              style={{ margin: 0 }}
+                            />
+                            <input
+                              type="number"
+                              min="0"
+                              value={v.low}
+                              onChange={(e) => setVS(s, 'low', e.target.value)}
+                              style={{ margin: 0 }}
+                            />
+                          </div>
+                        );
+                      })}
+                      <div style={{ fontSize: '0.82rem', color: '#6b7280', marginTop: 4 }}>
+                        {t('p.totalLabel')}: <b>{stockTotalPreview}</b> {t('p.unit')}
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
 
-              <input placeholder="ສີ" value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
+              <input placeholder={t('p.color')} value={form.color} onChange={(e) => setForm({ ...form, color: e.target.value })} />
 
               <div style={{ fontWeight: 600, margin: '6px 0' }}>
-                ຮູບສິນຄ້າ ({images.length}/{MAX_IMAGES}) — ຮູບທຳອິດຄືຮູບໜ້າປົກ
+                {t('p.images', { n: images.length, max: MAX_IMAGES })}
               </div>
               <div
                 onDragOver={(e) => { e.preventDefault(); setDropActive(true); }}
@@ -575,7 +716,7 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
                     />
                     {idx === 0 && (
                       <span style={{ position: 'absolute', left: 4, top: 4, background: 'var(--gold)', color: '#fff', fontSize: 10, padding: '1px 6px', borderRadius: 8 }}>
-                        ປົກ
+                        {t('p.cover')}
                       </span>
                     )}
                     <button
@@ -602,7 +743,7 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
                 )}
               </div>
               <div style={{ fontSize: '0.78rem', color: '#6b7280', marginBottom: 10 }}>
-                ເລືອກໄດ້ຫຼາຍຮູບພ້ອມກັນ • ກົດ Ctrl+V ເພື່ອວາງຮູບ ຫຼື ລາກຮູບມາວາງໃນກອບນີ້
+                {t('p.imagesHint')}
               </div>
               <input ref={fileRef} type="file" accept="image/*" multiple onChange={handlePickFiles} style={{ display: 'none' }} />
 
@@ -612,31 +753,31 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
                 onClick={() => setShowMore((v) => !v)}
                 style={{ ...plainBtnStyle, width: '100%', textAlign: 'left', padding: '9px 12px', marginBottom: 10 }}
               >
-                {showMore ? '▼' : '▶️'} ຕົວເລືອກເພີ່ມເຕີມ (ລາຍລະອຽດ, ຕາຕະລາງຂະໜາດ, ໂປຣໂມຊັນ, ປ້າຍຂາຍດີ)
+                {showMore ? '▼' : '▶️'} {t('p.moreOptions')}
                 {!showMore && hasRememberedMore && (
                   <span style={{ display: 'block', fontSize: '0.78rem', color: '#6b7280', marginTop: 2 }}>
-                    ມີລາຍລະອຽດ / ຕາຕະລາງຂະໜາດຈາກຊິ້ນກ່ອນໄວ້ໃຫ້ແລ້ວ
+                    {t('p.moreRemembered')}
                   </span>
                 )}
               </button>
 
               {showMore && (
                 <>
-                  <div style={{ fontWeight: 600, margin: '6px 0' }}>ລາຍລະອຽດສິນຄ້າ</div>
+                  <div style={{ fontWeight: 600, margin: '6px 0' }}>{t('p.descTitle')}</div>
                   <textarea
                     rows={4}
-                    placeholder="ເຊັ່ນ ເນື້ອຜ້າ, ຂໍ້ແນະນຳການດູແລ, ຈຸດເດັ່ນຂອງສິນຄ້າ..."
+                    placeholder={t('p.descPh')}
                     value={form.description}
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
                     style={textareaStyle}
                   />
 
-                  <div style={{ fontWeight: 600, margin: '6px 0' }}>ຕາຕະລາງຂະໜາດ (ອົກ / ຍາວ ຫົວໜ່ວຍ cm)</div>
+                  <div style={{ fontWeight: 600, margin: '6px 0' }}>{t('p.sizeChart')}</div>
                   {sizeRows.map((r, i) => (
                     <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 32px', gap: 6, marginBottom: 6 }}>
-                      <input style={{ margin: 0 }} placeholder="ໄຊສ໌" value={r.size} onChange={(e) => updateSizeRow(i, 'size', e.target.value)} />
-                      <input style={{ margin: 0 }} placeholder="ອົກ" value={r.chest} onChange={(e) => updateSizeRow(i, 'chest', e.target.value)} />
-                      <input style={{ margin: 0 }} placeholder="ຍາວ" value={r.length} onChange={(e) => updateSizeRow(i, 'length', e.target.value)} />
+                      <input style={{ margin: 0 }} placeholder={t('p.size')} value={r.size} onChange={(e) => updateSizeRow(i, 'size', e.target.value)} />
+                      <input style={{ margin: 0 }} placeholder={t('p.chest')} value={r.chest} onChange={(e) => updateSizeRow(i, 'chest', e.target.value)} />
+                      <input style={{ margin: 0 }} placeholder={t('p.length')} value={r.length} onChange={(e) => updateSizeRow(i, 'length', e.target.value)} />
                       <button
                         type="button"
                         onClick={() => removeSizeRow(i)}
@@ -647,7 +788,7 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
                     </div>
                   ))}
                   <button type="button" onClick={addSizeRow} style={{ ...plainBtnStyle, padding: '6px 12px', marginBottom: 10 }}>
-                    + ເພີ່ມແຖວຂະໜາດ
+                    {t('p.addSizeRow')}
                   </button>
 
                   {/* ---------- ໂປຣໂມຊັນ ---------- */}
@@ -659,15 +800,15 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
                         onChange={(e) => setPromoActive(e.target.checked)}
                         style={{ width: 'auto', margin: 0 }}
                       />
-                      ຈັດໂປຣໂມຊັນສິນຄ້ານີ້
+                      {t('p.promoToggle')}
                     </label>
                     {promoActive && (
                       <>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
                           <div>
-                            <div style={{ fontSize: '0.8rem', color: '#6b7280', margin: '0 0 2px' }}>ສ່ວນຫຼຸດ %</div>
+                            <div style={{ fontSize: '0.8rem', color: '#6b7280', margin: '0 0 2px' }}>{t('p.discountPct')}</div>
                             <input
-                              placeholder="ເຊັ່ນ 70"
+                              placeholder={t('p.discountPh')}
                               type="number"
                               min="1"
                               max="99"
@@ -677,9 +818,9 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
                             />
                           </div>
                           <div>
-                            <div style={{ fontSize: '0.8rem', color: '#6b7280', margin: '0 0 2px' }}>ລາຄາໂປຣ (ກີບ)</div>
+                            <div style={{ fontSize: '0.8rem', color: '#6b7280', margin: '0 0 2px' }}>{t('p.promoPriceLabel')}</div>
                             <input
-                              placeholder="ລາຄາໂປຣ"
+                              placeholder={t('p.promoPricePh')}
                               type="number"
                               value={promoPrice}
                               onChange={(e) => setPromoPrice(e.target.value)}
@@ -690,7 +831,7 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginTop: 8 }}>
                           <div>
                             <div style={{ fontSize: '0.8rem', color: '#6b7280', margin: '0 0 2px' }}>
-                              ວັນເລີ່ມໂປຣ (ເວັ້ນວ່າງ = ເລີ່ມທັນທີ)
+                              {t('p.promoStart')}
                             </div>
                             <DateField
                               value={promoStart}
@@ -700,7 +841,7 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
                           </div>
                           <div>
                             <div style={{ fontSize: '0.8rem', color: '#6b7280', margin: '0 0 2px' }}>
-                              ວັນສິ້ນສຸດໂປຣ (ເວັ້ນວ່າງ = ບໍ່ມີກຳນົດ)
+                              {t('p.promoEnd')}
                             </div>
                             <DateField
                               value={promoEnd}
@@ -715,11 +856,11 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
                   </div>
 
                   {/* ---------- ປ້າຍສິນຄ້າຂາຍດີ ---------- */}
-                  <div style={{ fontWeight: 600, margin: '6px 0' }}>ປ້າຍສິນຄ້າຂາຍດີ</div>
+                  <div style={{ fontWeight: 600, margin: '6px 0' }}>{t('p.bsTitle')}</div>
                   <select value={bsMode} onChange={(e) => setBsMode(e.target.value)} style={selectStyle}>
-                    <option value="auto">ອັດຕະໂນມັດ (ຕາມຍອດຂາຍ)</option>
-                    <option value="on">ສະແດງປ້າຍສະເໝີ</option>
-                    <option value="off">ບໍ່ສະແດງປ້າຍ</option>
+                    <option value="auto">{t('p.bsAuto')}</option>
+                    <option value="on">{t('p.bsOn')}</option>
+                    <option value="off">{t('p.bsOff')}</option>
                   </select>
                 </>
               )}
@@ -733,19 +874,19 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
                   position: 'sticky', bottom: 0, background: '#fff', padding: '8px 0 2px',
                 }}
               >
-                <button onClick={onClose} style={{ ...plainBtnStyle, flex: '1 1 90px' }}>ຍົກເລີກ</button>
+                <button onClick={onClose} style={{ ...plainBtnStyle, flex: '1 1 90px' }}>{t('common.cancel')}</button>
                 {!isEdit && (
                   <button
                     disabled={saving}
                     onClick={() => validateAndSave(true)}
-                    title="ທາງລັດ: Ctrl+Enter"
+                    title={t('p.shortcut')}
                     style={{ ...plainBtnStyle, flex: '2 1 160px', borderColor: 'var(--blue)', color: 'var(--blue)', fontWeight: 'bold' }}
                   >
-                    {saving ? '...' : 'ບັນທຶກ + ເພີ່ມຊິ້ນຕໍ່ໄປ'}
+                    {saving ? '...' : t('p.saveNext')}
                   </button>
                 )}
                 <button disabled={saving} onClick={() => validateAndSave(false)} style={{ ...primaryBtnStyle, flex: '1 1 110px' }}>
-                  {saving ? '...' : (isEdit ? 'ບັນທຶກ' : 'ເພີ່ມສິນຄ້າ')}
+                  {saving ? '...' : (isEdit ? t('p.save') : t('p.addProduct'))}
                 </button>
               </div>
             </>
@@ -756,10 +897,10 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
       {confirmOpen && (
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setConfirmOpen(false); }}>
           <div className="modal-box" style={{ background: '#fff', color: '#1f2937', maxWidth: 340, textAlign: 'center' }}>
-            <p style={{ fontSize: '1.05rem', marginBottom: 20, color: '#1f2937' }}>ຢືນຢັນບັນທຶກການແກ້ໄຂສິນຄ້ານີ້?</p>
+            <p style={{ fontSize: '1.05rem', marginBottom: 20, color: '#1f2937' }}>{t('p.confirmSave')}</p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-              <button onClick={() => setConfirmOpen(false)} style={plainBtnStyle}>ຍົກເລີກ</button>
-              <button disabled={saving} onClick={() => submit(false)} style={primaryBtnStyle}>ບັນທຶກ</button>
+              <button onClick={() => setConfirmOpen(false)} style={plainBtnStyle}>{t('common.cancel')}</button>
+              <button disabled={saving} onClick={() => submit(false)} style={primaryBtnStyle}>{t('p.save')}</button>
             </div>
           </div>
         </div>
@@ -768,14 +909,35 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
   );
 }
 
+// ສະແດງສະຕັອກໃນຕາຕະລາງ: ຖ້າມີຫຼາຍໄຊສ໌ ສະແດງແຍກ + ລວມ
+function StockCell({ p }) {
+  const { t } = usePageT(dict);
+  const vs = Array.isArray(p.variants) ? p.variants : [];
+  if (vs.length <= 1) {
+    const low = vs[0] ? vs[0].low_stock_alert : DEFAULT_LOW_ALERT;
+    return <span style={{ color: stockColor(p.stock, low), fontWeight: p.stock <= low ? 700 : 400 }}>{p.stock}</span>;
+  }
+  return (
+    <div style={{ fontSize: '0.85rem', lineHeight: 1.5 }}>
+      {vs.map((v) => (
+        <div key={v.id} style={{ color: stockColor(v.stock_qty, v.low_stock_alert), fontWeight: v.stock_qty <= v.low_stock_alert ? 700 : 400 }}>
+          {v.size || '-'}: {v.stock_qty}
+        </div>
+      ))}
+      <div style={{ color: '#6b7280', borderTop: '1px solid #e5e7eb', marginTop: 2 }}>{t('p.stockTotal', { n: p.stock })}</div>
+    </div>
+  );
+}
+
 // ---------- ໜ້າຈັດການສິນຄ້າ ----------
 export default function AdminProducts() {
+  const { t } = usePageT(dict);
   const [products, setProducts] = useState([]);
   const [formModal, setFormModal] = useState(null);
 
   const [qrOpen, setQrOpen] = useState(false);
   const [qrImage, setQrImage] = useState('');
-  const [qrStatus, setQrStatus] = useState('ກຳລັງກວດສອບ...');
+  const [qrStatus, setQrStatus] = useState('p.qrChecking'); // ເກັບເປັນຄີ ແລ້ວແປຕອນສະແດງ
   const qrFileRef = useRef(null);
 
   const dragItem = useRef(null);
@@ -791,6 +953,21 @@ export default function AdminProducts() {
     new Set(products.map((p) => (p.category || '').trim()).filter(Boolean))
   );
 
+  // ລາຍການໄຊສ໌ທີ່ໝົດ / ໃກ້ໝົດ (ສະຕັອກ ≤ ຄ່າເຕືອນ)
+  const lowItems = [];
+  products.forEach((p) => {
+    (p.variants || []).forEach((v) => {
+      if (v.stock_qty <= v.low_stock_alert) {
+        lowItems.push({
+          key: v.id,
+          label: `${p.name}${v.size ? ` (${v.size})` : ''}`,
+          qty: v.stock_qty,
+        });
+      }
+    });
+  });
+  lowItems.sort((a, b) => a.qty - b.qty);
+
   async function loadProducts() {
     const res = await fetch('/api/products');
     const data = await res.json();
@@ -802,9 +979,9 @@ export default function AdminProducts() {
     const data = await res.json();
     if (data.qrImage) {
       setQrImage(data.qrImage);
-      setQrStatus('QR ປັດຈຸບັນ:');
+      setQrStatus('p.qrCurrent');
     } else {
-      setQrStatus('ຍັງບໍ່ໄດ້ອັບໂຫລດ QR');
+      setQrStatus('p.qrNone');
     }
   }
 
@@ -827,14 +1004,14 @@ export default function AdminProducts() {
         body: JSON.stringify({ threshold: Number(threshold) }),
       });
       if (res.ok) {
-        alert('ບັນທຶກສຳເລັດ ✅');
+        alert(t('p.saved'));
         setBestsellerModalOpen(false);
         loadProducts();
       } else {
-        alert('ບັນທຶກບໍ່ສຳເລັດ');
+        alert(t('p.saveFail'));
       }
     } catch (e) {
-      alert('ບັນທຶກບໍ່ສຳເລັດ');
+      alert(t('p.saveFail'));
     }
   }
 
@@ -862,7 +1039,7 @@ export default function AdminProducts() {
   async function uploadQr() {
     const file = qrFileRef.current?.files[0];
     if (!file) {
-      alert('ກະລຸນາເລືອກຮູບ QR ກ່ອນ');
+      alert(t('p.qrPick'));
       return;
     }
     const formData = new FormData();
@@ -875,11 +1052,11 @@ export default function AdminProducts() {
       body: formData,
     });
     if (res.ok) {
-      alert('ອັບໂຫລດ QR ສຳເລັດ ✅');
+      alert(t('p.qrUploaded'));
       qrFileRef.current.value = '';
       loadCurrentQr();
     } else {
-      alert('ອັບໂຫລດບໍ່ສຳເລັດ');
+      alert(t('p.uploadFail'));
     }
   }
 
@@ -918,21 +1095,60 @@ export default function AdminProducts() {
   return (
     <div>
       <div className="admin-card" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-        <button className="primary" onClick={() => setQrOpen(true)}>⚙️ QR ຊັບເງິນ</button>
-        <button className="primary" onClick={() => setFormModal({ mode: 'add' })}>➕ ເພີ່ມສິນຄ້າ</button>
-        <button className="primary" onClick={() => setBestsellerModalOpen(true)}>🔥 ສິນຄ້າຂາຍດີ</button>
+        <button className="primary" onClick={() => setQrOpen(true)}>⚙️ {t('p.btnQr')}</button>
+        <button className="primary" onClick={() => setFormModal({ mode: 'add' })}>➕ {t('p.addProduct')}</button>
+        <button className="primary" onClick={() => setBestsellerModalOpen(true)}>🔥 {t('p.bestsellers')}</button>
       </div>
 
+      {lowItems.length > 0 && (
+        <div
+          className="admin-card"
+          style={{ border: '1px solid #fde68a', background: '#fffbeb' }}
+        >
+          <div style={{ fontWeight: 700, color: '#b45309', marginBottom: 6 }}>
+            ⚠️ {t('p.lowTitle', { n: lowItems.length })}
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {lowItems.slice(0, 12).map((it) => (
+              <span
+                key={it.key}
+                style={{
+                  fontSize: '0.82rem', padding: '3px 10px', borderRadius: 999,
+                  background: it.qty <= 0 ? '#fee2e2' : '#fef3c7',
+                  color: it.qty <= 0 ? '#b91c1c' : '#92400e',
+                }}
+              >
+                {it.label}: {it.qty <= 0 ? t('p.soldOut') : t('p.left', { n: it.qty })}
+              </span>
+            ))}
+            {lowItems.length > 12 && (
+              <span style={{ fontSize: '0.82rem', color: '#92400e' }}>{t('p.andMore', { n: lowItems.length - 12 })}</span>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="admin-card">
-        {products.length === 0 && <p>ຍັງບໍ່ມີສິນຄ້າ</p>}
+        {products.length === 0 && <p>{t('p.noProducts')}</p>}
         {products.length > 0 && (
           <>
             <p style={{ color: '#6b7280', fontSize: '0.85rem', marginBottom: 6 }}>
-              ລາກທີ່ໄອຄອນ ⠿ ເພື່ອສະຫຼັບລຳດັບການສະແດງສິນຄ້າ
+              {t('p.dragHint')}
             </p>
             <table className="admin-table">
               <thead>
-                <tr><th></th><th>ຮູບ</th><th>ຊື່</th><th>ໝວດ</th><th>ລາຄາ</th><th>ໄຊສ໌</th><th>ສີ</th><th>ສະຕັອກ</th><th>ຂາຍແລ້ວ</th><th></th></tr>
+                <tr>
+                  <th></th>
+                  <th>{t('p.thImage')}</th>
+                  <th>{t('p.thName')}</th>
+                  <th>{t('p.thCategory')}</th>
+                  <th>{t('p.price')}</th>
+                  <th>{t('p.size')}</th>
+                  <th>{t('p.color')}</th>
+                  <th>{t('p.thStock')}</th>
+                  <th>{t('p.thSold')}</th>
+                  <th></th>
+                </tr>
               </thead>
               <tbody>
                 {products.map((p, idx) => (
@@ -957,16 +1173,16 @@ export default function AdminProducts() {
                         </>
                       ) : (
                         p.price
-                      )}{' '}ກີບ
+                      )}{' '}{t('common.kip')}
                     </td>
                     <td>{p.size}</td>
                     <td>{p.color}</td>
-                    <td>{p.stock}</td>
+                    <td><StockCell p={p} /></td>
                     <td>{p.sold_count} {p.is_bestseller && '🔥'}</td>
                     <td>
-                      <button onClick={() => setFormModal({ mode: 'edit', id: p.id })}>ແກ້ໄຂ</button>
-                      <button onClick={() => setFormModal({ mode: 'copy', id: p.id })}>ຄັດລອກ</button>
-                      <button className="del-btn" onClick={() => deleteProduct(p.id)}>ລຶບ</button>
+                      <button onClick={() => setFormModal({ mode: 'edit', id: p.id })}>{t('p.edit')}</button>
+                      <button onClick={() => setFormModal({ mode: 'copy', id: p.id })}>{t('p.copy')}</button>
+                      <button className="del-btn" onClick={() => deleteProduct(p.id)}>{t('p.delete')}</button>
                     </td>
                   </tr>
                 ))}
@@ -990,26 +1206,15 @@ export default function AdminProducts() {
         />
       )}
 
-      {qrOpen && (
-        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setQrOpen(false); }}>
-          <div className="modal-box" style={{ background: '#fff', color: '#1f2937' }}>
-            <button className="modal-close" style={{ color: '#1f2937' }} onClick={() => setQrOpen(false)}>✕</button>
-            <h2 style={{ color: 'var(--navy)' }}>ຮູບ QR ຊັບເງິນຮ້ານ</h2>
-            {qrImage && <img src={qrImage} alt="QR" style={{ width: '100%', borderRadius: 8, marginBottom: 10 }} />}
-            <p style={{ color: '#6b7280' }}>{qrStatus}</p>
-            <input type="file" accept="image/*" ref={qrFileRef} />
-            <button style={{ ...primaryBtnStyle, marginTop: 10 }} onClick={uploadQr}>ອັບໂຫລດ QR</button>
-          </div>
-        </div>
-      )}
-
+     {qrOpen && <PaymentQrModal onClose={() => setQrOpen(false)} />}
+      
       {bestsellerModalOpen && (
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setBestsellerModalOpen(false); }}>
           <div className="modal-box" style={{ background: '#fff', color: '#1f2937', maxWidth: 380 }}>
             <button className="modal-close" style={{ color: '#1f2937' }} onClick={() => setBestsellerModalOpen(false)}>✕</button>
-            <h2 style={{ color: 'var(--navy)' }}>🔥 ຕັ້ງຄ່າສິນຄ້າຂາຍດີ</h2>
+            <h2 style={{ color: 'var(--navy)' }}>🔥 {t('p.bsSettings')}</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', margin: '14px 0' }}>
-              <span>ຂາຍໄດ້ຕັ້ງແຕ່</span>
+              <span>{t('p.bsFrom')}</span>
               <input
                 type="number"
                 min="1"
@@ -1017,16 +1222,16 @@ export default function AdminProducts() {
                 onChange={(e) => setThreshold(e.target.value)}
                 style={{ width: 90, margin: 0 }}
               />
-              <span>ຊິ້ນຂຶ້ນໄປ ຖືວ່າເປັນສິນຄ້າຂາຍດີ</span>
+              <span>{t('p.bsSuffix')}</span>
             </div>
-            <button className="primary" style={{ width: '100%' }} onClick={saveThreshold}>ບັນທຶກ</button>
+            <button className="primary" style={{ width: '100%' }} onClick={saveThreshold}>{t('p.save')}</button>
           </div>
         </div>
       )}
 
       <ConfirmModal
         open={!!deleteTarget}
-        message="ຕ້ອງການລຶບສິນຄ້ານີ້ບໍ?"
+        message={t('p.confirmDelete')}
         danger
         onConfirm={confirmDeleteProduct}
         onCancel={() => setDeleteTarget(null)}

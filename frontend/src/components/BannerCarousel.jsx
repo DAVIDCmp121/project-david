@@ -1,17 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_BASE } from '../api.js';
+import { usePageT } from '../useT.js';
+import dict from '../locales/cust-nav.js';
 
 const SLIDE_MS = 2000; // เลื่อนเองทุก 2 วินาที
 
 export default function BannerCarousel({ banners }) {
   const navigate = useNavigate();
+  const { t } = usePageT(dict);
   const [idx, setIdx] = useState(0);
   const [paused, setPaused] = useState(false);
   const touchX = useRef(null);
   const count = banners.length;
 
-  // ถ้าจนวนแบนเนอร์ลดลง (แอดมินลบ) ให้กลับไปรปแรก
+  // ถ้าจำนวนแบนเนอร์ลดลง (แอดมินลบ) ให้กลับไปรูปแรก
   useEffect(() => {
     if (idx >= count) setIdx(0);
   }, [count, idx]);
@@ -65,14 +68,14 @@ export default function BannerCarousel({ banners }) {
 
       {count > 1 && (
         <>
-          <button type="button" className="hm-banner-arrow left" aria-label="ກ່ອນໜ້າ" onClick={() => go(idx - 1)}>‹</button>
-          <button type="button" className="hm-banner-arrow right" aria-label="ຖັດໄປ" onClick={() => go(idx + 1)}>›</button>
+          <button type="button" className="hm-banner-arrow left" aria-label={t('cn.bannerPrev')} onClick={() => go(idx - 1)}>‹</button>
+          <button type="button" className="hm-banner-arrow right" aria-label={t('cn.bannerNext')} onClick={() => go(idx + 1)}>›</button>
           <div className="hm-dots">
             {banners.map((b, i) => (
               <button
                 key={b.id}
                 type="button"
-                aria-label={`ແບນເນີທີ ${i + 1}`}
+                aria-label={t('cn.bannerN', { n: i + 1 })}
                 className={`hm-dot ${i === idx ? 'active' : ''}`}
                 onClick={() => go(i)}
               />

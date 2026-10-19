@@ -1,12 +1,16 @@
+import { useLang } from '../i18n.jsx';
+
 export default function ConfirmModal({
   open,
   message,
-  confirmText = 'ຢືນຢັນ',
-  cancelText = 'ຍົກເລີກ',
+  confirmText,
+  cancelText,
   danger = false,
+  hideCancel = false, // true = กล่องแจ้งข้อความ (ปุ่มเดียว) แทน alert()
   onConfirm,
   onCancel,
 }) {
+  const { t } = useLang();
   if (!open) return null;
 
   return (
@@ -16,15 +20,17 @@ export default function ConfirmModal({
           {message}
         </p>
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-          <button
-            onClick={onCancel}
-            style={{
-              background: '#fff', color: '#374151', border: '1px solid #dfe3e8',
-              padding: '10px 20px', borderRadius: 6, cursor: 'pointer', minWidth: 96,
-            }}
-          >
-            {cancelText}
-          </button>
+          {!hideCancel && (
+            <button
+              onClick={onCancel}
+              style={{
+                background: '#fff', color: '#374151', border: '1px solid #dfe3e8',
+                padding: '10px 20px', borderRadius: 6, cursor: 'pointer', minWidth: 96,
+              }}
+            >
+              {cancelText ?? t('common.cancel')}
+            </button>
+          )}
           <button
             onClick={onConfirm}
             style={{
@@ -32,7 +38,7 @@ export default function ConfirmModal({
               padding: '10px 20px', borderRadius: 6, fontWeight: 'bold', cursor: 'pointer', minWidth: 96,
             }}
           >
-            {confirmText}
+            {confirmText ?? t('common.confirm')}
           </button>
         </div>
       </div>

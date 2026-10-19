@@ -34,21 +34,34 @@ async function withTx(fn) {
   }
 }
 
+// ຕອບເມື່ອຖືກລັອກ: ສົ່ງ seconds_left ໄປນຳ ເພື່ອໃຫ້ frontend ແປເປັນພາສາຂອງລູກຄ້າ
+function sendLocked(res, secondsLeft) {
+  return res.status(429).json({
+    error: `ພະຍາຍາມຫຼາຍເກີນໄປ ກະລຸນາລອງໃໝ່ໃນ ${secondsLeft} ວິນາທີ`,
+    locked: true,
+    seconds_left: secondsLeft,
+  });
+}
+
 // ກວດ PIN ປັດຈຸບັນ + ກັນເດົາ PIN (ສົ່ງ response ເອງເມື່ອບໍ່ຜ່ານ)
-async function checkPin(req, res, action, pin) {
-  const lockKey = `${action}:${req.customerId}`;
+// ທຸກການຢືນຢັນ PIN ຂອງລູກຄ້າຄົນດຽວກັນໃຊ້ກຸນແຈລັອກດຽວກັນ
+// (ບໍ່ແຍກຕາມໜ້າທີ່ ເພື່ອບໍ່ໃຫ້ເດົາໄດ້ຫຼາຍຂຶ້ນໂດຍການສະຫຼັບໜ້າ)
+async function checkPin(req, res, _action, pin) {
+  const lockKey = `pin-check:${req.customerId}`;
   const lock = checkLocked(lockKey);
   if (lock.locked) {
-    res.status(429).json({
-      error: `ພະຍາຍາມຫຼາຍເກີນໄປ ກະລຸນາລອງໃໝ່ໃນ ${lock.secondsLeft} ວິນາທີ`,
-    });
+    sendLocked(res, lock.secondsLeft);
     return false;
   }
   const [rows] = await pool.query('SELECT pin_hash FROM customers WHERE id = ?', [req.customerId]);
   const ok = rows[0] && pin && (await bcrypt.compare(String(pin), rows[0].pin_hash));
   if (!ok) {
-    recordFailure(lockKey);
-    res.status(401).json({ error: 'PIN ບໍ່ຖືກຕ້ອງ' });
+    const fail = recordFailure(lockKey);
+    if (fail.locked) {
+      sendLocked(res, fail.secondsLeft);
+    } else {
+      res.status(401).json({ error: 'PIN ບໍ່ຖືກຕ້ອງ', attempts_left: fail.attemptsLeft });
+    }
     return false;
   }
   clearAttempts(lockKey);
@@ -190,8 +203,22 @@ router.delete('/addresses/:id', async (req, res) => {
 });
 
 /* ---------- ວັນເກີດ (ໃຊ້ຢືນຢັນຕອນລືມ PIN) ---------- */
+
+// ບອກພຽງວ່າຕັ້ງວັນເກີດໄວ້ແລ້ວຫຼືຍັງ (ບໍ່ສົ່ງວັນເກີດຈິງ)
 router.get('/birth-date', async (req, res) => {
   try {
+    const [rows] = await pool.query('SELECT birth_date FROM customers WHERE id = ?', [req.customerId]);
+    res.json({ success: true, has_birth_date: !!(rows[0] && rows[0].birth_date) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: SERVER_ERROR });
+  }
+});
+
+// ເບິ່ງວັນເກີດຈິງ: ຕ້ອງໃສ່ PIN ຖືກເທົ່ານັ້ນ (ກວດຝັ່ງເຊີບເວີ)
+router.post('/birth-date/reveal', async (req, res) => {
+  try {
+    if (!(await checkPin(req, res, 'reveal-birth-date', req.body.pin))) return;
     const [rows] = await pool.query(
       "SELECT DATE_FORMAT(birth_date, '%Y-%m-%d') AS birth_date FROM customers WHERE id = ?",
       [req.customerId]
@@ -203,6 +230,7 @@ router.get('/birth-date', async (req, res) => {
   }
 });
 
+// ຕັ້ງ / ປ່ຽນວັນເກີດ (ຕ້ອງໃສ່ PIN)
 router.post('/birth-date', async (req, res) => {
   const birthDate = String(req.body.birth_date || '');
   if (!validDate(birthDate)) {
@@ -241,7 +269,7 @@ router.post('/change-pin', async (req, res) => {
 });
 
 /* ---------- ລຶບບັນຊີ ---------- */
-// ລຶບຂໍ້ມູນສ່ວນຕົວ (ທີ່ຢູ່, ຖືກໃຈ, ກະຕ່າ, ແຊັດ) ແລະ ປ່ຽນແຖວລູກຄ້າເປັນບັນຊີວ່າງ
+// ລຶບຂໍ້ມູນສ່ວນຕົວ (ທີ່ຢູ່, ຖືກໃຈ, ກະຕ່າ, ແຊັດ, ຄູປອງ, ແຕ້ມ) ແລະ ປ່ຽນແຖວລູກຄ້າເປັນບັນຊີວ່າງ
 // ແຕ່ຍັງເກັບປະຫວັດອໍເດີໄວ້ໃຫ້ຮ້ານ
 router.post('/delete', async (req, res) => {
   try {
@@ -266,6 +294,8 @@ router.post('/delete', async (req, res) => {
       await conn.query('DELETE FROM favorites WHERE customer_id = ?', [id]);
       await conn.query('DELETE FROM cart_items WHERE customer_id = ?', [id]);
       await conn.query('DELETE FROM messages WHERE customer_id = ?', [id]);
+      await conn.query('DELETE FROM user_coupons WHERE customer_id = ?', [id]);
+      await conn.query('DELETE FROM points_ledger WHERE customer_id = ?', [id]);
       await conn.query(
         `UPDATE customers
          SET phone = ?, pin_hash = ?, name = NULL, birth_date = NULL, deleted_at = NOW()

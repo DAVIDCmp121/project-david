@@ -1,4 +1,4 @@
-// Middleware ກວດສອບວ່າລູກຄ້າ login ຢູ່ບໍ (ໃຊ້ token ຈາກ Authorization header ຫຼື cookie)
+// Middleware ตรวจว่าลูกค้า login อยู่ไหม (ใช้ token จาก Authorization header หรือ cookie)
 const jwt = require('jsonwebtoken');
 const JWT_SECRET = require('../jwtSecret');
 
@@ -14,6 +14,10 @@ function requireCustomerAuth(req, res, next) {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+    // ต้องเป็น token ของลูกค้าจริง (token แอดมินไม่มี customerId)
+    if (!decoded.customerId) {
+      return res.status(401).json({ error: 'Token ບໍ່ຖືກຕ້ອງ ຫຼື ໝົດອາຍຸ' });
+    }
     req.customerId = decoded.customerId;
     next();
   } catch (err) {

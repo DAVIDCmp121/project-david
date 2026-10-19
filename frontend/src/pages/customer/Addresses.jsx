@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../../components/TopBar.jsx';
+import ConfirmModal from '../../components/ConfirmModal.jsx';
 import { CartProvider } from '../../context/CartContext.jsx';
 import { apiGet, apiPost, apiPut, apiDelete } from '../../api';
+import { usePageT } from '../../useT.js';
+import dict from '../../locales/cust-addresses.js';
 
 const MAX_ADDRESSES = 5;
 const BASE = '/api/customer-account/addresses';
@@ -65,12 +68,14 @@ const css = `
 
 function AddressesInner() {
   const navigate = useNavigate();
+  const { t } = usePageT(dict);
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null); // null | 'new' | id
   const [form, setForm] = useState({ label: '', address: '' });
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState(null);
+  const [delId, setDelId] = useState(null); // ที่อยู่ที่รอยืนยันการลบ
 
   useEffect(() => {
     load();
@@ -85,10 +90,10 @@ function AddressesInner() {
         return;
       }
       if (res.ok) setList(res.data.addresses || []);
-      else setMessage({ type: 'error', text: 'ໂຫລດຂໍ້ມູນບໍ່ສຳເລັດ' });
+      else setMessage({ type: 'error', text: t('ad.loadFail') });
     } catch (err) {
       console.error(err);
-      setMessage({ type: 'error', text: 'ໂຫລດຂໍ້ມູນບໍ່ສຳເລັດ' });
+      setMessage({ type: 'error', text: t('ad.loadFail') });
     }
     setLoading(false);
   }
@@ -114,7 +119,7 @@ function AddressesInner() {
   async function save() {
     const address = form.address.trim();
     if (!address) {
-      setMessage({ type: 'error', text: 'ກະລຸນາປ້ອນທີ່ຢູ່' });
+      setMessage({ type: 'error', text: t('ad.errAddr') });
       return;
     }
     setSaving(true);
@@ -126,24 +131,30 @@ function AddressesInner() {
         setEditing(null);
         await load();
       } else {
-        setMessage({ type: 'error', text: (res.data && res.data.error) || 'ບັນທຶກບໍ່ສຳເລັດ' });
+        setMessage({ type: 'error', text: (res.data && res.data.error) || t('ad.errSave') });
       }
     } catch (err) {
       console.error(err);
-      setMessage({ type: 'error', text: 'ບັນທຶກບໍ່ສຳເລັດ' });
+      setMessage({ type: 'error', text: t('ad.errSave') });
     }
     setSaving(false);
   }
 
-  async function remove(id) {
-    if (!window.confirm('ລຶບທີ່ຢູ່ນີ້?')) return;
+  // กดปุ่มลบ → เปิดกล่องยืนยัน
+  function askRemove(id) {
+    setDelId(id);
+  }
+
+  async function doRemove() {
+    const id = delId;
+    setDelId(null);
     try {
       const res = await apiDelete(`${BASE}/${id}`);
       if (res.ok) await load();
-      else setMessage({ type: 'error', text: (res.data && res.data.error) || 'ລຶບບໍ່ສຳເລັດ' });
+      else setMessage({ type: 'error', text: (res.data && res.data.error) || t('ad.errDel') });
     } catch (err) {
       console.error(err);
-      setMessage({ type: 'error', text: 'ລຶບບໍ່ສຳເລັດ' });
+      setMessage({ type: 'error', text: t('ad.errDel') });
     }
   }
 
@@ -163,10 +174,10 @@ function AddressesInner() {
 
       <div className="ad-wrap">
         <div className="ad-head">
-          <button className="ad-back" onClick={() => navigate('/menu/profile')} aria-label="ກັບຄືນ">
+          <button className="ad-back" onClick={() => navigate('/menu/profile')} aria-label={t('common.back')}>
             ‹
           </button>
-          <h1 className="ad-title">ທີ່ຢູ່ຈັດສົ່ງ</h1>
+          <h1 className="ad-title">{t('ad.title')}</h1>
         </div>
 
         {message && (
@@ -177,69 +188,77 @@ function AddressesInner() {
 
         {editing !== null && (
           <section className="ad-card">
-            <div className="ad-lb">ຊື່ທີ່ຢູ່ (ບໍ່ບັງຄັບ)</div>
+            <div className="ad-lb">{t('ad.labelName')}</div>
             <input
               className="ad-input"
               type="text"
               maxLength={50}
-              placeholder="ເຊັ່ນ ບ້ານ, ຫ້ອງການ"
+              placeholder={t('ad.labelPh')}
               value={form.label}
               onChange={(e) => setForm({ ...form, label: e.target.value })}
             />
-            <div className="ad-lb">ທີ່ຢູ່</div>
+            <div className="ad-lb">{t('ad.address')}</div>
             <textarea
               className="ad-input"
               rows={3}
               maxLength={500}
-              placeholder="ບ້ານ, ເມືອງ, ແຂວງ, ຈຸດສັງເກດ"
+              placeholder={t('ad.addressPh')}
               value={form.address}
               onChange={(e) => setForm({ ...form, address: e.target.value })}
             />
             <div className="ad-row">
-              <button className="ad-cancel" onClick={cancel}>ຍົກເລີກ</button>
+              <button className="ad-cancel" onClick={cancel}>{t('common.cancel')}</button>
               <button className="ad-save" onClick={save} disabled={saving}>
-                {saving ? 'ກຳລັງບັນທຶກ...' : 'ບັນທຶກ'}
+                {saving ? t('ad.saving') : t('ad.save')}
               </button>
             </div>
           </section>
         )}
 
         {loading ? (
-          <p style={{ color: 'var(--cust-text-muted)' }}>ກຳລັງໂຫລດ...</p>
+          <p style={{ color: 'var(--cust-text-muted)' }}>{t('common.loading')}</p>
         ) : (
           <>
             {list.length === 0 && editing === null && (
-              <div className="ad-empty">ຍັງບໍ່ມີທີ່ຢູ່ທີ່ບັນທຶກໄວ້</div>
+              <div className="ad-empty">{t('ad.empty')}</div>
             )}
 
             {list.map((a) => (
               <section key={a.id} className={`ad-card${a.is_default ? ' is-default' : ''}`}>
                 <div className="ad-top">
-                  <span className="ad-label">{a.label || 'ທີ່ຢູ່'}</span>
-                  {a.is_default ? <span className="ad-badge">ຄ່າເລີ່ມຕົ້ນ</span> : null}
+                  <span className="ad-label">{a.label || t('ad.address')}</span>
+                  {a.is_default ? <span className="ad-badge">{t('ad.default')}</span> : null}
                 </div>
                 <div className="ad-text">{a.address}</div>
                 <div className="ad-actions">
                   {!a.is_default && (
                     <button className="ad-btn" onClick={() => makeDefault(a.id)}>
-                      ຕັ້ງເປັນຄ່າເລີ່ມຕົ້ນ
+                      {t('ad.setDefault')}
                     </button>
                   )}
-                  <button className="ad-btn" onClick={() => startEdit(a)}>ແກ້ໄຂ</button>
-                  <button className="ad-btn danger" onClick={() => remove(a.id)}>ລຶບ</button>
+                  <button className="ad-btn" onClick={() => startEdit(a)}>{t('ad.edit')}</button>
+                  <button className="ad-btn danger" onClick={() => askRemove(a.id)}>{t('ad.delete')}</button>
                 </div>
               </section>
             ))}
 
             {editing === null &&
               (list.length < MAX_ADDRESSES ? (
-                <button className="ad-add" onClick={startNew}>+ ເພີ່ມທີ່ຢູ່ໃໝ່</button>
+                <button className="ad-add" onClick={startNew}>{t('ad.add')}</button>
               ) : (
-                <div className="ad-limit">ບັນທຶກໄດ້ສູງສຸດ {MAX_ADDRESSES} ທີ່ຢູ່</div>
+                <div className="ad-limit">{t('ad.limit', { n: MAX_ADDRESSES })}</div>
               ))}
           </>
         )}
       </div>
+
+      <ConfirmModal
+        open={delId !== null}
+        message={t('ad.delConfirm')}
+        danger
+        onConfirm={doRemove}
+        onCancel={() => setDelId(null)}
+      />
     </div>
   );
 }

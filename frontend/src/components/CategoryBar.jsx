@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { usePageT } from '../useT.js';
+import dict from '../locales/cust-nav.js';
 
 // ---------- ໄອຄອນສຳເລັດຮູບ ----------
 const ICON_PATHS = {
@@ -105,10 +107,11 @@ function useVisibleCount() {
 }
 
 export default function CategoryBar({ products, selected, onSelect }) {
+  const { t } = usePageT(dict);
   const visibleCount = useVisibleCount();
   const [moreOpen, setMoreOpen] = useState(false);
 
-  // ນັບສິນຄ້າຕໍ່ໝວດ ແລ້ວຮຽງຈາກຫຼາຍໄປນ້ອຍ
+  // ນັບສິນຄ້າຕໍ່ໝວດ ແລ້ວຮຽງຈາກຫຼາຍໄປນ້ອຍ (ຊື່ໝວດມາຈາກຖານຂໍ້ມູນ ບໍ່ແປ)
   const counts = {};
   (products || []).forEach((p) => {
     const c = (p.category || '').trim();
@@ -137,7 +140,7 @@ export default function CategoryBar({ products, selected, onSelect }) {
           onClick={() => { onSelect(''); setMoreOpen(false); }}
         >
           <span className="cb-icon"><CategoryIcon type="all" /></span>
-          <span className="cb-label">ທັງໝົດ</span>
+          <span className="cb-label">{t('common.all')}</span>
         </button>
 
         {main.map((name) => (
@@ -161,7 +164,7 @@ export default function CategoryBar({ products, selected, onSelect }) {
             className={`cb-more-btn ${selectedInRest ? 'active' : ''}`}
             onClick={() => setMoreOpen((v) => !v)}
           >
-            <span className="cb-more-text">{selectedInRest ? selected : 'ເພີ່ມເຕີມ'}</span>
+            <span className="cb-more-text">{selectedInRest ? selected : t('cn.more')}</span>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="6 9 12 15 18 9" />
             </svg>

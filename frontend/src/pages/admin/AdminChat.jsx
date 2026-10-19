@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
+import { usePageT } from '../../useT.js';
+import chatDict from '../../locales/chat.js';
 
 // ---------- สไตล์ (อยู่ในไฟล์นี้ ไม่ชนกับ CSS เดิม) ----------
 const CSS = `
@@ -73,9 +75,9 @@ function avatarColor(label) {
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
 }
 
-function fmtMoney(n) {
+function fmtMoney(n, kip) {
   const v = Number(String(n).replace(/,/g, ''));
-  return Number.isNaN(v) ? String(n) : `${v.toLocaleString('en-US')} ກີບ`;
+  return Number.isNaN(v) ? String(n) : `${v.toLocaleString('en-US')} ${kip}`;
 }
 
 function looksLikeOrder(text) {
@@ -86,7 +88,8 @@ function looksLikeOrder(text) {
   return /^:\s*-\s/.test(flat.slice(colon));
 }
 
-// แปลงข้อความ "ສັ່ງຊື້ໃໝ່: - POLO (ໄຊສ໌ M) x1 = 459000 ກີບ ... ລວມ: ... ທີ່ຢູ່ຈັດສົ່ງ: ..." เป็นข้อมูล
+// ★ ข้อความออเดอร์ที่ลูกค้าส่งมา (เก็บในฐานข้อมูลเป็นภาษาลาว) ต้องไม่แปล
+// เพราะตัวอ่านข้อความนี้หาคำว่า "ລວມ" ในข้อความ — ถ้าเปลี่ยนที่หน้า Checkout ต้องแก้ตรงนี้ด้วย
 function parseOrder(raw) {
   if (!looksLikeOrder(raw)) return null;
   const flat = raw.replace(/\s+/g, ' ').trim();
@@ -128,22 +131,24 @@ function parseOrder(raw) {
   return { title, items, total, address };
 }
 
-function lastPreview(text) {
-  if (!text) return '📷 ຮູບພາບ';
+function lastPreview(text, t) {
+  if (!text) return t('ch.photo');
   if (looksLikeOrder(text)) return `🛒 ${text.slice(0, text.indexOf(':')).trim()}`;
   return text;
 }
 
-function dayLabel(d) {
+function dayLabel(d, t) {
   const today = new Date();
   const yest = new Date();
   yest.setDate(today.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) return 'ມື້ນີ້';
-  if (d.toDateString() === yest.toDateString()) return 'ມື້ວານ';
+  if (d.toDateString() === today.toDateString()) return t('common.today');
+  if (d.toDateString() === yest.toDateString()) return t('common.yesterday');
   return d.toLocaleDateString('en-GB');
 }
 
 function OrderCard({ order }) {
+  const { t } = usePageT(chatDict);
+  const kip = t('common.kip');
   return (
     <div className="ac-order">
       <div className="ac-order-head">🛒 {order.title}</div>
@@ -156,16 +161,16 @@ function OrderCard({ order }) {
             </div>
             <div className="ac-oi-sub">x{it.qty}</div>
           </div>
-          <div className="ac-oi-price">{fmtMoney(it.price)}</div>
+          <div className="ac-oi-price">{fmtMoney(it.price, kip)}</div>
         </div>
       ))}
       <div className="ac-total">
-        <span>ລວມ</span>
-        <span>{fmtMoney(order.total)}</span>
+        <span>{t('ch.orderTotal')}</span>
+        <span>{fmtMoney(order.total, kip)}</span>
       </div>
       {order.address && (
         <div className="ac-addr">
-          <b>📍 ທີ່ຢູ່ຈັດສົ່ງ</b>
+          <b>📍 {t('ch.address')}</b>
           {order.address}
         </div>
       )}
@@ -175,6 +180,8 @@ function OrderCard({ order }) {
 
 // ---------- หน้าแชต ----------
 export default function AdminChat() {
+  const { t, locale } = usePageT(chatDict);
+
   const [customers, setCustomers] = useState([]);
   const [currentId, setCurrentId] = useState(null);
   const [currentLabel, setCurrentLabel] = useState('');
@@ -231,7 +238,7 @@ export default function AdminChat() {
     if (boxRef.current) boxRef.current.scrollTop = boxRef.current.scrollHeight;
   }, [messages]);
 
-  function openCustomerChat(id, label) { 
+  function openCustomerChat(id, label) {
     setCurrentId(id);
     setCurrentLabel(label);
     setMessages([]);
@@ -264,10 +271,10 @@ export default function AdminChat() {
         lastMsgCount.current = 0;
         loadMessages(currentId);
       } else {
-        alert(data.error || 'ສົ່ງບໍ່ສຳເລັດ');
+        alert(data.error || t('ch.errSend'));
       }
     } catch (err) {
-      alert('ເກີດຂໍ້ຜິດພາດ');
+      alert(t('ch.errGeneric'));
     }
   }
 
@@ -288,10 +295,10 @@ export default function AdminChat() {
         lastMsgCount.current = 0;
         loadMessages(currentId);
       } else {
-        alert(data.error || 'ອັບໂຫລດບໍ່ສຳເລັດ');
+        alert(data.error || t('ch.errUpload'));
       }
     } catch (err) {
-      alert('ເກີດຂໍ້ຜິດພາດ');
+      alert(t('ch.errGeneric'));
     }
     e.target.value = '';
   }
@@ -313,11 +320,11 @@ export default function AdminChat() {
       if (key !== prevDay) {
         prevDay = key;
         rendered.push(
-          <div className="ac-date" key={`d-${msg.id}`}>{dayLabel(d)}</div>
+          <div className="ac-date" key={`d-${msg.id}`}>{dayLabel(d, t)}</div>
         );
       }
     }
-    const time = valid ? d.toLocaleTimeString('lo-LA', { hour: '2-digit', minute: '2-digit' }) : '';
+    const time = valid ? d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' }) : '';
     const isImageOnly = msg.image_url && !msg.message_text;
     const order = msg.message_text ? parseOrder(msg.message_text) : null;
     const side = msg.sender === 'admin' ? 'admin' : 'customer';
@@ -349,22 +356,22 @@ export default function AdminChat() {
           <div className="ac-search">
             <input
               type="text"
-              placeholder="ຄົ້ນຫາລູກຄ້າ..."
+              placeholder={t('ch.search')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
           <div className="ac-items">
-            {customers.length === 0 && <div className="ac-empty">ຍັງບໍ່ມີແຊັດ</div>}
-            {customers.length > 0 && filtered.length === 0 && <div className="ac-empty">ບໍ່ພົບລູກຄ້າ</div>}
+            {customers.length === 0 && <div className="ac-empty">{t('ch.noChats')}</div>}
+            {customers.length > 0 && filtered.length === 0 && <div className="ac-empty">{t('ch.noCustomer')}</div>}
             {filtered.map((c) => {
               const label = String(c.name || c.phone || '?');
-              const t = c.last_message_at || c.last_time || c.updated_at;
-              const td = t ? new Date(t) : null;
+              const ts = c.last_message_at || c.last_time || c.updated_at;
+              const td = ts ? new Date(ts) : null;
               const timeText =
                 td && !Number.isNaN(td.getTime())
                   ? (td.toDateString() === new Date().toDateString()
-                      ? td.toLocaleTimeString('lo-LA', { hour: '2-digit', minute: '2-digit' })
+                      ? td.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
                       : td.toLocaleDateString('en-GB'))
                   : '';
               return (
@@ -382,7 +389,7 @@ export default function AdminChat() {
                       {timeText && <div className="ac-time">{timeText}</div>}
                     </div>
                     <div className="ac-row">
-                      <div className="ac-last">{lastPreview(c.last_message)}</div>
+                      <div className="ac-last">{lastPreview(c.last_message, t)}</div>
                       {c.unread_count > 0 && <div className="ac-badge">{c.unread_count}</div>}
                     </div>
                   </div>
@@ -396,18 +403,18 @@ export default function AdminChat() {
         <div className="ac-pane">
           <div className="ac-header">
             {currentId && (
-              <button className="ac-back" onClick={closeChat} aria-label="back">←</button>
+              <button className="ac-back" onClick={closeChat} aria-label={t('ch.back')}>←</button>
             )}
             {currentId && (
               <div className="ac-avatar" style={{ background: avatarColor(currentLabel || '?') }}>
                 {(currentLabel || '?').trim().charAt(0)}
               </div>
             )}
-            <div>{currentId ? currentLabel : 'ເລືອກລູກຄ້າເພື່ອເລີ່ມແຊັດ'}</div>
+            <div>{currentId ? currentLabel : t('ch.pickToStart')}</div>
           </div>
 
           <div className="ac-box" ref={boxRef}>
-            {!currentId && <div className="ac-empty">ຍັງບໍ່ໄດ້ເລືອກລູກຄ້າ</div>}
+            {!currentId && <div className="ac-empty">{t('ch.notSelected')}</div>}
             {currentId && rendered}
           </div>
 
@@ -419,14 +426,14 @@ export default function AdminChat() {
               </label>
               <input
                 type="text"
-                placeholder="ພິມຂໍ້ຄວາມ..."
+                placeholder={t('ch.typePh')}
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.nativeEvent.isComposing) sendAdminText();
                 }}
               />
-              <button className="ac-send" disabled={!text.trim()} onClick={sendAdminText}>ສົ່ງ</button>
+              <button className="ac-send" disabled={!text.trim()} onClick={sendAdminText}>{t('ch.send')}</button>
             </div>
           )}
         </div>

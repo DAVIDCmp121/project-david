@@ -1,5 +1,6 @@
 require('dotenv').config();
 const mysql = require('mysql2/promise');
+const { deriveVariantList, makeSku } = require('./utils/variants');
 
 const pool = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -31,6 +32,29 @@ async function tableExists(table) {
     [table]
   );
   return Number(rows[0].c) > 0;
+}
+
+// orders.product_id / quantity ເປັນຂອງແບບເກົ່າ (1 ອໍເດີ = 1 ສິນຄ້າ)
+// ລະບົບໃໝ່ເກັບສິນຄ້າໃນ order_items ແລ້ວ ຈຶ່ງຕ້ອງໃຫ້ສອງຊ່ອງນີ້ເປັນ NULL / ມີຄ່າເລີ່ມຕົ້ນໄດ້
+// (ກວດກ່ອນ ຖ້າແກ້ແລ້ວຈະບໍ່ ALTER ຊ້ຳ)
+async function relaxLegacyOrderColumns() {
+  try {
+    const [cols] = await pool.query(
+      `SELECT COLUMN_NAME, IS_NULLABLE, COLUMN_DEFAULT FROM information_schema.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders'
+         AND COLUMN_NAME IN ('product_id', 'quantity')`
+    );
+    const pid = cols.find((c) => c.COLUMN_NAME === 'product_id');
+    const qty = cols.find((c) => c.COLUMN_NAME === 'quantity');
+    if (pid && pid.IS_NULLABLE === 'NO') {
+      await pool.query('ALTER TABLE orders MODIFY product_id INT NULL');
+    }
+    if (qty && qty.COLUMN_DEFAULT === null) {
+      await pool.query('ALTER TABLE orders MODIFY quantity INT NOT NULL DEFAULT 1');
+    }
+  } catch (err) {
+    console.warn('⚠️ relaxLegacyOrderColumns:', err.message);
+  }
 }
 
 // ເພີ່ມຄອລຳ size ໃຫ້ cart_items / order_items ແລະ ແກ້ unique key ຂອງຕະກຣ້າ
@@ -71,6 +95,78 @@ async function migrateSizes() {
     }
   } catch (err) {
     console.warn('⚠️ migrateSizes:', err.message);
+  }
+}
+
+// ===== ສະຕັອກຕາມໄຊສ໌ (product_variants) + ປະຫວັດສະຕັອກ (stock_movements) =====
+// 1 ແຖວ variant = 1 ໄຊສ໌ຂອງສິນຄ້າ; products.stock ຍັງເກັບໄວ້ ແຕ່ເປັນຜົນລວມທີ່ລະບົບຄຳນວນໃຫ້
+async function migrateVariants() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS product_variants (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      product_id INT NOT NULL,
+      size VARCHAR(50) NOT NULL DEFAULT '',
+      sku VARCHAR(80) NULL,
+      barcode VARCHAR(50) NULL,
+      stock_qty INT NOT NULL DEFAULT 0,
+      low_stock_alert INT NOT NULL DEFAULT 2,
+      active TINYINT NOT NULL DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_variant_prod_size (product_id, size),
+      INDEX idx_variant_barcode (barcode)
+    ) CHARACTER SET utf8mb4
+  `);
+
+  // ບັນທຶກທຸກຄັ້ງທີ່ສະຕັອກປ່ຽນ (change_qty: + ເພີ່ມ / - ຫຼຸດ)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS stock_movements (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      variant_id INT NULL,
+      product_id INT NOT NULL,
+      change_qty INT NOT NULL,
+      reason VARCHAR(30) NOT NULL,
+      channel VARCHAR(10) NOT NULL DEFAULT 'online',
+      order_id INT NULL,
+      staff_id INT NULL,
+      note VARCHAR(255) NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_sm_variant (variant_id),
+      INDEX idx_sm_product (product_id),
+      INDEX idx_sm_created (created_at)
+    ) CHARACTER SET utf8mb4
+  `);
+
+  if (await tableExists('order_items')) {
+    await addColumnIfMissing('order_items', 'variant_id', 'INT NULL');
+  }
+  // ຊ່ອງທາງຂາຍ: online = ເວັບ, store = ໜ້າຮ້ານ (ໃຊ້ໃນເຟສຕໍ່ໄປ)
+  await addColumnIfMissing('orders', 'channel', "VARCHAR(10) NOT NULL DEFAULT 'online'");
+
+  // ສ້າງ variant ໃຫ້ສິນຄ້າທີ່ຍັງບໍ່ມີ (ເຮັດຄັ້ງດຽວ — ຮອບຕໍ່ໄປຂ້າມເພາະມີແລ້ວ)
+  try {
+    const [prods] = await pool.query(
+      `SELECT p.id, p.size, p.size_selectable, p.stock
+       FROM products p
+       WHERE NOT EXISTS (SELECT 1 FROM product_variants v WHERE v.product_id = p.id)`
+    );
+    for (const p of prods) {
+      const list = deriveVariantList(p.size, p.size_selectable, p.stock);
+      for (const v of list) {
+        const [ins] = await pool.query(
+          'INSERT IGNORE INTO product_variants (product_id, size, sku, stock_qty) VALUES (?, ?, ?, ?)',
+          [p.id, v.size, makeSku(p.id, v.size), v.stock_qty]
+        );
+        if (ins.insertId && v.stock_qty > 0) {
+          await pool.query(
+            `INSERT INTO stock_movements (variant_id, product_id, change_qty, reason, channel, note)
+             VALUES (?, ?, ?, 'migrate', 'system', 'ຍ້າຍຈາກສະຕັອກເກົ່າ')`,
+            [ins.insertId, p.id, v.stock_qty]
+          );
+        }
+      }
+    }
+  } catch (err) {
+    console.error('❌ migrateVariants:', err.message);
   }
 }
 
@@ -165,11 +261,12 @@ async function initDb() {
     ) CHARACTER SET utf8mb4
   `);
 
+  // product_id / quantity ເປັນຊ່ອງແບບເກົ່າ (ສິນຄ້າຕົວຈິງຢູ່ໃນ order_items) ຈຶ່ງໃຫ້ NULL ໄດ້
   await pool.query(`
     CREATE TABLE IF NOT EXISTS orders (
       id INT AUTO_INCREMENT PRIMARY KEY,
-      product_id INT NOT NULL,
-      quantity INT NOT NULL,
+      product_id INT NULL,
+      quantity INT NOT NULL DEFAULT 1,
       status VARCHAR(50) DEFAULT 'pending',
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       customer_phone VARCHAR(20),
@@ -181,6 +278,39 @@ async function initDb() {
       cancelled_by VARCHAR(20) DEFAULT NULL,
       FOREIGN KEY (product_id) REFERENCES products(id),
       FOREIGN KEY (customer_id) REFERENCES customers(id)
+    )
+  `);
+  await relaxLegacyOrderColumns();
+
+  // ລາຍການສິນຄ້າໃນແຕ່ລະອໍເດີ (1 ອໍເດີ ມີໄດ້ຫຼາຍສິນຄ້າ / ຫຼາຍໄຊສ໌)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS order_items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      order_id INT NOT NULL,
+      product_id INT NOT NULL,
+      quantity INT NOT NULL,
+      price_at_order DECIMAL(10,2) NOT NULL,
+      size VARCHAR(50) NOT NULL DEFAULT '',
+      variant_id INT NULL,
+      INDEX idx_oi_order (order_id),
+      INDEX idx_oi_product (product_id),
+      FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
+      FOREIGN KEY (product_id) REFERENCES products(id)
+    )
+  `);
+
+  // ຕະກຣ້າສິນຄ້າ (unique ຕາມ ລູກຄ້າ + ສິນຄ້າ + ໄຊສ໌)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS cart_items (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      customer_id INT NOT NULL,
+      product_id INT NOT NULL,
+      quantity INT NOT NULL DEFAULT 1,
+      size VARCHAR(50) NOT NULL DEFAULT '',
+      added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_cart_cust_prod_size (customer_id, product_id, size),
+      FOREIGN KEY (customer_id) REFERENCES customers(id) ON DELETE CASCADE,
+      FOREIGN KEY (product_id) REFERENCES products(id)
     )
   `);
 
@@ -195,6 +325,68 @@ async function initDb() {
   await addColumnIfMissing('orders', 'branch_phone', 'VARCHAR(100) NULL');
   await addColumnIfMissing('orders', 'province_name', 'VARCHAR(100) NULL');
   await addColumnIfMissing('orders', 'district_name', 'VARCHAR(100) NULL');
+
+  // ===== ຄູປອງ + ແຕ້ມສະສົມ =====
+  // ລາຍການຄູປອງທີ່ລູກຄ້າແລກດ້ວຍແຕ້ມໄດ້ (ຮ້ານເປັນຄົນກຳນົດ)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS coupons (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      type VARCHAR(10) NOT NULL,
+      value INT NOT NULL,
+      min_order INT NOT NULL DEFAULT 0,
+      max_discount INT NULL,
+      points_cost INT NOT NULL,
+      valid_days INT NOT NULL DEFAULT 30,
+      active TINYINT DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) CHARACTER SET utf8mb4
+  `);
+
+  // ຄູປອງໃນກະເປົາຂອງລູກຄ້າແຕ່ລະຄົນ
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_coupons (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      customer_id INT NOT NULL,
+      coupon_id INT NOT NULL,
+      status VARCHAR(20) NOT NULL DEFAULT 'available',
+      expires_at DATETIME NOT NULL,
+      used_order_id INT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_uc_customer (customer_id, status)
+    )
+  `);
+
+  // ບັນທຶກແຕ້ມທຸກຄັ້ງ (+ໄດ້ / -ແລກ) ແຕ້ມຄົງເຫຼືອ = SUM(points)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS points_ledger (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      customer_id INT NOT NULL,
+      order_id INT NULL,
+      points INT NOT NULL,
+      type VARCHAR(20) NOT NULL,
+      note VARCHAR(255) NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_pl_customer (customer_id),
+      UNIQUE KEY uq_pl_order_type (order_id, type)
+    ) CHARACTER SET utf8mb4
+  `);
+
+  await addColumnIfMissing('orders', 'user_coupon_id', 'INT NULL');
+  await addColumnIfMissing('orders', 'discount_amount', 'INT NOT NULL DEFAULT 0');
+  // ຄ່າສົ່ງທີ່ເກັບຕອນສັ່ງຊື້ (ເກັບເປັນ snapshot — ຖ້າຮ້ານປ່ຽນລາຄາຄ່າສົ່ງພາຍຫຼັງ ອໍເດີເກົ່າບໍ່ປ່ຽນຕາມ)
+  await addColumnIfMissing('orders', 'shipping_fee', 'INT NOT NULL DEFAULT 0');
+
+  // ໃສ່ຄູປອງຕົວຢ່າງຄັ້ງທຳອິດເທົ່ານັ້ນ (ປັບຕົວເລກໄດ້ຕາມຕ້ອງການ)
+  const [cnt] = await pool.query('SELECT COUNT(*) AS c FROM coupons');
+  if (Number(cnt[0].c) === 0) {
+    await pool.query(
+      `INSERT INTO coupons (name, type, value, min_order, max_discount, points_cost, valid_days) VALUES
+       ('ລົດ 10,000 ກີບ', 'fixed', 10000, 100000, NULL, 20, 30),
+       ('ລົດ 50,000 ກີບ', 'fixed', 50000, 500000, NULL, 100, 30),
+       ('ລົດ 10%', 'percent', 10, 1000000, 200000, 300, 30)`
+    );
+  }
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS settings (
@@ -239,7 +431,36 @@ async function initDb() {
   `);
   await addColumnIfMissing('banners', 'slot', "VARCHAR(20) DEFAULT 'main'");
 
+  // ===== ຣີວິວສິນຄ້າ (ລູກຄ້າຣີວິວສິນຄ້າດຽວກັນໄດ້ຫຼາຍຄັ້ງ + ແນບຮູບໄດ້) =====
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS product_reviews (
+      id INT AUTO_INCREMENT PRIMARY KEY,
+      product_id INT NOT NULL,
+      customer_id INT NOT NULL,
+      order_id INT NULL,
+      rating TINYINT NOT NULL,
+      comment TEXT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_review_product (product_id)
+    ) CHARACTER SET utf8mb4
+  `);
+  // ຮູບທີ່ແນບ — ເກັບເປັນ JSON array ຂອງ URL
+  await addColumnIfMissing('product_reviews', 'images', 'TEXT NULL');
+  // ລຶບ unique key ເກົ່າ (ແຕ່ກ່ອນຣີວິວໄດ້ຄັ້ງດຽວ) — ກວດກ່ອນ ຖ້າລຶບແລ້ວຈະບໍ່ລຶບຊ້ຳ
+  try {
+    const [oldIdx] = await pool.query(
+      `SELECT COUNT(*) AS c FROM information_schema.STATISTICS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'product_reviews'
+         AND INDEX_NAME = 'uq_review_cust_prod'`
+    );
+    if (Number(oldIdx[0].c) > 0) {
+      await pool.query('ALTER TABLE product_reviews DROP INDEX uq_review_cust_prod');
+    }
+  } catch (err) {
+    console.warn('⚠️ ລຶບ uq_review_cust_prod ບໍ່ໄດ້:', err.message);
+  }
   await migrateSizes();
+  await migrateVariants();
 
   console.log('✅ MySQL tables checked/created');
 }
