@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getAuthHeader } from '../../api.js';
 import ConfirmModal from '../../components/ConfirmModal.jsx';
 import DateField from '../../components/DateField.jsx';
+import PaymentQrModal from '../../components/PaymentQrModal.jsx';
 import { usePageT } from '../../useT.js';
 import dict from '../../locales/products.js';
 
@@ -1205,19 +1206,8 @@ export default function AdminProducts() {
         />
       )}
 
-      {qrOpen && (
-        <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setQrOpen(false); }}>
-          <div className="modal-box" style={{ background: '#fff', color: '#1f2937' }}>
-            <button className="modal-close" style={{ color: '#1f2937' }} onClick={() => setQrOpen(false)}>✕</button>
-            <h2 style={{ color: 'var(--navy)' }}>{t('p.qrTitle')}</h2>
-            {qrImage && <img src={qrImage} alt="QR" style={{ width: '100%', borderRadius: 8, marginBottom: 10 }} />}
-            <p style={{ color: '#6b7280' }}>{t(qrStatus)}</p>
-            <input type="file" accept="image/*" ref={qrFileRef} />
-            <button style={{ ...primaryBtnStyle, marginTop: 10 }} onClick={uploadQr}>{t('p.qrUpload')}</button>
-          </div>
-        </div>
-      )}
-
+     {qrOpen && <PaymentQrModal onClose={() => setQrOpen(false)} />}
+      
       {bestsellerModalOpen && (
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setBestsellerModalOpen(false); }}>
           <div className="modal-box" style={{ background: '#fff', color: '#1f2937', maxWidth: 380 }}>

@@ -1,5 +1,8 @@
-// สร้าง LAO QR แบบฝังยอดเงิน (Dynamic) จากข้อมูล QR ร้านค้า BCEL OnePay ของร้าน
-// ถ้าเปลี่ยนร้านค้า/บัญชีรับเงิน ให้ถอดรหัส QR ใหม่แล้วแก้ค่าในส่วน MERCHANT ด้านล่าง
+// สร้าง LAO QR แบบฝังยอดเงิน (Dynamic)
+// 1) buildLaoQr(amount): ใช้ข้อมูลร้านค้า BCEL OnePay ที่ฝังไว้ในไฟล์นี้
+//    (ใช้เฉพาะตอนที่แอดมินยังไม่ได้เพิ่มธนาคารในหน้าแอดมิน)
+// 2) buildLaoQrFromTemplate(payload, amount): ใช้ข้อความ QR ของธนาคารที่แอดมินอัปโหลด
+//    แล้วใส่ยอดเงิน + คำนวณ CRC ใหม่ (รองรับทุกธนาคารที่เป็น LAO QR มาตรฐาน EMVCo)
 import QRCode from 'qrcode';
 
 const MERCHANT = {
@@ -56,4 +59,65 @@ export function buildLaoQr(amount) {
     margin: 2,
     width: 480,
   });
+}
+
+// ---------- แบบใช้ข้อความ QR ของธนาคารที่เลือก ----------
+
+// แยกข้อความ EMV เป็นรายการ { tag, value } (ถ้ารูปแบบผิดจะ throw)
+function parseTlv(str) {
+  const items = [];
+  let i = 0;
+  while (i < str.length) {
+    if (i + 4 > str.length) throw new Error('bad tlv');
+    const tag = str.slice(i, i + 2);
+    const len = parseInt(str.slice(i + 2, i + 4), 10);
+    if (Number.isNaN(len)) throw new Error('bad tlv');
+    const value = str.slice(i + 4, i + 4 + len);
+    if (value.length !== len) throw new Error('bad tlv');
+    items.push({ tag, value });
+    i += 4 + len;
+  }
+  return items;
+}
+
+// เอาข้อความ QR เดิมของธนาคาร มาตั้งเป็น Dynamic + ใส่ยอดเงิน + คำนวณ CRC ใหม่
+export function buildLaoQrPayloadFromTemplate(template, amount) {
+  const n = Math.round(Number(amount));
+  if (!n || n <= 0) throw new Error('invalid amount');
+
+  const text = String(template || '').trim();
+  if (!text.startsWith('000201') || text.length < 20) throw new Error('not an EMV QR');
+
+  // ตรวจ CRC ของข้อความเดิม เพื่อให้แน่ใจว่าอ่านมาครบและถูกต้อง
+  const crcOk =
+    text.slice(-8, -4) === '6304' && crc16(text.slice(0, -4)) === text.slice(-4).toUpperCase();
+  if (!crcOk) throw new Error('bad crc');
+
+  const items = parseTlv(text).filter((x) => x.tag !== '54' && x.tag !== '63');
+  items.forEach((x) => {
+    if (x.tag === '01') x.value = '12'; // 12 = Dynamic
+  });
+  items.push({ tag: '54', value: String(n) });
+  items.sort((a, b) => Number(a.tag) - Number(b.tag));
+
+  const body = items.map((x) => tlv(x.tag, x.value)).join('') + '6304';
+  return body + crc16(body);
+}
+
+export function buildLaoQrFromTemplate(template, amount) {
+  return QRCode.toDataURL(buildLaoQrPayloadFromTemplate(template, amount), {
+    errorCorrectionLevel: 'M',
+    margin: 2,
+    width: 480,
+  });
+}
+
+// ใช้ตอนแอดมินเพิ่มธนาคาร: ข้อความที่อ่านได้ใช้ฝังยอดได้ไหม
+export function canBuildDynamic(text) {
+  try {
+    buildLaoQrPayloadFromTemplate(text, 1000);
+    return true;
+  } catch (e) {
+    return false;
+  }
 }

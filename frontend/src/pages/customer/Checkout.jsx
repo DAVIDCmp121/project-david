@@ -5,8 +5,35 @@ import ConfirmModal from '../../components/ConfirmModal.jsx';
 import { CartProvider } from '../../context/CartContext.jsx';
 import { API_BASE, apiGet, apiPost, apiUpload } from '../../api.js';
 import { usePageT } from '../../useT.js';
-import { buildLaoQr } from '../../laoqr.js';
-import dict from '../../locales/cust-checkout.js';
+import { buildLaoQr, buildLaoQrFromTemplate } from '../../laoqr.js';
+import baseDict from '../../locales/cust-checkout.js';
+
+// ข้อความของส่วนเลือกธนาคาร (รวมกับข้อความเดิม)
+const extraDict = {
+  lo: {
+    'co.chooseBank': 'ເລືອກທະນາຄານທີ່ຈະໂອນ',
+    'co.alertBank': 'ກະລຸນາເລືອກທະນາຄານທີ່ຈະໂອນ',
+    'co.pickBankHint': 'ເລືອກທະນາຄານກ່ອນ ແລ້ວ QR ຈະສະແດງຂຶ້ນ',
+    'co.qrStaticNote': 'QR ນີ້ບໍ່ໄດ້ຝັງຍອດ ກະລຸນາໂອນຕາມຍອດດ້ານລຸ່ມ',
+  },
+  th: {
+    'co.chooseBank': 'เลือกธนาคารที่จะโอน',
+    'co.alertBank': 'กรุณาเลือกธนาคารที่จะโอน',
+    'co.pickBankHint': 'เลือกธนาคารก่อน แล้ว QR จะแสดงขึ้น',
+    'co.qrStaticNote': 'QR นี้ไม่ได้ฝังยอด กรุณาโอนตามยอดด้านล่าง',
+  },
+  en: {
+    'co.chooseBank': 'Choose the bank to transfer to',
+    'co.alertBank': 'Please choose a bank to transfer to',
+    'co.pickBankHint': 'Choose a bank first and the QR will appear',
+    'co.qrStaticNote': 'This QR does not include the amount. Please transfer the amount below',
+  },
+};
+const dict = {
+  lo: { ...(baseDict.lo || {}), ...extraDict.lo },
+  th: { ...(baseDict.th || {}), ...extraDict.th },
+  en: { ...(baseDict.en || {}), ...extraDict.en },
+};
 
 const STEP_KEYS = ['co.step1', 'co.step2'];
 const MAX_SAVED_ADDRESSES = 5;
@@ -38,7 +65,7 @@ const CARRIERS = [
 ];
 
 // ຂົນສົ່ງທີ່ມີຂໍ້ມູນສາຂາ (ເລືອກ ແຂວງ → ເມືອງ → ສາຂາ) — ຕ້ອງກົງກັບ backend (BRANCH_CARRIERS)
-const BRANCH_CARRIERS = ['anousith', 'hal'];
+const BRANCH_CARRIERS = ['anousith', 'hal', 'mixay'];
 
 const ic = {
   width: 20,
@@ -231,6 +258,21 @@ const css = `
   box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.15);
 }
 
+/* ເລືອກທະນາຄານ */
+.co-banks { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.co-bank {
+  padding: 10px 16px; border-radius: 12px; border: 1.5px solid var(--cust-border); background: #fff;
+  font-weight: 700; font-size: 0.92rem; color: var(--cust-text); cursor: pointer; font-family: inherit;
+}
+.co-bank:hover { border-color: var(--gold); }
+.co-bank.selected {
+  border-color: var(--gold); background: #fffaf0; color: #b8862b;
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.15);
+}
+.co-bank-hint { text-align: center; font-size: 0.88rem; color: var(--cust-text-muted); padding: 8px 0 16px; }
+.co-static-note { text-align: center; font-size: 0.82rem; color: #b45309; margin-top: 6px; }
+.co-static-amt { text-align: center; font-weight: 800; color: #b8862b; font-size: 1.2rem; margin-top: 4px; }
+
 /* QR */
 .co-qr-wrap { display: flex; justify-content: center; margin-bottom: 12px; }
 .co-qr-wrap .payment-qr { max-width: 210px; width: 100%; margin: 0; }
@@ -238,21 +280,6 @@ const css = `
   background: #fffaf0; border: 1px solid #f1e3b8; margin-bottom: 14px;
 }
 .co-card .pay-amount-box span:last-child { color: #b8862b; font-size: 1.1rem; }
-
-/* ຍອດທີ່ຕ້ອງໂອນ (ໃຫຍ່ + ປຸ່ມຄັດລອກ) */
-.co-amount {
-  background: #fffaf0; border: 1px solid #f1e3b8; border-radius: 14px;
-  padding: 12px 14px; margin-bottom: 14px; text-align: center;
-}
-.co-amount-label { font-size: 0.82rem; color: var(--cust-text-muted); }
-.co-amount-row { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 4px 0; flex-wrap: wrap; }
-.co-amount-num { font-size: 1.7rem; font-weight: 800; color: #b8862b; line-height: 1.2; }
-.co-copy {
-  padding: 6px 14px; border-radius: 999px; border: 1px solid var(--gold); background: #fff;
-  color: #b8862b; font-weight: 700; font-size: 0.82rem; cursor: pointer; font-family: inherit;
-}
-.co-copy:hover { background: var(--gold); color: #fff; }
-.co-amount-hint { font-size: 0.78rem; color: #b45309; }
 
 /* ອັບໂຫລດສະລິບ */
 .co-upload {
@@ -440,16 +467,21 @@ function DropSelect({ value, onChange, options, placeholder, disabled }) {
   );
 }
 
-// QR ທີ່ຝັງຍອດເງິນ (Dynamic) — ສ້າງໃໝ່ທຸກຄັ້ງທີ່ຍອດປ່ຽນ
-// ຖ້າສ້າງບໍ່ສຳເລັດ ຈຶ່ງໃຊ້ຮູບ QR ເດີມທີ່ແອດມິນອັບໂຫລດໄວ້ແທນ
-function DynamicQr({ amount, fallback, alt }) {
+// QR ທີ່ຝັງຍອດເງິນ (Dynamic) — ສ້າງໃໝ່ທຸກຄັ້ງທີ່ຍອດປ່ຽນ ຫຼື ປ່ຽນທະນາຄານ
+// ມີທະນາຄານທີ່ເລືອກ → ສ້າງຈາກຂໍ້ຄວາມ QR ຂອງທະນາຄານນັ້ນ
+// ບໍ່ມີທະນາຄານ (ຍັງບໍ່ໄດ້ຕັ້ງໃນໜ້າແອດມິນ) → ໃຊ້ຂໍ້ມູນຮ້ານໃນ laoqr.js ຄືເດີມ
+// ຖ້າສ້າງບໍ່ສຳເລັດ ຈຶ່ງໃຊ້ຮູບ QR ເດີມທີ່ແອດມິນອັບໂຫລດໄວ້ແທນ (ພ້ອມບອກຍອດທີ່ຕ້ອງໂອນ)
+function DynamicQr({ amount, bank, fallback, alt }) {
+  const { t } = usePageT(dict);
   const [src, setSrc] = useState('');
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     let alive = true;
     setFailed(false);
-    buildLaoQr(amount)
+    setSrc('');
+    Promise.resolve()
+      .then(() => (bank ? buildLaoQrFromTemplate(bank.payload, amount) : buildLaoQr(amount)))
       .then((url) => {
         if (alive) setSrc(url);
       })
@@ -463,10 +495,22 @@ function DynamicQr({ amount, fallback, alt }) {
     return () => {
       alive = false;
     };
-  }, [amount]);
+  }, [amount, bank]);
 
   if (src) return <img src={src} alt={alt} className="payment-qr" />;
-  if (failed && fallback) return <img src={fallback} alt={alt} className="payment-qr" />;
+  if (failed && fallback) {
+    return (
+      <div style={{ width: 210, maxWidth: '100%' }}>
+        <img src={fallback} alt={alt} className="payment-qr" />
+        {bank && (
+          <>
+            <div className="co-static-note">{t('co.qrStaticNote')}</div>
+            <div className="co-static-amt">{fmt(amount)} {t('common.kip')}</div>
+          </>
+        )}
+      </div>
+    );
+  }
   return null;
 }
 
@@ -497,10 +541,11 @@ function CheckoutInner() {
   const [branchLoading, setBranchLoading] = useState(false);
 
   const [qrImage, setQrImage] = useState(''); // ຮູບ QR ເດີມ (ໃຊ້ເປັນສຳຮອງເທົ່ານັ້ນ)
+  const [banks, setBanks] = useState([]); // ທະນາຄານທີ່ແອດມິນຕັ້ງໄວ້
+  const [bankId, setBankId] = useState(''); // ທະນາຄານທີ່ລູກຄ້າເລືອກ
   const [slipFile, setSlipFile] = useState(null);
   const [slipPreview, setSlipPreview] = useState('');
   const [confirming, setConfirming] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   // ຄູປອງໃນກະເປົາຂອງລູກຄ້າ + ກຸ່ມຄູປອງທີ່ເລືອກໃຊ້ (ຄູປອງຊ້ຳກັນຖືກລວມເປັນກຸ່ມດຽວ)
   // ເລີ່ມຕົ້ນດ້ວຍຄູປອງທີ່ລູກຄ້າເລືອກມາຈາກໜ້າກະຕ່າ (ຖ້າມີ)
@@ -530,13 +575,14 @@ function CheckoutInner() {
 
   useEffect(() => {
     (async () => {
-      const [cartRes, meRes, qrRes, addrRes, cpRes, shipRes] = await Promise.all([
+      const [cartRes, meRes, qrRes, addrRes, cpRes, shipRes, bankRes] = await Promise.all([
         apiGet('/api/cart'),
         apiGet('/api/customer-auth/me'),
         apiGet('/api/settings/payment-qr'),
         apiGet('/api/customer-account/addresses'),
         apiGet('/api/coupons/me'),
         apiGet('/api/orders/shipping-config'),
+        apiGet('/api/settings/payment-banks'),
       ]);
 
       if (cartRes.ok && Array.isArray(cartRes.data.items)) {
@@ -573,6 +619,12 @@ function CheckoutInner() {
 
       if (qrRes.ok && qrRes.data.qrImage) {
         setQrImage(qrRes.data.qrImage);
+      }
+
+      if (bankRes.ok && Array.isArray(bankRes.data.banks)) {
+        setBanks(bankRes.data.banks);
+        // ມີທະນາຄານດຽວ ເລືອກໃຫ້ເລີຍ
+        if (bankRes.data.banks.length === 1) setBankId(bankRes.data.banks[0].id);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -680,6 +732,7 @@ function CheckoutInner() {
   const carrierObj = CARRIERS.find((c) => c.key === carrier);
   const usesBranch = BRANCH_CARRIERS.includes(carrier);
   const selectedBranch = branches.find((b) => b.branch_id === branchId);
+  const selectedBank = banks.find((b) => b.id === bankId) || null;
   const addressIsNew =
     address.trim() !== '' && !savedAddrs.some((a) => a.address.trim() === address.trim());
 
@@ -693,6 +746,7 @@ function CheckoutInner() {
   } else if (!address.trim()) {
     missing.push(t('co.alertAddress'));
   }
+  if (payMethod === 'transfer' && banks.length > 0 && !bankId) missing.push(t('co.alertBank'));
   if (payMethod === 'transfer' && !slipFile) missing.push(t('co.alertSlip'));
 
   function goStep(n) {
@@ -726,25 +780,6 @@ function CheckoutInner() {
     setSlipPreview('');
   }
 
-  // ຄັດລອກຍອດທີ່ຕ້ອງໂອນ (ຕົວເລກລ້ວນ ວາງໃນແອັບທະນາຄານໄດ້ເລີຍ)
-  async function copyAmount() {
-    const text = String(total);
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch (err) {
-      const ta = document.createElement('textarea');
-      ta.value = text;
-      document.body.appendChild(ta);
-      ta.select();
-      try {
-        document.execCommand('copy');
-      } catch (e2) {}
-      document.body.removeChild(ta);
-    }
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
   async function submitOrder() {
     const cleanPhone = phone.replace(/\s/g, '');
     if (!/^\+?\d{8,15}$/.test(cleanPhone)) {
@@ -766,6 +801,10 @@ function CheckoutInner() {
       }
     } else if (!address.trim()) {
       showNotice(t('co.alertAddress'));
+      return;
+    }
+    if (payMethod === 'transfer' && banks.length > 0 && !bankId) {
+      showNotice(t('co.alertBank'));
       return;
     }
     if (payMethod === 'transfer' && !slipFile) {
@@ -1155,20 +1194,43 @@ function CheckoutInner() {
                 <div className="co-card">
                   {payMethod === 'transfer' ? (
                     <>
-                      <div className="co-qr-wrap">
-                        <DynamicQr amount={total} fallback={qrImage} alt={t('co.qrAlt')} />
-                      </div>
+                      {banks.length > 0 && (
+                        <>
+                          <div className="co-label" style={{ marginBottom: 8 }}>{t('co.chooseBank')}</div>
+                          <div className="co-banks">
+                           {banks.map((b) => (
+                              <button
+                                key={b.id}
+                                type="button"
+                                className={`co-bank${bankId === b.id ? ' selected' : ''}`}
+                                onClick={() => setBankId(b.id)}
+                                style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
+                              >
+                                {b.logo && (
+                                  <img
+                                    src={b.logo}
+                                    alt=""
+                                    style={{ width: 26, height: 26, objectFit: 'contain', borderRadius: 6, background: '#fff' }}
+                                  />
+                                )}
+                                {b.name}
+                              </button>
+                            ))}
+                          </div>
+                          {!selectedBank && <div className="co-bank-hint">{t('co.pickBankHint')}</div>}
+                        </>
+                      )}
 
-                      <div className="co-amount">
-                        <div className="co-amount-label">{t('co.amountTransfer')}</div>
-                        <div className="co-amount-row">
-                          <span className="co-amount-num">{fmt(total)} {kip}</span>
-                          <button type="button" className="co-copy" onClick={copyAmount}>
-                            {copied ? t('co.copied') : t('co.copy')}
-                          </button>
+                      {(banks.length === 0 || selectedBank) && (
+                        <div className="co-qr-wrap">
+                          <DynamicQr
+                            amount={total}
+                            bank={selectedBank}
+                            fallback={selectedBank ? selectedBank.image : qrImage}
+                            alt={t('co.qrAlt')}
+                          />
                         </div>
-                        <div className="co-amount-hint">{t('co.transferExact')}</div>
-                      </div>
+                      )}
 
                       <label className="upload-label">{t('co.slipLabel')}</label>
                       {slipFile ? (

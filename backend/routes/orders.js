@@ -36,7 +36,9 @@ const VALID_STATUSES = ['awaiting_review', 'confirmed', 'shipped', 'delivered'];
 const VALID_CARRIERS = ['anousith', 'hal', 'mixay'];
 const VALID_PAYMENT_METHODS = ['transfer', 'cod'];
 // ຂົນສົ່ງທີ່ມີຂໍ້ມູນສາຂາ (ລູກຄ້າຕ້ອງເລືອກສາຂາ ແທນການພິມທີ່ຢູ່) — ຕ້ອງກົງກັບ routes/carriers.js
-const BRANCH_CARRIERS = ['anousith', 'hal'];
+const BRANCH_CARRIERS = ['anousith', 'hal', 'mixay'];
+// ຂົນສົ່ງ → ຂົນສົ່ງທີ່ເປັນເຈົ້າຂອງຂໍ້ມູນສາຂາ (mixay ໃຊ້ສາຂາຂອງ anousith) — ຕ້ອງກົງກັບ routes/carriers.js
+const BRANCH_DATA_SOURCE = { anousith: 'anousith', hal: 'hal', mixay: 'anousith' };
 
 function removeUploadedFile(file) {
   if (!file) return;
@@ -265,7 +267,7 @@ router.post('/', requireCustomerAuth, upload.single('slip'), async (req, res) =>
       }
       const [branchRows] = await pool.query(
         'SELECT * FROM carrier_branches WHERE carrier = ? AND branch_id = ? AND active = 1',
-        [carrier, branch_id]
+        [BRANCH_DATA_SOURCE[carrier], branch_id]
       );
       branch = branchRows[0];
       if (!branch) {
