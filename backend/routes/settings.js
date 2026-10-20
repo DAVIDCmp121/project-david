@@ -98,15 +98,27 @@ router.get('/payment-banks', async (req, res) => {
   }
 });
 
-// ເພີ່ມທະນາຄານ (ແອດມິນ) — ຮັບ 2 ໄຟລ໌: qrImage (ບັງຄັບ) + logo (ບໍ່ບັງຄັບ)
+// ຮັບ 2 ໄຟລ໌: qrImage + logo (ເພີ່ມ: QR ບັງຄັບ / ແກ້ໄຂ: ບໍ່ບັງຄັບທັງຄູ່)
 const bankUpload = upload.fields([
   { name: 'qrImage', maxCount: 1 },
   { name: 'logo', maxCount: 1 },
 ]);
 
+function pickFiles(req) {
+  return {
+    qrFile: req.files && req.files.qrImage ? req.files.qrImage[0] : null,
+    logoFile: req.files && req.files.logo ? req.files.logo[0] : null,
+  };
+}
+
+function cleanPayload(raw) {
+  const p = String(raw || '').trim().slice(0, 1000);
+  return p.startsWith('000201') ? p : '';
+}
+
+// ເພີ່ມທະນາຄານ (ແອດມິນ)
 router.post('/payment-banks', requireAuth, bankUpload, async (req, res) => {
-  const qrFile = req.files && req.files.qrImage ? req.files.qrImage[0] : null;
-  const logoFile = req.files && req.files.logo ? req.files.logo[0] : null;
+  const { qrFile, logoFile } = pickFiles(req);
   function cleanup() {
     removeUploaded(qrFile);
     removeUploaded(logoFile);
@@ -114,8 +126,7 @@ router.post('/payment-banks', requireAuth, bankUpload, async (req, res) => {
 
   try {
     const name = String(req.body.name || '').trim().slice(0, 40);
-    let payload = String(req.body.payload || '').trim().slice(0, 1000);
-    if (!payload.startsWith('000201')) payload = '';
+    const payload = cleanPayload(req.body.payload);
 
     if (!qrFile) {
       cleanup();
@@ -146,6 +157,61 @@ router.post('/payment-banks', requireAuth, bankUpload, async (req, res) => {
     console.error(err);
     cleanup();
     res.status(500).json({ error: 'ບັນທຶກທະນາຄານບໍ່ສຳເລັດ' });
+  }
+});
+
+// ແກ້ໄຂທະນາຄານ (ແອດມິນ) — ປ່ຽນຊື່ / QR ໃໝ່ / ໂລໂກ້ໃໝ່ / ເອົາໂລໂກ້ອອກ (removeLogo=1)
+router.put('/payment-banks/:id', requireAuth, bankUpload, async (req, res) => {
+  const { qrFile, logoFile } = pickFiles(req);
+  function cleanup() {
+    removeUploaded(qrFile);
+    removeUploaded(logoFile);
+  }
+
+  try {
+    const banks = await readBanks();
+    const idx = banks.findIndex((b) => b.id === req.params.id);
+    if (idx < 0) {
+      cleanup();
+      return res.status(404).json({ error: 'ບໍ່ພົບທະນາຄານນີ້' });
+    }
+
+    const name = String(req.body.name || '').trim().slice(0, 40);
+    if (!name) {
+      cleanup();
+      return res.status(400).json({ error: 'ກະລຸນາໃສ່ຊື່ທະນາຄານ' });
+    }
+
+    const bank = { ...banks[idx] };
+    const oldImage = bank.image;
+    const oldLogo = bank.logo;
+    bank.name = name;
+
+    // QR ໃໝ່ → ປ່ຽນຮູບ ແລະ ຂໍ້ມູນທີ່ອ່ານໄດ້ (ຖ້າບໍ່ໄດ້ສົ່ງ QR ມາ ຈະໃຊ້ຂອງເດີມ)
+    if (qrFile) {
+      bank.image = '/uploads/' + qrFile.filename;
+      bank.payload = cleanPayload(req.body.payload);
+    }
+
+    // ໂລໂກ້: ມີໄຟລ໌ໃໝ່ = ປ່ຽນ, removeLogo=1 = ເອົາອອກ, ບໍ່ສົ່ງ = ຄົງເດີມ
+    if (logoFile) {
+      bank.logo = '/uploads/' + logoFile.filename;
+    } else if (String(req.body.removeLogo) === '1') {
+      bank.logo = '';
+    }
+
+    banks[idx] = bank;
+    await writeBanks(banks);
+
+    // ບັນທຶກສຳເລັດແລ້ວ ຈຶ່ງລຶບໄຟລ໌ເກົ່າທີ່ຖືກແທນທີ່
+    if (bank.image !== oldImage) removeUploadedByUrl(oldImage);
+    if (bank.logo !== oldLogo) removeUploadedByUrl(oldLogo);
+
+    res.json({ success: true, bank });
+  } catch (err) {
+    console.error(err);
+    cleanup();
+    res.status(500).json({ error: 'ແກ້ໄຂທະນາຄານບໍ່ສຳເລັດ' });
   }
 });
 

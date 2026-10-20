@@ -8,25 +8,37 @@ import { usePageT } from '../../useT.js';
 import { buildLaoQr, buildLaoQrFromTemplate } from '../../laoqr.js';
 import baseDict from '../../locales/cust-checkout.js';
 
-// ข้อความของส่วนเลือกธนาคาร (รวมกับข้อความเดิม)
+// ข้อความของส่วนเลือกธนาคาร + QR (รวมกับข้อความเดิม)
 const extraDict = {
   lo: {
     'co.chooseBank': 'ເລືອກທະນາຄານທີ່ຈະໂອນ',
     'co.alertBank': 'ກະລຸນາເລືອກທະນາຄານທີ່ຈະໂອນ',
     'co.pickBankHint': 'ເລືອກທະນາຄານກ່ອນ ແລ້ວ QR ຈະສະແດງຂຶ້ນ',
     'co.qrStaticNote': 'QR ນີ້ບໍ່ໄດ້ຝັງຍອດ ກະລຸນາໂອນຕາມຍອດດ້ານລຸ່ມ',
+    'co.scanQr': 'ສະແກນ QR ເພື່ອຊຳລະ',
+    'co.showAll': 'ເບິ່ງທັງໝົດ',
+    'co.showLess': 'ພັບເກັບ',
+    'co.pickCoupon': 'ເລືອກຄູປອງ',
   },
   th: {
     'co.chooseBank': 'เลือกธนาคารที่จะโอน',
     'co.alertBank': 'กรุณาเลือกธนาคารที่จะโอน',
     'co.pickBankHint': 'เลือกธนาคารก่อน แล้ว QR จะแสดงขึ้น',
     'co.qrStaticNote': 'QR นี้ไม่ได้ฝังยอด กรุณาโอนตามยอดด้านล่าง',
+    'co.scanQr': 'สแกน QR เพื่อชำระเงิน',
+    'co.showAll': 'ดูทั้งหมด',
+    'co.showLess': 'พับเก็บ',
+    'co.pickCoupon': 'เลือกคูปอง',
   },
   en: {
     'co.chooseBank': 'Choose the bank to transfer to',
     'co.alertBank': 'Please choose a bank to transfer to',
     'co.pickBankHint': 'Choose a bank first and the QR will appear',
     'co.qrStaticNote': 'This QR does not include the amount. Please transfer the amount below',
+    'co.scanQr': 'Scan the QR to pay',
+    'co.showAll': 'Show all',
+    'co.showLess': 'Show less',
+    'co.pickCoupon': 'Choose a coupon',
   },
 };
 const dict = {
@@ -37,6 +49,7 @@ const dict = {
 
 const STEP_KEYS = ['co.step1', 'co.step2'];
 const MAX_SAVED_ADDRESSES = 5;
+const ITEMS_PREVIEW = 4; // ສະແດງສິນຄ້າກີ່ຊິ້ນກ່ອນພັບ
 
 // คีย์ที่ตะกร้าใช้ส่งต่อคูปองที่เลือก (ต้องตรงกับ Cart.jsx)
 const COUPON_KEY = 'polo_coupon_key';
@@ -92,8 +105,15 @@ const IconCash = ({ size = 20 }) => (
   </svg>
 );
 
+const IconTag = () => (
+  <svg {...ic}>
+    <path d="M20.5 12.5 12 21l-9-9V3.5h8.5l9 9Z" />
+    <circle cx="7.5" cy="8" r="1.2" />
+  </svg>
+);
+
 const css = `
-.checkout-page.co-wide { max-width: 980px; padding-bottom: 140px; }
+.checkout-page.co-wide { max-width: 1120px; padding-bottom: 40px; }
 
 .co-sec-title { font-size: 1rem; font-weight: 700; margin: 20px 0 10px; color: var(--cust-text); }
 
@@ -125,10 +145,10 @@ const css = `
 
 /* ລາຍການຂົນສົ່ງທີ່ຂະຫຍາຍອອກໃນການ໌ດໜ້າ 2 (ປ່ຽນຂົນສົ່ງໂດຍບໍ່ກັບໜ້າ 1) */
 .co-carriers-inline {
-  margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--cust-border); gap: 8px;
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--cust-border); gap: 8px;
 }
-.co-carriers-inline .co-carrier { padding: 9px 12px; gap: 12px; }
-.co-carriers-inline .co-carrier-name { font-size: 0.95rem; }
+.co-carriers-inline .co-carrier { padding: 8px 12px; gap: 12px; }
+.co-carriers-inline .co-carrier-name { font-size: 0.92rem; }
 
 /* ຄ່າສົ່ງ + ແຖບຄວາມຄືບໜ້າສົ່ງຟຣີ */
 .co-ship-row {
@@ -144,77 +164,223 @@ const css = `
 .co-ship-bar { height: 8px; border-radius: 999px; background: #f1e8cf; margin-top: 8px; overflow: hidden; }
 .co-ship-bar i { display: block; height: 100%; border-radius: 999px; background: var(--gold); transition: width 0.3s; }
 
-/* ---------- ການ໌ດທົ່ວໄປ ---------- */
+/* ---------- ການ໌ດທົ່ວໄປ (ໜ້າ 2 — ແບບກະທັດຮັດ) ---------- */
 .co-card {
-  background: #fff; border: 1px solid var(--cust-border); border-radius: 16px; padding: 16px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  background: #fff; border: 1px solid var(--cust-border); border-radius: 14px; padding: 14px 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
-.co-summary { display: flex; align-items: center; gap: 12px; }
-.co-summary-name { flex: 1; font-weight: 600; color: var(--cust-text); }
+.co-card-title {
+  display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 0.95rem;
+  color: var(--cust-text); margin-bottom: 10px;
+}
+.co-badge {
+  min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: #faf0cf;
+  color: #9a7412; font-size: 0.75rem; font-weight: 800; display: inline-flex;
+  align-items: center; justify-content: center;
+}
+.co-summary { display: flex; align-items: center; gap: 10px; }
+.co-summary-name { flex: 1; font-weight: 600; font-size: 0.95rem; color: var(--cust-text); }
 .co-change {
-  padding: 6px 14px; border-radius: 999px; border: 1px solid var(--gold); background: #fff;
-  color: #b8862b; font-weight: 700; font-size: 0.8rem; cursor: pointer; font-family: inherit;
+  padding: 5px 12px; border-radius: 999px; border: 1px solid var(--gold); background: #fff;
+  color: #b8862b; font-weight: 700; font-size: 0.78rem; cursor: pointer; font-family: inherit;
 }
 .co-change:hover { background: var(--gold); color: #fff; }
-.co-label { font-size: 0.85rem; color: var(--cust-text-muted); margin-bottom: 4px; }
-.co-name { font-weight: 700; font-size: 1.05rem; color: var(--cust-text); margin-bottom: 14px; }
-.co-name.empty { font-weight: 500; font-size: 0.9rem; color: var(--cust-text-muted); }
+.co-label { font-size: 0.78rem; color: var(--cust-text-muted); margin-bottom: 4px; }
+.co-name { font-weight: 700; font-size: 1rem; color: var(--cust-text); padding: 9px 0; }
+.co-name.empty { font-weight: 500; font-size: 0.88rem; color: var(--cust-text-muted); }
+.co-card input[type='tel'], .co-card textarea {
+  padding: 9px 12px; font-size: 0.92rem; margin-bottom: 0; width: 100%; box-sizing: border-box;
+}
+.co-divider { height: 1px; background: var(--cust-border); margin: 12px 0; border: 0; }
+
+/* ຊື່ + ເບີໂທ ໃນແຖວດຽວ */
+.co-row2 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; align-items: end; }
+
+/* ລາຍການສິນຄ້າ (ບໍ່ມີກອບເລື່ອນຊ້ອນ) */
+.co-items { display: flex; flex-direction: column; }
+.co-item { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-top: 1px solid #f1f1ee; }
+.co-item:first-child { border-top: 0; padding-top: 0; }
+.co-item-img {
+  width: 48px; height: 48px; border-radius: 10px; object-fit: cover; flex: 0 0 auto;
+  background: #f4f4f2; border: 1px solid #eee;
+}
+.co-item-info { flex: 1; min-width: 0; }
+.co-item-name {
+  font-size: 0.9rem; font-weight: 600; color: var(--cust-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.co-item-sub { font-size: 0.76rem; color: var(--cust-text-muted); margin-top: 1px; }
+.co-item-price { font-size: 0.9rem; font-weight: 700; color: var(--cust-text); white-space: nowrap; }
+.co-more {
+  width: 100%; margin-top: 8px; padding: 8px; border-radius: 10px; border: 1px dashed #d8c68a;
+  background: #fffdf6; color: #b8862b; font-weight: 700; font-size: 0.85rem; cursor: pointer; font-family: inherit;
+}
+.co-more:hover { background: #fffaf0; border-color: var(--gold); }
 
 /* ທີ່ຢູ່ທີ່ບັນທຶກໄວ້ */
-.co-addr-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.co-addr-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 .co-addr-chip {
-  padding: 6px 12px; border-radius: 999px; border: 1px solid var(--cust-border); background: #fff;
-  font-size: 0.82rem; color: var(--cust-text); cursor: pointer; font-family: inherit;
+  padding: 5px 12px; border-radius: 999px; border: 1px solid var(--cust-border); background: #fff;
+  font-size: 0.8rem; color: var(--cust-text); cursor: pointer; font-family: inherit;
 }
 .co-addr-chip:hover { border-color: var(--gold); }
 .co-addr-chip.selected { border-color: var(--gold); background: #fffaf0; color: #b8862b; font-weight: 700; }
 .co-save-addr {
-  display: flex; align-items: center; gap: 8px; margin-top: 10px;
-  font-size: 0.85rem; color: var(--cust-text-muted); cursor: pointer;
+  display: flex; align-items: center; gap: 8px; margin-top: 8px;
+  font-size: 0.82rem; color: var(--cust-text-muted); cursor: pointer;
 }
 
-/* ເລືອກສາຂາຂົນສົ່ງ (ແຂວງ → ເມືອງ → ສາຂາ) — dropdown ທີ່ເປີດລົງດ້ານລຸ່ມສະເໝີ */
-.co-dd { position: relative; margin-bottom: 10px; }
+/* ເລືອກສາຂາຂົນສົ່ງ: ແຂວງ | ເມືອງ | ສາຂາ ໃນແຖວດຽວ */
+.co-branch-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.co-dd { position: relative; }
 .co-dd-btn {
-  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 11px 12px; border: 1.5px solid var(--cust-border); border-radius: 10px;
-  background: #fff; font-size: 0.95rem; font-family: inherit; color: var(--cust-text);
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 6px;
+  padding: 9px 10px; border: 1.5px solid var(--cust-border); border-radius: 10px;
+  background: #fff; font-size: 0.88rem; font-family: inherit; color: var(--cust-text);
   cursor: pointer; text-align: left;
 }
+.co-dd-btn > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .co-dd-btn:hover:not(:disabled), .co-dd-btn.open { border-color: var(--gold); }
-.co-dd-btn:disabled { background: #f6f6f4; color: #aaa; cursor: not-allowed; }
+.co-dd-btn:disabled { background: #f6f6f4; color: #b5b5b0; cursor: not-allowed; opacity: 0.7; }
 .co-dd-btn .ph { color: #999; }
 .co-dd-btn svg { flex: 0 0 auto; transition: transform 0.15s; }
 .co-dd-btn.open svg { transform: rotate(180deg); }
 .co-dd-list {
-  position: absolute; top: 100%; left: 0; right: 0; z-index: 60; margin: 4px 0 0; padding: 4px;
+  position: absolute; top: 100%; left: 0; z-index: 60; margin: 4px 0 0; padding: 4px;
   list-style: none; max-height: 240px; overflow-y: auto; background: #fff;
+  min-width: 100%; width: max-content; max-width: 300px;
   border: 1px solid var(--cust-border); border-radius: 12px;
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
 }
-.co-dd-list li { padding: 10px 12px; border-radius: 8px; font-size: 0.92rem; cursor: pointer; color: var(--cust-text); }
+.co-dd-list.right { left: auto; right: 0; }
+.co-dd-list li { padding: 9px 12px; border-radius: 8px; font-size: 0.9rem; cursor: pointer; color: var(--cust-text); }
 .co-dd-list li:hover { background: #fffaf0; }
 .co-dd-list li.sel { background: #fffaf0; color: #b8862b; font-weight: 700; }
 .co-dd-list li.empty { color: #999; cursor: default; }
 .co-dd-list li.empty:hover { background: transparent; }
 
 .co-branch-info {
-  margin-top: 4px; padding: 10px 12px; border-radius: 10px; background: #fffaf0;
-  border: 1px solid #f1e3b8; font-size: 0.85rem; color: var(--cust-text); line-height: 1.5;
+  margin-top: 10px; padding: 8px 12px; border-radius: 10px; background: #fffaf0;
+  border: 1px solid #f1e3b8; font-size: 0.82rem; color: var(--cust-text); line-height: 1.5;
 }
 
 /* ---------- ໜ້າ 2: ສອງຝັ່ງ ---------- */
 .co-grid {
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 28px; align-items: start;
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.02fr);
+  gap: 22px; align-items: start;
 }
-.co-col h2 { margin: 0 0 14px; font-size: 1.5em; }
+.co-col h2 { margin: 0 0 10px; font-size: 1.15rem; }
 .co-stack { display: flex; flex-direction: column; gap: 12px; }
 
-/* ຄູປອງສ່ວນລົດ */
+/* ຝັ່ງຂວາ: ຕິດຕາມໜ້າຈໍ ສະເພາະຈໍຄອມທີ່ສູງພໍ (ບໍ່ມີແຖບເລື່ອນຊ້ອນ) */
+.co-sticky { position: static; }
+@media (min-width: 801px) and (min-height: 700px) {
+  .co-sticky { position: sticky; top: 78px; }
+}
+
+/* ===== ການ໌ດຊຳລະເງິນ: ສະຫຼັບ ໂອນເງິນ/COD + ລາຍລະອຽດ ===== */
+.co-seg {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin-bottom: 12px;
+  background: #f3efe3; border-radius: 12px;
+}
+.co-seg-opt {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  height: 38px; border: 0; border-radius: 9px; background: transparent;
+  font-weight: 700; font-size: 0.88rem; color: #7a7467; cursor: pointer; font-family: inherit;
+  transition: background-color 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.co-seg-opt:hover:not(.selected) { color: #b8862b; }
+.co-seg-opt.selected {
+  background: #fff; color: #b8862b; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.co-banks { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.co-bank {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 10px;
+  border: 1.5px solid var(--cust-border); background: #fff; font-weight: 700; font-size: 0.84rem;
+  color: var(--cust-text); cursor: pointer; font-family: inherit;
+}
+.co-bank:hover { border-color: var(--gold); }
+.co-bank.selected {
+  border-color: var(--gold); background: #fffaf0; color: #b8862b;
+  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.15);
+}
+.co-bank-logo { width: 20px; height: 20px; object-fit: contain; border-radius: 5px; background: #fff; }
+.co-bank-hint { text-align: center; font-size: 0.85rem; color: var(--cust-text-muted); padding: 2px 0 10px; }
+.co-static-note { text-align: center; font-size: 0.74rem; color: #b45309; margin-top: 4px; }
+.co-static-amt { text-align: center; font-weight: 800; color: #b8862b; font-size: 1rem; margin-top: 2px; }
+
+/* QR (ຊ້າຍ) + ສະລິບ (ຂວາ) ໃນແຖວດຽວ */
+.co-paygrid { display: grid; grid-template-columns: 124px minmax(0, 1fr); gap: 14px; align-items: start; }
+.co-qrbox { text-align: center; }
+.co-qrbox .payment-qr { width: 100%; max-width: 124px; margin: 0 auto; display: block; }
+.co-qr-cap { margin-top: 4px; font-weight: 800; font-size: 0.82rem; color: var(--cust-text); }
+.co-qr-scan { font-size: 0.7rem; color: var(--cust-text-muted); }
+.co-card .pay-amount-box {
+  background: #fffaf0; border: 1px solid #f1e3b8; margin-bottom: 10px;
+}
+.co-card .pay-amount-box span:last-child { color: #b8862b; font-size: 1.05rem; }
+
+/* ອັບໂຫລດສະລິບ */
+.co-slip-label { font-size: 0.82rem; font-weight: 600; color: var(--cust-text); margin-bottom: 6px; display: block; }
+.co-upload {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 104px;
+  padding: 10px; border: 1.5px dashed #d8c68a; border-radius: 12px; background: #fffdf6;
+  color: #b8862b; font-weight: 700; font-size: 0.86rem; cursor: pointer; box-sizing: border-box;
+  text-align: center;
+}
+.co-upload:hover { background: #fffaf0; border-color: var(--gold); }
+.co-upload input { display: none; }
+.co-slip-row {
+  display: flex; align-items: center; gap: 10px; padding: 6px 8px;
+  border: 1px solid var(--cust-border); border-radius: 12px; background: #fff;
+}
+.co-slip-thumb {
+  width: 48px; height: 48px; object-fit: cover; border-radius: 8px; display: block;
+  border: 1px solid #eee;
+}
+.co-slip-name {
+  flex: 1; min-width: 0; font-size: 0.82rem; color: var(--cust-text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.co-slip-remove {
+  padding: 5px 10px; border-radius: 999px; border: 1px solid #fca5a5; background: #fff;
+  color: #dc2626; font-weight: 700; font-size: 0.78rem; cursor: pointer; font-family: inherit;
+}
+.co-slip-remove:hover { background: #dc2626; border-color: #dc2626; color: #fff; }
+
+/* COD */
+.co-cod { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; color: var(--cust-text); font-size: 0.92rem; }
+.co-cod-ic {
+  width: 40px; height: 40px; border-radius: 12px; background: #faf6ea; color: #b8862b;
+  display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+}
+
+/* ===== ຄູປອງ (ແຖວດຽວ ກົດເພື່ອຂະຫຍາຍ) ===== */
+.co-cbox { padding: 0; overflow: hidden; }
+.co-cbox-head {
+  width: 100%; display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+  border: 0; background: transparent; cursor: pointer; text-align: left; font-family: inherit;
+  color: var(--cust-text);
+}
+.co-cbox-head:disabled { cursor: default; opacity: 0.75; }
+.co-cbox-ic {
+  width: 34px; height: 34px; border-radius: 10px; background: #faf6ea; color: #b8862b;
+  display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+}
+.co-cbox-title { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.co-cbox-label { font-size: 0.74rem; color: var(--cust-text-muted); }
+.co-cbox-sub {
+  font-size: 0.9rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.co-cbox-sub.muted { font-weight: 500; color: var(--cust-text-muted); }
+.co-cbox-head > svg { flex: 0 0 auto; color: #9a9a92; transition: transform 0.15s; }
+.co-cbox-head.open > svg { transform: rotate(180deg); }
+.co-cbox-list { padding: 10px 12px 12px; border-top: 1px solid var(--cust-border); }
+
 .co-coupon {
   display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%;
-  padding: 11px 12px; margin-bottom: 8px; border: 1.5px solid var(--cust-border); border-radius: 12px;
+  padding: 8px 10px; margin-bottom: 6px; border: 1.5px solid var(--cust-border); border-radius: 10px;
   background: #fff; cursor: pointer; text-align: left; font-family: inherit; color: var(--cust-text);
 }
 .co-coupon:last-child { margin-bottom: 0; }
@@ -223,124 +389,66 @@ const css = `
   border-color: var(--gold); background: #fffaf0; box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.15);
 }
 .co-coupon:disabled { opacity: 0.5; cursor: not-allowed; }
-.co-coupon-name { font-weight: 700; font-size: 0.92rem; display: flex; align-items: center; gap: 8px; }
+.co-coupon-name { font-weight: 700; font-size: 0.88rem; display: flex; align-items: center; gap: 8px; }
 .co-coupon-count {
   padding: 1px 8px; border-radius: 999px; background: #faf0cf; color: #9a7412;
-  font-size: 0.75rem; font-weight: 800;
+  font-size: 0.72rem; font-weight: 800;
 }
-.co-coupon-sub { font-size: 0.78rem; color: var(--cust-text-muted); margin-top: 2px; }
-.co-coupon-save { color: #b8862b; font-weight: 800; font-size: 0.9rem; white-space: nowrap; }
+.co-coupon-sub { font-size: 0.74rem; color: var(--cust-text-muted); margin-top: 1px; }
+.co-coupon-save { color: #b8862b; font-weight: 800; font-size: 0.88rem; white-space: nowrap; }
 
-/* ສະຫຼຸບຍອດ */
-.co-sum { margin-bottom: 12px; }
-.co-sum-title { font-weight: 700; margin-bottom: 8px; color: var(--cust-text); }
+/* ===== ສະຫຼຸບຍອດ + ຢືນຢັນ ===== */
+.co-total-card { padding: 12px 16px 14px; }
 .co-sum-row {
-  display: flex; justify-content: space-between; gap: 10px; padding: 6px 0;
-  font-size: 0.92rem; color: var(--cust-text);
+  display: flex; justify-content: space-between; gap: 10px; padding: 2px 0;
+  font-size: 0.86rem; color: var(--cust-text);
 }
+.co-sum-row > span:first-child { color: var(--cust-text-muted); }
 .co-sum-row.disc span:last-child { color: #15803d; font-weight: 700; }
-.co-sum-row.net {
-  margin-top: 6px; padding-top: 10px; border-top: 1px dashed var(--cust-border);
-  font-weight: 800; font-size: 1.05rem;
+.co-net {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  margin-top: 8px; padding: 8px 12px; border-radius: 12px;
+  background: #fffaf0; border: 1px solid #f1e3b8;
 }
-.co-sum-row.net span:last-child { color: #b8862b; }
+.co-net > span { font-weight: 700; font-size: 0.9rem; color: var(--cust-text); }
+.co-net b { font-size: 1.35rem; font-weight: 800; color: #b8862b; letter-spacing: -0.01em; }
+.co-net small { font-size: 0.78rem; font-weight: 700; }
 
-/* ປຸ່ມເລືອກວິທີຊຳລະ */
-.co-pay { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
-.co-pay-opt {
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 13px 8px; border: 1.5px solid var(--cust-border); border-radius: 12px; background: #fff;
-  font-weight: 600; font-size: 0.92rem; color: var(--cust-text); cursor: pointer; font-family: inherit;
+.co-confirm-area { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.co-confirm-row { display: flex; gap: 8px; }
+.co-confirm-btn { flex: 1; padding: 12px 18px; font-size: 0.98rem; border-radius: 12px; }
+.co-back-btn {
+  flex: 0 0 auto; padding: 0 16px; border-radius: 12px; border: 1px solid var(--cust-border);
+  background: #fff; color: var(--cust-text-muted); font-weight: 600; font-size: 0.88rem;
+  font-family: inherit; cursor: pointer;
 }
-.co-pay-opt:hover { border-color: var(--gold); }
-.co-pay-opt.selected {
-  border-color: var(--gold); background: #fffaf0; color: #b8862b;
-  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.15);
-}
+.co-back-btn:hover { color: var(--cust-text); border-color: #cfcfc8; }
 
-/* ເລືອກທະນາຄານ */
-.co-banks { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
-.co-bank {
-  padding: 10px 16px; border-radius: 12px; border: 1.5px solid var(--cust-border); background: #fff;
-  font-weight: 700; font-size: 0.92rem; color: var(--cust-text); cursor: pointer; font-family: inherit;
-}
-.co-bank:hover { border-color: var(--gold); }
-.co-bank.selected {
-  border-color: var(--gold); background: #fffaf0; color: #b8862b;
-  box-shadow: 0 0 0 3px rgba(201, 162, 39, 0.15);
-}
-.co-bank-hint { text-align: center; font-size: 0.88rem; color: var(--cust-text-muted); padding: 8px 0 16px; }
-.co-static-note { text-align: center; font-size: 0.82rem; color: #b45309; margin-top: 6px; }
-.co-static-amt { text-align: center; font-weight: 800; color: #b8862b; font-size: 1.2rem; margin-top: 4px; }
-
-/* QR */
-.co-qr-wrap { display: flex; justify-content: center; margin-bottom: 12px; }
-.co-qr-wrap .payment-qr { max-width: 210px; width: 100%; margin: 0; }
-.co-card .pay-amount-box {
-  background: #fffaf0; border: 1px solid #f1e3b8; margin-bottom: 14px;
-}
-.co-card .pay-amount-box span:last-child { color: #b8862b; font-size: 1.1rem; }
-
-/* ອັບໂຫລດສະລິບ */
-.co-upload {
-  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
-  padding: 12px; border: 1.5px dashed #d8c68a; border-radius: 12px; background: #fffdf6;
-  color: #b8862b; font-weight: 700; font-size: 0.92rem; cursor: pointer;
-}
-.co-upload:hover { background: #fffaf0; border-color: var(--gold); }
-.co-upload input { display: none; }
-.co-slip-row {
-  display: flex; align-items: center; gap: 12px; padding: 8px 10px;
-  border: 1px solid var(--cust-border); border-radius: 12px; background: #fff;
-}
-.co-slip-thumb {
-  width: 56px; height: 56px; object-fit: cover; border-radius: 8px; display: block;
-  border: 1px solid #eee;
-}
-.co-slip-name {
-  flex: 1; min-width: 0; font-size: 0.85rem; color: var(--cust-text);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.co-slip-remove {
-  padding: 6px 12px; border-radius: 999px; border: 1px solid #fca5a5; background: #fff;
-  color: #dc2626; font-weight: 700; font-size: 0.8rem; cursor: pointer; font-family: inherit;
-}
-.co-slip-remove:hover { background: #dc2626; border-color: #dc2626; color: #fff; }
-
-/* COD */
-.co-cod { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; color: var(--cust-text); }
-.co-cod-ic {
-  width: 44px; height: 44px; border-radius: 12px; background: #faf6ea; color: #b8862b;
-  display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
-}
-
-/* ກ່ອງບອກສິ່ງທີ່ຍັງຂາດກ່ອນຢືນຢັນ */
+/* ປ້າຍບອກສິ່ງທີ່ຍັງຂາດກ່ອນຢືນຢັນ */
 .co-missing {
-  margin-top: 22px; padding: 12px 14px; border-radius: 14px; background: #fff7ed;
-  border: 1px solid #fed7aa; color: #9a3412; font-size: 0.88rem;
+  padding: 7px 10px; border-radius: 12px; background: #fff7ed;
+  border: 1px solid #fed7aa; color: #9a3412; font-size: 0.78rem;
 }
-.co-missing-title { font-weight: 800; margin-bottom: 6px; }
-.co-missing ul { margin: 0; padding-left: 18px; }
-.co-missing li { margin: 2px 0; }
-.co-missing + .co-bar { margin-top: 12px; }
+.co-missing-title { font-weight: 800; margin-bottom: 4px; }
+.co-missing ul { margin: 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 4px; }
+.co-missing li {
+  margin: 0; padding: 2px 9px; border-radius: 999px; background: rgba(251, 146, 60, 0.16);
+  line-height: 1.4;
+}
 
-/* ແຖບຢືນຢັນຕິດຂອບລຸ່ມຈໍ */
-.co-bar {
-  position: sticky; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 40;
-  margin-top: 22px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  background: #fff; border: 1px solid var(--cust-border); border-radius: 16px; padding: 12px 16px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-}
-.co-bar-label { display: block; font-size: 0.78rem; color: var(--cust-text-muted); }
-.co-bar-amount { font-size: 1.2rem; font-weight: 800; color: #b8862b; }
-.co-bar-actions { display: flex; gap: 10px; }
+/* ແຖບຢືນຢັນຕິດຂອບລຸ່ມຈໍ (ສະເພາະມືຖື) */
+.co-bar { display: none; }
+.co-missing-bottom { display: none; }
+.co-bar-label { display: block; font-size: 0.75rem; color: var(--cust-text-muted); }
+.co-bar-amount { font-size: 1.1rem; font-weight: 800; color: #b8862b; }
+.co-bar-actions { display: flex; gap: 8px; }
 .co-bar-back {
-  padding: 12px 20px; border-radius: 10px; border: 1px solid var(--cust-border); background: #fff;
-  color: var(--cust-text); font-weight: 600; font-family: inherit; cursor: pointer;
+  padding: 10px 18px; border-radius: 10px; border: 1px solid var(--cust-border); background: #fff;
+  color: var(--cust-text); font-weight: 600; font-size: 0.9rem; font-family: inherit; cursor: pointer;
 }
 .co-bar-confirm {
-  padding: 12px 24px; border-radius: 10px; border: none; background: var(--gold); color: #fff;
-  font-weight: 800; font-family: inherit; cursor: pointer;
+  padding: 10px 22px; border-radius: 10px; border: none; background: var(--gold); color: #fff;
+  font-weight: 800; font-size: 0.92rem; font-family: inherit; cursor: pointer;
   box-shadow: 0 6px 16px rgba(201, 162, 39, 0.3);
 }
 .co-bar-confirm:hover:not(:disabled) { filter: brightness(1.06); }
@@ -351,10 +459,27 @@ const css = `
 }
 
 @media (max-width: 800px) {
-  .co-grid { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  .checkout-page.co-wide { padding-bottom: 120px; }
+  .co-grid { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+  .co-confirm-area { display: none; }
+  .co-missing-bottom { display: block; margin-top: 16px; }
+  .co-bar {
+    position: sticky; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 40;
+    margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    background: #fff; border: 1px solid var(--cust-border); border-radius: 14px; padding: 10px 14px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+}
+@media (max-width: 560px) {
+  .co-branch-row { grid-template-columns: minmax(0, 1fr); }
+  .co-dd-list.right { left: 0; right: auto; }
+  .co-dd-list { max-width: 100%; width: 100%; }
 }
 @media (max-width: 520px) {
-  .co-bar { flex-direction: column; align-items: stretch; gap: 10px; }
+  .co-row2 { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .co-paygrid { grid-template-columns: minmax(0, 1fr); }
+  .co-qrbox .payment-qr { max-width: 160px; }
+  .co-bar { flex-direction: column; align-items: stretch; gap: 8px; }
   .co-bar-total { display: flex; justify-content: space-between; align-items: baseline; }
   .co-bar-actions button { flex: 1; }
 }
@@ -405,7 +530,7 @@ function CarrierLogo({ carrier, size = 52 }) {
 }
 
 // dropdown ທີ່ເປີດລົງດ້ານລຸ່ມສະເໝີ (ແທນ <select> ທີ່ browser ອາດເປີດຂຶ້ນດ້ານເທິງ)
-function DropSelect({ value, onChange, options, placeholder, disabled }) {
+function DropSelect({ value, onChange, options, placeholder, disabled, alignRight }) {
   const { t } = usePageT(dict);
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -447,7 +572,7 @@ function DropSelect({ value, onChange, options, placeholder, disabled }) {
         </svg>
       </button>
       {open && (
-        <ul className="co-dd-list">
+        <ul className={`co-dd-list${alignRight ? ' right' : ''}`}>
           {options.length === 0 && <li className="empty">{t('co.noData')}</li>}
           {options.map((o) => (
             <li
@@ -500,7 +625,7 @@ function DynamicQr({ amount, bank, fallback, alt }) {
   if (src) return <img src={src} alt={alt} className="payment-qr" />;
   if (failed && fallback) {
     return (
-      <div style={{ width: 210, maxWidth: '100%' }}>
+      <div style={{ width: 124, maxWidth: '100%', margin: '0 auto' }}>
         <img src={fallback} alt={alt} className="payment-qr" />
         {bank && (
           <>
@@ -527,6 +652,8 @@ function CheckoutInner() {
   const [changingCarrier, setChangingCarrier] = useState(false); // ເປີດລາຍການປ່ຽນຂົນສົ່ງໃນໜ້າ 2
   const [payMethod, setPayMethod] = useState('transfer'); // 'transfer' | 'cod'
   const [step, setStep] = useState(1);
+  const [showAllItems, setShowAllItems] = useState(false);
+  const [couponOpen, setCouponOpen] = useState(false); // ຂະຫຍາຍລາຍການຄູປອງ
 
   const [savedAddrs, setSavedAddrs] = useState([]);
   const [saveAddr, setSaveAddr] = useState(true);
@@ -571,6 +698,7 @@ function CheckoutInner() {
     const next = couponKey === key ? null : key;
     setCouponKey(next);
     saveCouponKey(next);
+    setCouponOpen(false);
   }
 
   useEffect(() => {
@@ -707,6 +835,7 @@ function CheckoutInner() {
   }
 
   const subtotal = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const visibleItems = showAllItems ? items : items.slice(0, ITEMS_PREVIEW);
 
   // ລວມຄູປອງທີ່ຄືກັນ (ຊື່/ປະເພດ/ມູນຄ່າ/ຂັ້ນຕ່ຳ ຄືກັນ) ເປັນກຸ່ມດຽວ ສະແດງ ×ຈຳນວນ — ໃຊ້ໃບທີ່ໝົດອາຍຸກ່ອນສຸດ
   const couponGroups = (() => {
@@ -736,7 +865,7 @@ function CheckoutInner() {
   const addressIsNew =
     address.trim() !== '' && !savedAddrs.some((a) => a.address.trim() === address.trim());
 
-  // ສິ່ງທີ່ຍັງຂາດກ່ອນຢືນຢັນ (ສະແດງເປັນກ່ອງແຈ້ງເຕືອນເທິງແຖບຢືນຢັນ)
+  // ສິ່ງທີ່ຍັງຂາດກ່ອນຢືນຢັນ (ສະແດງເປັນປ້າຍແຈ້ງເຕືອນ)
   const missing = [];
   if (!/^\+?\d{8,15}$/.test(phone.replace(/\s/g, ''))) missing.push(t('co.alertPhone'));
   if (usesBranch) {
@@ -748,6 +877,21 @@ function CheckoutInner() {
   }
   if (payMethod === 'transfer' && banks.length > 0 && !bankId) missing.push(t('co.alertBank'));
   if (payMethod === 'transfer' && !slipFile) missing.push(t('co.alertSlip'));
+
+  // ກ່ອງ "ຍັງຕ້ອງເຮັດກ່ອນຢືນຢັນ" — ຄອມ: ຢູ່ໃນການ໌ດສະຫຼຸບຍອດຝັ່ງຂວາ / ມືຖື: ເທິງແຖບຢືນຢັນ
+  function missingBox(extraClass) {
+    if (missing.length === 0) return null;
+    return (
+      <div className={`co-missing ${extraClass}`}>
+        <div className="co-missing-title">{t('co.missingTitle')}</div>
+        <ul>
+          {missing.map((m) => (
+            <li key={m}>{m}</li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
 
   function goStep(n) {
     setStep(n);
@@ -887,6 +1031,27 @@ function CheckoutInner() {
     }
   }
 
+  // ສ່ວນອັບໂຫລດສະລິບ (ໃຊ້ໄດ້ທັງຕອນມີ QR ແລະ ຍັງບໍ່ໄດ້ເລືອກທະນາຄານ)
+  const slipBlock = (
+    <div>
+      <label className="co-slip-label">{t('co.slipLabel')}</label>
+      {slipFile ? (
+        <div className="co-slip-row">
+          <a href={slipPreview} target="_blank" rel="noreferrer" title={t('co.slipZoom')}>
+            <img src={slipPreview} alt={t('co.slipAlt')} className="co-slip-thumb" />
+          </a>
+          <div className="co-slip-name">{slipFile.name}</div>
+          <button type="button" className="co-slip-remove" onClick={removeSlip}>{t('co.remove')}</button>
+        </div>
+      ) : (
+        <label className="co-upload">
+          <input type="file" accept="image/*" onChange={onSlipChange} />
+          <span>{t('co.pickSlip')}</span>
+        </label>
+      )}
+    </div>
+  );
+
   return (
     <div className="customer-shell">
       <style>{css}</style>
@@ -975,13 +1140,14 @@ function CheckoutInner() {
         {step === 2 && (
           <div className="step-panel">
             <div className="co-grid">
-              {/* ===== ຝັ່ງຊ້າຍ: ຂໍ້ມູນ ===== */}
+              {/* ===== ຝັ່ງຊ້າຍ: ຂໍ້ມູນຈັດສົ່ງ + ຄູປອງ + ລາຍການສິນຄ້າ ===== */}
               <div className="co-col">
                 <h2>{t('co.info')}</h2>
                 <div className="co-stack">
+                  {/* ການ໌ດດຽວ: ຂົນສົ່ງ + ຊື່/ເບີໂທ + ສາຂາ ຫຼື ທີ່ຢູ່ */}
                   <div className="co-card">
                     <div className="co-summary">
-                      <CarrierLogo carrier={carrierObj} size={44} />
+                      <CarrierLogo carrier={carrierObj} size={36} />
                       <div className="co-summary-name">{carrierObj.name}</div>
                       <button
                         type="button"
@@ -1002,58 +1168,65 @@ function CheckoutInner() {
                             className={`co-carrier${carrier === c.key ? ' selected' : ''}`}
                             onClick={() => pickCarrier(c.key)}
                           >
-                            <CarrierLogo carrier={c} size={38} />
+                            <CarrierLogo carrier={c} size={34} />
                             <span className="co-carrier-name">{c.name}</span>
                             <span className="co-radio" />
                           </button>
                         ))}
                       </div>
                     )}
-                  </div>
 
-                  <div className="co-card">
-                    <div className="co-label">{t('co.name')}</div>
-                    <div className={`co-name${name ? '' : ' empty'}`}>
-                      {name || t('co.noName')}
+                    <hr className="co-divider" />
+
+                    <div className="co-row2">
+                      <div>
+                        <div className="co-label">{t('co.name')}</div>
+                        <div className={`co-name${name ? '' : ' empty'}`}>
+                          {name || t('co.noName')}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="co-label">{t('co.phone')}</div>
+                        <input
+                          type="tel"
+                          value={phone}
+                          maxLength={16}
+                          onChange={(e) => setPhone(e.target.value)}
+                        />
+                      </div>
                     </div>
 
-                    <div className="co-label">{t('co.phone')}</div>
-                    <input
-                      type="tel"
-                      value={phone}
-                      maxLength={16}
-                      onChange={(e) => setPhone(e.target.value)}
-                    />
+                    <hr className="co-divider" />
 
                     {usesBranch ? (
                       <>
                         <div className="co-label">{t('co.pickupBranch')}</div>
-
-                        <DropSelect
-                          placeholder={t('co.selProvince')}
-                          value={provinceId}
-                          onChange={onProvinceChange}
-                          options={provinces.map((p) => ({ value: p.province_id, label: p.province_name }))}
-                        />
-
-                        <DropSelect
-                          placeholder={t('co.selDistrict')}
-                          value={district}
-                          disabled={!provinceId}
-                          onChange={onDistrictChange}
-                          options={districts.map((d) => ({ value: d, label: d }))}
-                        />
-
-                        <DropSelect
-                          placeholder={t('co.selBranch')}
-                          value={branchId}
-                          disabled={!district}
-                          onChange={setBranchId}
-                          options={branches.map((b) => ({ value: b.branch_id, label: b.name }))}
-                        />
+                        <div className="co-branch-row">
+                          <DropSelect
+                            placeholder={t('co.selProvince')}
+                            value={provinceId}
+                            onChange={onProvinceChange}
+                            options={provinces.map((p) => ({ value: p.province_id, label: p.province_name }))}
+                          />
+                          <DropSelect
+                            placeholder={t('co.selDistrict')}
+                            value={district}
+                            disabled={!provinceId}
+                            onChange={onDistrictChange}
+                            options={districts.map((d) => ({ value: d, label: d }))}
+                          />
+                          <DropSelect
+                            placeholder={t('co.selBranch')}
+                            value={branchId}
+                            disabled={!district}
+                            onChange={setBranchId}
+                            alignRight
+                            options={branches.map((b) => ({ value: b.branch_id, label: b.name }))}
+                          />
+                        </div>
 
                         {branchLoading && (
-                          <div style={{ fontSize: '0.85rem', color: 'var(--cust-text-muted)' }}>{t('common.loading')}</div>
+                          <div style={{ fontSize: '0.82rem', color: 'var(--cust-text-muted)', marginTop: 8 }}>{t('common.loading')}</div>
                         )}
 
                         {selectedBranch && (
@@ -1086,7 +1259,6 @@ function CheckoutInner() {
                           value={address}
                           onChange={(e) => setAddress(e.target.value)}
                           rows={3}
-                          style={{ marginBottom: 0 }}
                         />
                         {addressIsNew && savedAddrs.length < MAX_SAVED_ADDRESSES && (
                           <label className="co-save-addr">
@@ -1101,182 +1273,237 @@ function CheckoutInner() {
                       </>
                     )}
                   </div>
+
+                  {/* ຄູປອງ (ແຖວດຽວ ກົດເພື່ອຂະຫຍາຍ) */}
+                  <div className="co-card co-cbox">
+                    <button
+                      type="button"
+                      className={`co-cbox-head${couponOpen ? ' open' : ''}`}
+                      disabled={couponGroups.length === 0}
+                      aria-expanded={couponOpen}
+                      onClick={() => setCouponOpen((v) => !v)}
+                    >
+                      <span className="co-cbox-ic"><IconTag /></span>
+                      <span className="co-cbox-title">
+                        <span className="co-cbox-label">{t('co.coupon')}</span>
+                        <span className={`co-cbox-sub${selectedCoupon ? '' : ' muted'}`}>
+                          {selectedCoupon
+                            ? selectedCoupon.name
+                            : couponGroups.length === 0
+                              ? t('co.noCoupon')
+                              : t('co.pickCoupon')}
+                        </span>
+                      </span>
+                      {selectedCoupon && <span className="co-coupon-save">-{fmt(discount)}</span>}
+                      {couponGroups.length > 0 && (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                          strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M6 9l6 6 6-6" />
+                        </svg>
+                      )}
+                    </button>
+
+                    {couponOpen && couponGroups.length > 0 && (
+                      <div className="co-cbox-list">
+                        {couponGroups.map((g) => {
+                          const c = g.rep;
+                          const ok = subtotal >= c.min_order;
+                          const isSelected = !!selectedCoupon && couponKey === g.key;
+                          return (
+                            <button
+                              type="button"
+                              key={g.key}
+                              disabled={!ok}
+                              className={`co-coupon${isSelected ? ' selected' : ''}`}
+                              onClick={() => pickCoupon(g.key)}
+                            >
+                              <div>
+                                <div className="co-coupon-name">
+                                  {c.name}
+                                  {g.count > 1 && <span className="co-coupon-count">×{g.count}</span>}
+                                </div>
+                                <div className="co-coupon-sub">
+                                  {ok
+                                    ? t('co.expires', { date: new Date(c.expires_at).toLocaleDateString('en-GB') })
+                                    : t('co.minOrder', { n: fmt(c.min_order), kip })}
+                                </div>
+                              </div>
+                              {ok && <span className="co-coupon-save">-{fmt(calcDiscount(c, subtotal))}</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ລາຍການສິນຄ້າທີ່ສັ່ງ (ເລື່ອນທັງໜ້າ ບໍ່ມີກອບເລື່ອນຊ້ອນ) */}
+                  <div className="co-card">
+                    <div className="co-card-title">
+                      {t('co.items')}
+                      <span className="co-badge">{items.length}</span>
+                    </div>
+                    <div className="co-items">
+                      {visibleItems.map((item) => (
+                        <div className="co-item" key={item.id}>
+                          {item.image ? (
+                            <img className="co-item-img" src={`${API_BASE}${item.image}`} alt="" />
+                          ) : (
+                            <span className="co-item-img" />
+                          )}
+                          <div className="co-item-info">
+                            <div className="co-item-name" title={item.name}>{item.name}</div>
+                            <div className="co-item-sub">
+                              {item.chosen_size ? `${t('common.size')} ${item.chosen_size} · ` : ''}x{item.quantity}
+                            </div>
+                          </div>
+                          <div className="co-item-price">{fmt(item.price * item.quantity)}</div>
+                        </div>
+                      ))}
+                    </div>
+                    {items.length > ITEMS_PREVIEW && (
+                      <button type="button" className="co-more" onClick={() => setShowAllItems((v) => !v)}>
+                        {showAllItems ? t('co.showLess') : `${t('co.showAll')} (${items.length})`}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* ===== ຝັ່ງຂວາ: ຄູປອງ + ສະຫຼຸບຍອດ + ຊຳລະເງິນ ===== */}
+              {/* ===== ຝັ່ງຂວາ: ຊຳລະເງິນ (ການ໌ດດຽວ) + ສະຫຼຸບຍອດ/ຢືນຢັນ ===== */}
               <div className="co-col">
-                <h2>{t('co.payment')}</h2>
-
-                <div className="co-label" style={{ marginBottom: 8 }}>{t('co.coupon')}</div>
-                <div className="co-card" style={{ marginBottom: 12 }}>
-                  {couponGroups.length === 0 ? (
-                    <div style={{ fontSize: '0.88rem', color: 'var(--cust-text-muted)' }}>
-                      {t('co.noCoupon')}
-                    </div>
-                  ) : (
-                    couponGroups.map((g) => {
-                      const c = g.rep;
-                      const ok = subtotal >= c.min_order;
-                      const isSelected = !!selectedCoupon && couponKey === g.key;
-                      return (
+                <div className="co-sticky">
+                  <h2>{t('co.payment')}</h2>
+                  <div className="co-stack">
+                    {/* 1) ຊຳລະເງິນ: ສະຫຼັບ ໂອນເງິນ/COD + ລາຍລະອຽດ */}
+                    <div className="co-card">
+                      <div className="co-seg" role="group">
                         <button
                           type="button"
-                          key={g.key}
-                          disabled={!ok}
-                          className={`co-coupon${isSelected ? ' selected' : ''}`}
-                          onClick={() => pickCoupon(g.key)}
+                          aria-pressed={payMethod === 'transfer'}
+                          className={`co-seg-opt${payMethod === 'transfer' ? ' selected' : ''}`}
+                          onClick={() => setPayMethod('transfer')}
                         >
-                          <div>
-                            <div className="co-coupon-name">
-                              {c.name}
-                              {g.count > 1 && <span className="co-coupon-count">×{g.count}</span>}
-                            </div>
-                            <div className="co-coupon-sub">
-                              {ok
-                                ? t('co.expires', { date: new Date(c.expires_at).toLocaleDateString('en-GB') })
-                                : t('co.minOrder', { n: fmt(c.min_order), kip })}
-                            </div>
-                          </div>
-                          {ok && <span className="co-coupon-save">-{fmt(calcDiscount(c, subtotal))}</span>}
+                          <IconTransfer /> {t('co.transfer')}
                         </button>
-                      );
-                    })
-                  )}
-                </div>
+                        <button
+                          type="button"
+                          aria-pressed={payMethod === 'cod'}
+                          className={`co-seg-opt${payMethod === 'cod' ? ' selected' : ''}`}
+                          onClick={() => setPayMethod('cod')}
+                        >
+                          <IconCash /> {t('co.cod')}
+                        </button>
+                      </div>
 
-                {/* ສະຫຼຸບຍອດ: ສິນຄ້າ + ຄ່າສົ່ງ − ຄູປອງ = ຍອດສຸດທິ */}
-                <div className="co-card co-sum">
-                  <div className="co-sum-title">{t('co.summary')}</div>
-                  <div className="co-sum-row">
-                    <span>{t('co.subtotal')}</span>
-                    <span>{fmt(subtotal)} {kip}</span>
-                  </div>
-                  {shippingEnabled && (
-                    <div className="co-sum-row">
-                      <span>{t('co.shipping')}</span>
-                      {shippingFee > 0 ? (
-                        <span>+{fmt(shippingFee)} {kip}</span>
-                      ) : (
-                        <span className="co-free">{t('co.shippingFree')}</span>
-                      )}
-                    </div>
-                  )}
-                  {discount > 0 && (
-                    <div className="co-sum-row disc">
-                      <span>{t('co.couponDiscount')}</span>
-                      <span>−{fmt(discount)} {kip}</span>
-                    </div>
-                  )}
-                  <div className="co-sum-row net">
-                    <span>{t('co.netTotal')}</span>
-                    <span>{fmt(total)} {kip}</span>
-                  </div>
-                </div>
-
-                <div className="co-pay">
-                  <button
-                    type="button"
-                    className={`co-pay-opt${payMethod === 'transfer' ? ' selected' : ''}`}
-                    onClick={() => setPayMethod('transfer')}
-                  >
-                    <IconTransfer /> {t('co.transfer')}
-                  </button>
-                  <button
-                    type="button"
-                    className={`co-pay-opt${payMethod === 'cod' ? ' selected' : ''}`}
-                    onClick={() => setPayMethod('cod')}
-                  >
-                    <IconCash /> {t('co.cod')}
-                  </button>
-                </div>
-
-                <div className="co-card">
-                  {payMethod === 'transfer' ? (
-                    <>
-                      {banks.length > 0 && (
+                      {payMethod === 'transfer' ? (
                         <>
-                          <div className="co-label" style={{ marginBottom: 8 }}>{t('co.chooseBank')}</div>
-                          <div className="co-banks">
-                           {banks.map((b) => (
-                              <button
-                                key={b.id}
-                                type="button"
-                                className={`co-bank${bankId === b.id ? ' selected' : ''}`}
-                                onClick={() => setBankId(b.id)}
-                                style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}
-                              >
-                                {b.logo && (
-                                  <img
-                                    src={b.logo}
-                                    alt=""
-                                    style={{ width: 26, height: 26, objectFit: 'contain', borderRadius: 6, background: '#fff' }}
-                                  />
-                                )}
-                                {b.name}
-                              </button>
-                            ))}
+                          {banks.length > 0 && (
+                            <>
+                              <div className="co-label" style={{ marginBottom: 6 }}>{t('co.chooseBank')}</div>
+                              <div className="co-banks">
+                                {banks.map((b) => (
+                                  <button
+                                    key={b.id}
+                                    type="button"
+                                    className={`co-bank${bankId === b.id ? ' selected' : ''}`}
+                                    onClick={() => setBankId(b.id)}
+                                  >
+                                    {b.logo && <img className="co-bank-logo" src={b.logo} alt="" />}
+                                    {b.name}
+                                  </button>
+                                ))}
+                              </div>
+                            </>
+                          )}
+
+                          {banks.length === 0 || selectedBank ? (
+                            <div className="co-paygrid">
+                              <div className="co-qrbox">
+                                <DynamicQr
+                                  amount={total}
+                                  bank={selectedBank}
+                                  fallback={selectedBank ? selectedBank.image : qrImage}
+                                  alt={t('co.qrAlt')}
+                                />
+                                {selectedBank && <div className="co-qr-cap">{selectedBank.name}</div>}
+                                <div className="co-qr-scan">{t('co.scanQr')}</div>
+                              </div>
+                              {slipBlock}
+                            </div>
+                          ) : (
+                            <>
+                              <div className="co-bank-hint">{t('co.pickBankHint')}</div>
+                              {slipBlock}
+                            </>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <div className="co-cod">
+                            <span className="co-cod-ic"><IconCash size={22} /></span>
+                            <span>{t('co.codNote')}</span>
                           </div>
-                          {!selectedBank && <div className="co-bank-hint">{t('co.pickBankHint')}</div>}
+                          <div className="pay-amount-box" style={{ marginBottom: 0 }}>
+                            <span>{t('co.amountPay')}</span>
+                            <span>{fmt(total)} {kip}</span>
+                          </div>
                         </>
                       )}
+                    </div>
 
-                      {(banks.length === 0 || selectedBank) && (
-                        <div className="co-qr-wrap">
-                          <DynamicQr
-                            amount={total}
-                            bank={selectedBank}
-                            fallback={selectedBank ? selectedBank.image : qrImage}
-                            alt={t('co.qrAlt')}
-                          />
+                    {/* 2) ສະຫຼຸບຍອດ + ຢືນຢັນ */}
+                    <div className="co-card co-total-card">
+                      <div className="co-sum-row">
+                        <span>{t('co.subtotal')}</span>
+                        <span>{fmt(subtotal)} {kip}</span>
+                      </div>
+                      {shippingEnabled && (
+                        <div className="co-sum-row">
+                          <span>{t('co.shipping')}</span>
+                          {shippingFee > 0 ? (
+                            <span>+{fmt(shippingFee)} {kip}</span>
+                          ) : (
+                            <span className="co-free">{t('co.shippingFree')}</span>
+                          )}
+                        </div>
+                      )}
+                      {discount > 0 && (
+                        <div className="co-sum-row disc">
+                          <span>{t('co.couponDiscount')}</span>
+                          <span>−{fmt(discount)} {kip}</span>
                         </div>
                       )}
 
-                      <label className="upload-label">{t('co.slipLabel')}</label>
-                      {slipFile ? (
-                        <div className="co-slip-row">
-                          <a href={slipPreview} target="_blank" rel="noreferrer" title={t('co.slipZoom')}>
-                            <img src={slipPreview} alt={t('co.slipAlt')} className="co-slip-thumb" />
-                          </a>
-                          <div className="co-slip-name">{slipFile.name}</div>
-                          <button type="button" className="co-slip-remove" onClick={removeSlip}>{t('co.remove')}</button>
+                      <div className="co-net">
+                        <span>{t('co.netTotal')}</span>
+                        <b>{fmt(total)} <small>{kip}</small></b>
+                      </div>
+
+                      {/* ຄອມ: ຢືນຢັນຢູ່ໃນການ໌ດນີ້ເລີຍ (ມືຖືໃຊ້ແຖບລຸ່ມສຸດ) */}
+                      <div className="co-confirm-area">
+                        {missingBox('co-missing-inline')}
+                        <div className="co-confirm-row">
+                          <button type="button" className="co-back-btn" onClick={() => goStep(1)}>
+                            {t('common.back')}
+                          </button>
+                          <button
+                            type="button"
+                            className="co-bar-confirm co-confirm-btn"
+                            onClick={submitOrder}
+                            disabled={confirming}
+                          >
+                            {confirming ? t('co.sending') : t('co.confirmOrder')}
+                          </button>
                         </div>
-                      ) : (
-                        <label className="co-upload">
-                          <input type="file" accept="image/*" onChange={onSlipChange} />
-                          <span>{t('co.pickSlip')}</span>
-                        </label>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <div className="co-cod">
-                        <span className="co-cod-ic"><IconCash size={24} /></span>
-                        <span>{t('co.codNote')}</span>
                       </div>
-                      <div className="pay-amount-box" style={{ marginBottom: 0 }}>
-                        <span>{t('co.amountPay')}</span>
-                        <span>{fmt(total)} {kip}</span>
-                      </div>
-                    </>
-                  )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
-            {/* ===== ສິ່ງທີ່ຍັງຂາດກ່ອນຢືນຢັນ ===== */}
-            {missing.length > 0 && (
-              <div className="co-missing">
-                <div className="co-missing-title">{t('co.missingTitle')}</div>
-                <ul>
-                  {missing.map((m) => (
-                    <li key={m}>{m}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* ===== ແຖບຢືນຢັນ (ຕິດຂອບລຸ່ມຈໍ) ===== */}
+            {/* ===== ມືຖື: ສິ່ງທີ່ຍັງຂາດ + ແຖບຢືນຢັນຕິດຂອບລຸ່ມຈໍ ===== */}
+            {missingBox('co-missing-bottom')}
             <div className="co-bar">
               <div className="co-bar-total">
                 <span className="co-bar-label">{t('co.netTotal')}</span>

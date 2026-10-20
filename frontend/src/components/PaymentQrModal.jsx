@@ -14,19 +14,27 @@ const dict = {
     'qr.empty': 'ຍັງບໍ່ໄດ້ເພີ່ມທະນາຄານ — ລະບົບຍັງໃຊ້ QR ເດີມຢູ່. ເມື່ອເພີ່ມທະນາຄານແລ້ວ QR ເດີມຈະບໍ່ຖືກໃຊ້ອີກ ຢ່າລືມເພີ່ມທະນາຄານເດີມເຂົ້າລາຍການດ້ວຍ',
     'qr.auto': '✓ ຝັງຍອດອັດຕະໂນມັດ',
     'qr.static': 'ຮູບທົ່ວໄປ (ລູກຄ້າໃສ່ຍອດເອງ)',
+    'qr.edit': 'ແກ້ໄຂ',
     'qr.delete': 'ລຶບ',
     'qr.confirmDelete': 'ລຶບທະນາຄານນີ້ອອກ?',
     'qr.addTitle': 'ເພີ່ມທະນາຄານ',
+    'qr.editTitle': 'ແກ້ໄຂທະນາຄານ',
     'qr.bankName': 'ຊື່ທະນາຄານ (ເຊັ່ນ BCEL, LDB, JDB)',
     'qr.logo': 'ໂລໂກ້',
     'qr.logoHint': 'ໂລໂກ້ທະນາຄານ (ບໍ່ບັງຄັບ)',
-    'qr.logoRemove': 'ເອົາອອກ',
+    'qr.logoRemove': 'ເອົາໂລໂກ້ອອກ',
     'qr.qrLabel': 'ຮູບ QR ຂອງທະນາຄານ',
+    'qr.newQrLabel': 'ຮູບ QR ໃໝ່ (ບໍ່ບັງຄັບ)',
+    'qr.keepQr': 'ກົດທີ່ຮູບ QR ເພື່ອປ່ຽນ ຖ້າບໍ່ເລືອກຈະໃຊ້ QR ເດີມ',
+    'qr.change': 'ປ່ຽນ QR',
+    'qr.pickQr': 'ເລືອກຮູບ QR',
     'qr.reading': 'ກຳລັງອ່ານ QR...',
     'qr.readOk': '✓ ອ່ານ QR ໄດ້ — ຈະຝັງຍອດເງິນໃຫ້ອັດຕະໂນມັດ',
     'qr.readFail': '⚠️ ອ່ານ QR ບໍ່ໄດ້ ຫຼື ບໍ່ແມ່ນ LAO QR — ຈະສະແດງເປັນຮູບທົ່ວໄປ (ລູກຄ້າຕ້ອງໃສ່ຍອດເອງ) ລອງໃຊ້ຮູບທີ່ຊັດກວ່ານີ້',
     'qr.add': 'ເພີ່ມທະນາຄານ',
     'qr.adding': 'ກຳລັງບັນທຶກ...',
+    'qr.saveEdit': 'ບັນທຶກ',
+    'qr.cancelEdit': 'ຍົກເລີກ',
     'qr.errName': 'ກະລຸນາໃສ່ຊື່ທະນາຄານ',
     'qr.errFile': 'ກະລຸນາເລືອກຮູບ QR',
     'qr.errSave': 'ບັນທຶກບໍ່ສຳເລັດ',
@@ -39,19 +47,27 @@ const dict = {
     'qr.empty': 'ยังไม่ได้เพิ่มธนาคาร — ระบบยังใช้ QR เดิมอยู่ เมื่อเพิ่มธนาคารแล้ว QR เดิมจะไม่ถูกใช้อีก อย่าลืมเพิ่มธนาคารเดิมเข้ารายการด้วย',
     'qr.auto': '✓ ฝังยอดอัตโนมัติ',
     'qr.static': 'รูปทั่วไป (ลูกค้าใส่ยอดเอง)',
+    'qr.edit': 'แก้ไข',
     'qr.delete': 'ลบ',
     'qr.confirmDelete': 'ลบธนาคารนี้ออก?',
     'qr.addTitle': 'เพิ่มธนาคาร',
+    'qr.editTitle': 'แก้ไขธนาคาร',
     'qr.bankName': 'ชื่อธนาคาร (เช่น BCEL, LDB, JDB)',
     'qr.logo': 'โลโก้',
     'qr.logoHint': 'โลโก้ธนาคาร (ไม่บังคับ)',
-    'qr.logoRemove': 'เอาออก',
+    'qr.logoRemove': 'เอาโลโก้ออก',
     'qr.qrLabel': 'รูป QR ของธนาคาร',
+    'qr.newQrLabel': 'รูป QR ใหม่ (ไม่บังคับ)',
+    'qr.keepQr': 'กดที่รูป QR เพื่อเปลี่ยน ถ้าไม่เลือกจะใช้ QR เดิม',
+    'qr.change': 'เปลี่ยน QR',
+    'qr.pickQr': 'เลือกรูป QR',
     'qr.reading': 'กำลังอ่าน QR...',
     'qr.readOk': '✓ อ่าน QR ได้ — จะฝังยอดเงินให้อัตโนมัติ',
     'qr.readFail': '⚠️ อ่าน QR ไม่ได้ หรือไม่ใช่ LAO QR — จะแสดงเป็นรูปทั่วไป (ลูกค้าต้องใส่ยอดเอง) ลองใช้รูปที่ชัดกว่านี้',
     'qr.add': 'เพิ่มธนาคาร',
     'qr.adding': 'กำลังบันทึก...',
+    'qr.saveEdit': 'บันทึก',
+    'qr.cancelEdit': 'ยกเลิก',
     'qr.errName': 'กรุณาใส่ชื่อธนาคาร',
     'qr.errFile': 'กรุณาเลือกรูป QR',
     'qr.errSave': 'บันทึกไม่สำเร็จ',
@@ -64,19 +80,27 @@ const dict = {
     'qr.empty': 'No banks added yet — the old QR is still in use. Once you add a bank, the old QR is no longer used, so add your existing bank to the list too',
     'qr.auto': '✓ Amount embedded automatically',
     'qr.static': 'Plain image (customer types the amount)',
+    'qr.edit': 'Edit',
     'qr.delete': 'Delete',
     'qr.confirmDelete': 'Remove this bank?',
     'qr.addTitle': 'Add a bank',
+    'qr.editTitle': 'Edit bank',
     'qr.bankName': 'Bank name (e.g. BCEL, LDB, JDB)',
     'qr.logo': 'Logo',
     'qr.logoHint': 'Bank logo (optional)',
-    'qr.logoRemove': 'Remove',
+    'qr.logoRemove': 'Remove logo',
     'qr.qrLabel': 'Bank QR image',
+    'qr.newQrLabel': 'New QR image (optional)',
+    'qr.keepQr': 'Click the QR image to change it. If you do not, the current QR is kept',
+    'qr.change': 'Change QR',
+    'qr.pickQr': 'Choose QR',
     'qr.reading': 'Reading QR...',
     'qr.readOk': '✓ QR read — the amount will be embedded automatically',
     'qr.readFail': '⚠️ Could not read the QR or it is not a LAO QR — it will show as a plain image (customer must type the amount). Try a clearer image',
     'qr.add': 'Add bank',
     'qr.adding': 'Saving...',
+    'qr.saveEdit': 'Save',
+    'qr.cancelEdit': 'Cancel',
     'qr.errName': 'Please enter the bank name',
     'qr.errFile': 'Please choose a QR image',
     'qr.errSave': 'Could not save',
@@ -157,8 +181,8 @@ function shrinkLogo(file, maxSide = 256) {
 }
 
 const inputStyle = {
-  width: '100%', padding: 12, borderRadius: 8, border: '1px solid #dfe3e8',
-  boxSizing: 'border-box', fontFamily: 'inherit', fontSize: '0.98rem', margin: 0,
+  width: '100%', height: 44, padding: '0 12px', borderRadius: 8, border: '1px solid #dfe3e8',
+  boxSizing: 'border-box', fontFamily: 'inherit', fontSize: '0.98rem', margin: 0, background: '#fff',
 };
 
 // ໂລໂກ້ທະນາຄານ (ຖ້າບໍ່ມີ ສະແດງວົງມົນມີຕົວອັກສອນທຳອິດແທນ)
@@ -189,17 +213,26 @@ export default function PaymentQrModal({ onClose }) {
   const [banks, setBanks] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // editingId = null → ໂໝດເພີ່ມ (ຟອມລຸ່ມສຸດ), ມີຄ່າ → ແກ້ໄຂໃນແຖວຂອງທະນາຄານນັ້ນ
+  const [editingId, setEditingId] = useState(null);
   const [name, setName] = useState('');
   const [file, setFile] = useState(null);
+  const [qrPreview, setQrPreview] = useState('');
   const [payload, setPayload] = useState('');
   const [readState, setReadState] = useState('idle'); // idle | reading | ok | fail
   const [logoFile, setLogoFile] = useState(null);
   const [logoPreview, setLogoPreview] = useState('');
+  const [existingLogo, setExistingLogo] = useState('');
+  const [logoRemoved, setLogoRemoved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
   const fileRef = useRef(null);
   const logoRef = useRef(null);
+  const logoPreviewRef = useRef('');
+  const qrPreviewRef = useRef('');
+  logoPreviewRef.current = logoPreview;
+  qrPreviewRef.current = qrPreview;
 
   async function load() {
     try {
@@ -214,25 +247,57 @@ export default function PaymentQrModal({ onClose }) {
 
   useEffect(() => {
     load();
+    return () => {
+      if (logoPreviewRef.current) URL.revokeObjectURL(logoPreviewRef.current);
+      if (qrPreviewRef.current) URL.revokeObjectURL(qrPreviewRef.current);
+    };
   }, []);
 
-  useEffect(() => {
-    return () => {
-      if (logoPreview) URL.revokeObjectURL(logoPreview);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  function clearNewLogo() {
+    if (logoPreviewRef.current) URL.revokeObjectURL(logoPreviewRef.current);
+    setLogoFile(null);
+    setLogoPreview('');
+  }
+
+  function clearNewQr() {
+    if (qrPreviewRef.current) URL.revokeObjectURL(qrPreviewRef.current);
+    setFile(null);
+    setQrPreview('');
+    setPayload('');
+    setReadState('idle');
+    if (fileRef.current) fileRef.current.value = '';
+  }
+
+  function resetForm() {
+    setEditingId(null);
+    setName('');
+    clearNewQr();
+    clearNewLogo();
+    setExistingLogo('');
+    setLogoRemoved(false);
+    setError('');
+  }
+
+  function startEdit(b) {
+    clearNewQr();
+    clearNewLogo();
+    setEditingId(b.id);
+    setName(b.name || '');
+    setExistingLogo(b.logo || '');
+    setLogoRemoved(false);
+    setError('');
+  }
 
   async function onPickFile(e) {
     const f = e.target.files && e.target.files[0];
     setError('');
     if (!f) {
-      setFile(null);
-      setPayload('');
-      setReadState('idle');
+      clearNewQr();
       return;
     }
+    if (qrPreviewRef.current) URL.revokeObjectURL(qrPreviewRef.current);
     setFile(f);
+    setQrPreview(URL.createObjectURL(f));
     setReadState('reading');
     const text = await readQrText(f);
     if (text && canBuildDynamic(text)) {
@@ -249,24 +314,25 @@ export default function PaymentQrModal({ onClose }) {
     e.target.value = '';
     if (!f) return;
     const small = await shrinkLogo(f);
-    if (logoPreview) URL.revokeObjectURL(logoPreview);
+    clearNewLogo();
     setLogoFile(small);
     setLogoPreview(URL.createObjectURL(small));
+    setLogoRemoved(false);
   }
 
+  // ເອົາໂລໂກ້ອອກ (ທັງອັນໃໝ່ທີ່ເລືອກ ແລະ ອັນເດີມທີ່ບັນທຶກໄວ້)
   function removeLogo() {
-    if (logoPreview) URL.revokeObjectURL(logoPreview);
-    setLogoFile(null);
-    setLogoPreview('');
+    clearNewLogo();
+    if (existingLogo) setLogoRemoved(true);
   }
 
-  async function addBank() {
+  async function submit() {
     setError('');
     if (!name.trim()) {
       setError(t('qr.errName'));
       return;
     }
-    if (!file) {
+    if (!editingId && !file) {
       setError(t('qr.errFile'));
       return;
     }
@@ -274,23 +340,25 @@ export default function PaymentQrModal({ onClose }) {
     try {
       const fd = new FormData();
       fd.append('name', name.trim());
-      fd.append('payload', payload);
-      fd.append('qrImage', file);
+      if (file) {
+        fd.append('payload', payload);
+        fd.append('qrImage', file);
+      }
       if (logoFile) fd.append('logo', logoFile, 'logo.png');
-      const res = await fetch('/api/settings/payment-banks', {
-        method: 'POST',
+      else if (editingId && logoRemoved) fd.append('removeLogo', '1');
+
+      const url = editingId
+        ? `/api/settings/payment-banks/${editingId}`
+        : '/api/settings/payment-banks';
+      const res = await fetch(url, {
+        method: editingId ? 'PUT' : 'POST',
         credentials: 'include',
         headers: { ...getAuthHeader() },
         body: fd,
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        setName('');
-        setFile(null);
-        setPayload('');
-        setReadState('idle');
-        removeLogo();
-        if (fileRef.current) fileRef.current.value = '';
+        resetForm();
         await load();
       } else {
         setError(data.error || t('qr.errSave'));
@@ -313,10 +381,140 @@ export default function PaymentQrModal({ onClose }) {
     } catch (e) {
       // ຖ້າລຶບບໍ່ໄດ້ ໂຫຼດໃໝ່ແລ້ວຈະເຫັນເອງ
     }
+    if (id === editingId) resetForm();
     load();
   }
 
   const full = banks.length >= MAX_BANKS;
+  const logoShown = logoPreview || (!logoRemoved && existingLogo ? existingLogo : '');
+  const busy = saving || readState === 'reading';
+
+  // ຟອມກະທັດຮັດ (ໃຊ້ຮ່ວມກັນ ທັງໂໝດເພີ່ມ ແລະ ໂໝດແກ້ໄຂໃນແຖວ)
+  // ເປັນຟັງຊັນທີ່ return JSX (ບໍ່ແມ່ນ component) ເພື່ອບໍ່ໃຫ້ input ເສຍ focus ຕອນພິມ
+  function renderForm(editingBank) {
+    const qrSrc = qrPreview || (editingBank ? editingBank.image : '');
+    return (
+      <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        {/* ຊ້າຍ: ຮູບ QR (ກົດເພື່ອເລືອກຮູບໃໝ່) */}
+        <button
+          type="button"
+          onClick={() => fileRef.current && fileRef.current.click()}
+          title={editingBank ? t('qr.newQrLabel') : t('qr.qrLabel')}
+          style={{
+            position: 'relative', width: 96, height: 96, flex: '0 0 auto', padding: 0, overflow: 'hidden',
+            borderRadius: 10, cursor: 'pointer',
+            border: qrSrc ? '1px solid #e5e7eb' : '2px dashed #cbd5e1',
+            background: qrSrc ? '#fff' : '#f8fafc', color: '#64748b',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          {qrSrc ? (
+            <>
+              <img src={qrSrc} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              <span
+                style={{
+                  position: 'absolute', left: 0, right: 0, bottom: 0, padding: '4px 0',
+                  background: 'rgba(17,24,39,.72)', color: '#fff', fontSize: '0.72rem', fontWeight: 600, textAlign: 'center',
+                }}
+              >
+                {t('qr.change')}
+              </span>
+            </>
+          ) : (
+            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, fontSize: '0.78rem', fontWeight: 600 }}>
+              <span style={{ fontSize: '1.6rem', lineHeight: 1 }}>＋</span>
+              {t('qr.pickQr')}
+            </span>
+          )}
+        </button>
+        <input ref={fileRef} type="file" accept="image/*" onChange={onPickFile} style={{ display: 'none' }} />
+        <input ref={logoRef} type="file" accept="image/*" onChange={onPickLogo} style={{ display: 'none' }} />
+
+        {/* ຂວາ: ຊື່ + ໂລໂກ້ + ປຸ່ມ */}
+        <div style={{ flex: '1 1 240px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <button
+              type="button"
+              title={t('qr.logoHint')}
+              onClick={() => logoRef.current && logoRef.current.click()}
+              style={{
+                width: 44, height: 44, flex: '0 0 auto', borderRadius: 10, cursor: 'pointer', padding: 0,
+                border: logoShown ? '1px solid #e5e7eb' : '2px dashed #cbd5e1',
+                background: logoShown ? '#fff' : '#f8fafc', color: '#64748b', overflow: 'hidden',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.3rem', lineHeight: 1,
+              }}
+            >
+              {logoShown ? (
+                <img src={logoShown} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              ) : (
+                '＋'
+              )}
+            </button>
+            <input
+              style={inputStyle}
+              placeholder={t('qr.bankName')}
+              maxLength={40}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+
+          <div style={{ fontSize: '0.8rem', minHeight: 18, lineHeight: 1.35 }}>
+            {readState === 'reading' && <span style={{ color: '#6b7280' }}>{t('qr.reading')}</span>}
+            {readState === 'ok' && <span style={{ color: '#15803d' }}>{t('qr.readOk')}</span>}
+            {readState === 'fail' && <span style={{ color: '#b45309' }}>{t('qr.readFail')}</span>}
+            {readState === 'idle' && (
+              <span style={{ color: '#6b7280' }}>
+                {editingBank ? t('qr.keepQr') : t('qr.qrLabel')}
+                {logoShown && (
+                  <>
+                    {' · '}
+                    <button
+                      type="button"
+                      onClick={removeLogo}
+                      style={{ border: 'none', background: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '0.8rem', padding: 0, textDecoration: 'underline' }}
+                    >
+                      {t('qr.logoRemove')}
+                    </button>
+                  </>
+                )}
+              </span>
+            )}
+          </div>
+
+          {error && <div style={{ color: '#dc2626', fontSize: '0.85rem' }}>{error}</div>}
+
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            {editingBank && (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={resetForm}
+                style={{
+                  background: '#fff', color: '#374151', border: '1px solid #dfe3e8',
+                  height: 40, padding: '0 18px', borderRadius: 8, fontWeight: 600, fontSize: '0.92rem', cursor: 'pointer',
+                }}
+              >
+                {t('qr.cancelEdit')}
+              </button>
+            )}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={submit}
+              style={{
+                background: 'var(--blue)', color: '#fff', border: 'none',
+                height: 40, padding: '0 22px', borderRadius: 8, fontWeight: 700, fontSize: '0.92rem', cursor: 'pointer',
+                opacity: busy ? 0.6 : 1,
+              }}
+            >
+              {saving ? t('qr.adding') : editingBank ? t('qr.saveEdit') : t('qr.add')}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
@@ -339,121 +537,75 @@ export default function PaymentQrModal({ onClose }) {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 18 }}>
-                  {banks.map((b) => (
-                    <div
-                      key={b.id}
-                      style={{ display: 'flex', alignItems: 'center', gap: 14, border: '1px solid #e5e7eb', borderRadius: 12, padding: 12 }}
-                    >
-                      <a href={b.image} target="_blank" rel="noreferrer" style={{ flex: '0 0 auto' }}>
-                        <img
-                          src={b.image}
-                          alt={b.name}
-                          style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 10, border: '1px solid #eee', display: 'block' }}
-                        />
-                      </a>
-                      <BankLogo bank={b} size={48} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 800, fontSize: '1.1rem' }}>{b.name}</div>
-                        <div style={{ fontSize: '0.85rem', color: b.payload ? '#15803d' : '#6b7280', marginTop: 2 }}>
-                          {b.payload ? t('qr.auto') : t('qr.static')}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(b.id)}
-                        style={{ border: '1px solid #fca5a5', background: '#fff', color: '#dc2626', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontWeight: 600 }}
+                  {banks.map((b) => {
+                    const isEditing = editingId === b.id;
+                    return (
+                      <div
+                        key={b.id}
+                        style={{
+                          borderRadius: 12, padding: 12,
+                          border: isEditing ? '1.5px solid var(--blue)' : '1px solid #e5e7eb',
+                          background: isEditing ? '#f5f9ff' : '#fff',
+                          boxShadow: isEditing ? '0 0 0 3px rgba(37,99,235,.10)' : 'none',
+                        }}
                       >
-                        {t('qr.delete')}
-                      </button>
-                    </div>
-                  ))}
+                        {isEditing ? (
+                          // ໂໝດແກ້ໄຂ: ຟອມຂຶ້ນໃນແຖວນີ້ເລີຍ
+                          renderForm(b)
+                        ) : (
+                          // ໂໝດປົກກະຕິ
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                            <a href={b.image} target="_blank" rel="noreferrer" style={{ flex: '0 0 auto' }}>
+                              <img
+                                src={b.image}
+                                alt={b.name}
+                                style={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 10, border: '1px solid #eee', display: 'block' }}
+                              />
+                            </a>
+                            <BankLogo bank={b} size={48} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 800, fontSize: '1.1rem' }}>{b.name}</div>
+                              <div style={{ fontSize: '0.85rem', color: b.payload ? '#15803d' : '#6b7280', marginTop: 2 }}>
+                                {b.payload ? t('qr.auto') : t('qr.static')}
+                              </div>
+                            </div>
+                            <div style={{ display: 'flex', gap: 8, flex: '0 0 auto' }}>
+                              <button
+                                type="button"
+                                onClick={() => startEdit(b)}
+                                style={{ border: '1px solid var(--blue)', background: '#fff', color: 'var(--blue)', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontWeight: 600 }}
+                              >
+                                {t('qr.edit')}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteTarget(b.id)}
+                                style={{ border: '1px solid #fca5a5', background: '#fff', color: '#dc2626', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontWeight: 600 }}
+                              >
+                                {t('qr.delete')}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
 
-              <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 16 }}>
-                <div style={{ fontWeight: 800, fontSize: '1.05rem', marginBottom: 10 }}>{t('qr.addTitle')}</div>
-                {full ? (
-                  <div style={{ color: '#6b7280', fontSize: '0.92rem' }}>{t('qr.full')}</div>
-                ) : (
-                  <>
-                    {/* ແຖວ: ໂລໂກ້ + ຊື່ທະນາຄານ */}
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 10 }}>
-                      <button
-                        type="button"
-                        title={t('qr.logoHint')}
-                        onClick={() => logoRef.current && logoRef.current.click()}
-                        style={{
-                          width: 64, height: 64, flex: '0 0 auto', borderRadius: 12, cursor: 'pointer', padding: 0,
-                          border: '2px dashed #cbd5e1', background: '#f8fafc', color: '#64748b', fontSize: '0.72rem',
-                          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
-                          overflow: 'hidden',
-                        }}
-                      >
-                        {logoPreview ? (
-                          <img src={logoPreview} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', background: '#fff' }} />
-                        ) : (
-                          <>
-                            <span style={{ fontSize: '1.4rem', lineHeight: 1 }}>＋</span>
-                            {t('qr.logo')}
-                          </>
-                        )}
-                      </button>
-                      <input ref={logoRef} type="file" accept="image/*" onChange={onPickLogo} style={{ display: 'none' }} />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <input
-                          style={inputStyle}
-                          placeholder={t('qr.bankName')}
-                          maxLength={40}
-                          value={name}
-                          onChange={(e) => setName(e.target.value)}
-                        />
-                        {logoFile ? (
-                          <button
-                            type="button"
-                            onClick={removeLogo}
-                            style={{ border: 'none', background: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '0.82rem', padding: '4px 0 0', textDecoration: 'underline' }}
-                          >
-                            {t('qr.logoRemove')}
-                          </button>
-                        ) : (
-                          <div style={{ fontSize: '0.8rem', color: '#6b7280', paddingTop: 4 }}>{t('qr.logoHint')}</div>
-                        )}
-                      </div>
-                    </div>
-
-                    <div style={{ fontSize: '0.85rem', color: '#6b7280', marginBottom: 4 }}>{t('qr.qrLabel')}</div>
-                    <input
-                      ref={fileRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={onPickFile}
-                      style={{ ...inputStyle, background: '#f8fafc', marginBottom: 10 }}
-                    />
-                    {readState === 'reading' && (
-                      <div style={{ fontSize: '0.9rem', color: '#6b7280', marginBottom: 10 }}>{t('qr.reading')}</div>
-                    )}
-                    {readState === 'ok' && (
-                      <div style={{ fontSize: '0.9rem', color: '#15803d', marginBottom: 10 }}>{t('qr.readOk')}</div>
-                    )}
-                    {readState === 'fail' && (
-                      <div style={{ fontSize: '0.9rem', color: '#b45309', marginBottom: 10 }}>{t('qr.readFail')}</div>
-                    )}
-                    {error && <div style={{ color: '#dc2626', fontSize: '0.9rem', marginBottom: 10 }}>{error}</div>}
-                    <button
-                      type="button"
-                      disabled={saving || readState === 'reading'}
-                      onClick={addBank}
-                      style={{
-                        width: '100%', background: 'var(--blue)', color: '#fff', border: 'none',
-                        padding: '13px 16px', borderRadius: 8, fontWeight: 'bold', fontSize: '1rem', cursor: 'pointer',
-                        opacity: saving || readState === 'reading' ? 0.6 : 1,
-                      }}
-                    >
-                      {saving ? t('qr.adding') : t('qr.add')}
-                    </button>
-                  </>
-                )}
-              </div>
+              {/* ຟອມເພີ່ມທະນາຄານ (ສະແດງສະເພາະຕອນບໍ່ໄດ້ແກ້ໄຂແຖວໃດ) */}
+              {!editingId && (
+                <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 16 }}>
+                  <div style={{ fontWeight: 800, fontSize: '1.05rem', marginBottom: 12 }}>
+                    {t('qr.addTitle')}
+                  </div>
+                  {full ? (
+                    <div style={{ color: '#6b7280', fontSize: '0.92rem' }}>{t('qr.full')}</div>
+                  ) : (
+                    renderForm(null)
+                  )}
+                </div>
+              )}
             </>
           )}
         </div>

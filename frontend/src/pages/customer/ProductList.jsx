@@ -29,6 +29,14 @@ const extraCss = `
   box-shadow: 0 2px 6px rgba(249, 115, 22, 0.35);
 }
 
+/* ---------- ดาวคะแนนรีวิวใต้ชื่อสินค้า (เว้นความสูงไว้เสมอ ให้การ์ดเรียงตรงกัน) ---------- */
+.hm-rating {
+  display: flex; align-items: center; gap: 4px; height: 18px; margin: 0 0 2px;
+  font-size: 0.76rem; color: var(--cust-text-muted, #6b7280); white-space: nowrap; overflow: hidden;
+}
+.hm-rating svg { flex: 0 0 auto; }
+.hm-rating b { color: var(--cust-text, #1f2937); font-weight: 700; }
+
 /* ---------- แถบเรียงลำดับ / ตัวกรอง ---------- */
 .hm-toolbar {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 12px;
@@ -115,13 +123,14 @@ function sortProducts(list, key) {
 }
 
 // ---------- การ์ดสินค้า (แบบ Shopee) ----------
-function MiniCard({ p, isFav, busy, cartCount, onOpen, onFav, onCart, onBuy }) {
+function MiniCard({ p, rating, isFav, busy, cartCount, onOpen, onFav, onCart, onBuy }) {
   const { t } = usePageT(dict);
   const stock = totalStock(p);
   const soldOut = stock <= 0;
   const lowStock = !soldOut && stock <= LOW_STOCK;
   const sizeText = `${t('common.size')}: ${p.size || '-'}`;
   const colorText = `${t('common.color')}: ${p.color || '-'}`;
+  const hasRating = !!rating && Number(rating.count) > 0;
 
   return (
     <div className="hm-card" onClick={() => onOpen(p.id)}>
@@ -144,6 +153,25 @@ function MiniCard({ p, isFav, busy, cartCount, onOpen, onFav, onCart, onBuy }) {
 
       <div className="hm-card-body">
         <h3 className="hm-name" title={p.name}>{p.name}</h3>
+
+        {/* ດາວຄະແນນ — ສະແດງສະເພາະສິນຄ້າທີ່ມີຣີວິວ (ແຕ່ເວັ້ນຄວາມສູງໄວ້ສະເໝີ) */}
+        <div className="hm-rating">
+          {hasRating && (
+            <>
+              <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
+                <polygon
+                  points="12,2 15,9 22,9.3 16.5,14 18.2,21 12,17 5.8,21 7.5,14 2,9.3 9,9"
+                  fill="var(--gold)"
+                  stroke="var(--gold)"
+                  strokeWidth="1.6"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <b>{Number(rating.average).toFixed(1)}</b>
+              <span>({rating.count})</span>
+            </>
+          )}
+        </div>
 
         <div className="hm-meta" title={sizeText}>{sizeText}</div>
         <div className="hm-meta" title={colorText}>{colorText}</div>
@@ -270,6 +298,7 @@ function ProductListInner() {
   const [onlyStock, setOnlyStock] = useState(false);
   const [favIds, setFavIds] = useState(new Set());
   const [cartQty, setCartQty] = useState({}); // { product_id: จำนวนชิ้นรวมทุกไซส์ }
+  const [ratings, setRatings] = useState({}); // { product_id: { average, count } } คะแนนรีวิว
   const [sizeProduct, setSizeProduct] = useState(null); // สินค้าที่กำลังเลือกไซส์ในป๊อปอัป
   const [sizeBusy, setSizeBusy] = useState(false);
   const navigate = useNavigate();
@@ -280,6 +309,7 @@ function ProductListInner() {
     loadBanners();
     loadFavoriteIds();
     loadCartQty();
+    loadRatings();
   }, []);
 
   function showToast(msg, ms = 1800) {
@@ -317,6 +347,16 @@ function ProductListInner() {
       if (ok && Array.isArray(data)) setFavIds(new Set(data));
     } catch (err) {
       // ບໍ່ login ຫຼື error — ປ່ອຍເປັນຫວ່າງ
+    }
+  }
+
+  // ດຶງຄະແນນຣີວິວຂອງທຸກສິນຄ້າ (ຄັ້ງດຽວ) ເພື່ອສະແດງດາວໃນການ໌ດ
+  async function loadRatings() {
+    try {
+      const { ok, data } = await apiGet('/api/reviews/summary');
+      if (ok && data && data.summary) setRatings(data.summary);
+    } catch (err) {
+      // ດຶງບໍ່ໄດ້ ກໍບໍ່ສະແດງດາວ ບໍ່ກະທົບສ່ວນອື່ນ
     }
   }
 
@@ -529,6 +569,7 @@ function ProductListInner() {
                   <MiniCard
                     key={p.id}
                     p={p}
+                    rating={ratings[p.id]}
                     isFav={favIds.has(p.id)}
                     busy={busyId === p.id}
                     cartCount={cartQty[p.id] || 0}
