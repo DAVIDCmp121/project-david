@@ -4,6 +4,72 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>POLO SHOP</title>
+
+  <!-- ไอคอนสำรอง (แสดงก่อนที่ไอคอนสีทองจะสร้างเสร็จ) -->
+  <link id="app-favicon" rel="icon" type="image/jpeg" href="/polo-logo.jpeg?v=3" />
+  <link id="app-touch-icon" rel="apple-touch-icon" href="/polo-logo.jpeg?v=3" />
+
+  <!-- สร้างไอคอนแท็บสีทองจากรูปโลโก้: ตัวม้าเป็นสีทอง พื้นโปร่งใส ครอปให้เต็มช่อง -->
+  <script>
+    (function () {
+      var LOGO = '/polo-logo.jpeg';
+      var GOLD = [184, 134, 43]; // #b8862b เปลี่ยนสีทองตรงนี้
+      var SIZE = 128;            // ขนาดไอคอนที่สร้าง (px)
+      var PAD = 2;               // ขอบว่างรอบตัวม้า ยิ่งน้อยตัวม้ายิ่งใหญ่
+      var CUT = 25;              // ตัดส่วนจางๆ ทิ้ง (0-255) เพิ่มถ้ายังเห็นเงาพื้นหลัง
+
+      var img = new Image();
+      img.onload = function () {
+        try {
+          var w = img.naturalWidth, h = img.naturalHeight;
+          var c = document.createElement('canvas');
+          c.width = w; c.height = h;
+          var ctx = c.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+          var data = ctx.getImageData(0, 0, w, h);
+          var p = data.data;
+
+          // เดาว่าพื้นหลังสว่างหรือมืด จากพิกเซลมุมซ้ายบน
+          var bgLum = 0.299 * p[0] + 0.587 * p[1] + 0.114 * p[2];
+          var darkBg = bgLum < 128;
+
+          var minX = w, minY = h, maxX = 0, maxY = 0;
+          for (var y = 0; y < h; y++) {
+            for (var x = 0; x < w; x++) {
+              var i = (y * w + x) * 4;
+              var lum = 0.299 * p[i] + 0.587 * p[i + 1] + 0.114 * p[i + 2];
+              var v = darkBg ? lum : 255 - lum;       // ยิ่งต่างจากพื้นยิ่งทึบ
+              var a = v < CUT ? 0 : Math.min(255, (v - CUT) * 2.2);
+              p[i] = GOLD[0]; p[i + 1] = GOLD[1]; p[i + 2] = GOLD[2]; p[i + 3] = a;
+              if (a > 60) {
+                if (x < minX) minX = x; if (x > maxX) maxX = x;
+                if (y < minY) minY = y; if (y > maxY) maxY = y;
+              }
+            }
+          }
+          if (maxX <= minX || maxY <= minY) return; // ไม่เจอตัวม้า ใช้ไอคอนสำรองต่อ
+          ctx.putImageData(data, 0, 0);
+
+          // ครอปเฉพาะตัวม้า แล้ววางกึ่งกลางในกรอบสี่เหลี่ยมจัตุรัส
+          var cw = maxX - minX + 1, ch = maxY - minY + 1;
+          var out = document.createElement('canvas');
+          out.width = SIZE; out.height = SIZE;
+          var octx = out.getContext('2d');
+          var scale = (SIZE - PAD * 2) / Math.max(cw, ch);
+          var dw = cw * scale, dh = ch * scale;
+          octx.imageSmoothingQuality = 'high';
+          octx.drawImage(c, minX, minY, cw, ch, (SIZE - dw) / 2, (SIZE - dh) / 2, dw, dh);
+
+          var url = out.toDataURL('image/png');
+          var icon = document.getElementById('app-favicon');
+          icon.type = 'image/png';
+          icon.href = url;
+          document.getElementById('app-touch-icon').href = url;
+        } catch (e) { /* ถ้าสร้างไม่ได้ ใช้ไอคอนสำรองต่อ */ }
+      };
+      img.src = LOGO + '?v=3';
+    })();
+  </script>
 </head>
 <body>
   <div id="root"></div>

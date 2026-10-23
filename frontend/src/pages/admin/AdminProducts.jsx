@@ -4,7 +4,20 @@ import ConfirmModal from '../../components/ConfirmModal.jsx';
 import DateField from '../../components/DateField.jsx';
 import PaymentQrModal from '../../components/PaymentQrModal.jsx';
 import { usePageT } from '../../useT.js';
-import dict from '../../locales/products.js';
+import baseDict from '../../locales/products.js';
+import { PRODUCT_NAME_MAX } from '../../constants/limits.js';
+
+// ข้อความเพิ่มของหน้านี้ (รวมกับข้อความเดิม)
+const extraDict = {
+  lo: { 'p.errNameLong': 'ຊື່ສິນຄ້າຍາວເກີນ {n} ຕົວອັກສອນ ກະລຸນາຕັດໃຫ້ສັ້ນລົງ' },
+  th: { 'p.errNameLong': 'ชื่อสินค้ายาวเกิน {n} ตัวอักษร กรุณาตัดให้สั้นลง' },
+  en: { 'p.errNameLong': 'Product name is longer than {n} characters. Please shorten it.' },
+};
+const dict = {
+  lo: { ...(baseDict.lo || {}), ...extraDict.lo },
+  th: { ...(baseDict.th || {}), ...extraDict.th },
+  en: { ...(baseDict.en || {}), ...extraDict.en },
+};
 
 const MAX_IMAGES = 6;
 const NEW_CATEGORY = '__new__';
@@ -29,6 +42,15 @@ const selectStyle = {
   width: '100%', padding: 10, marginBottom: 10, borderRadius: 6,
   border: '1px solid #E5E0D8', background: '#F5F5F3', color: '#2B2620',
   fontSize: '0.85rem', boxSizing: 'border-box', fontFamily: 'inherit',
+};
+// ชื่อสินค้าในตาราง: ตัดบรรทัดเองแม้เป็นคำยาวติดกัน แสดงไม่เกิน 2 บรรทัด
+const nameCellStyle = {
+  overflow: 'hidden',
+  overflowWrap: 'anywhere',
+  wordBreak: 'break-word',
+  display: '-webkit-box',
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: 'vertical',
 };
 
 // ---------- ຈື່ຄ່າຈາກຊິ້ນກ່ອນ (ເກັບໃນ browser) ----------
@@ -373,8 +395,12 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
   function validateAndSave(andNext) {
     setError('');
     setNotice('');
-    if (!form.name || !form.price) {
+    if (!form.name.trim() || !form.price) {
       setError(t('p.errNamePrice'));
+      return;
+    }
+    if (form.name.trim().length > PRODUCT_NAME_MAX) {
+      setError(t('p.errNameLong', { n: PRODUCT_NAME_MAX }));
       return;
     }
     if (sizeSelectable && parseSizes(form.size).length === 0) {
@@ -413,7 +439,7 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
     const totalStock = variantsPayload.reduce((sum, v) => sum + v.stock_qty, 0);
 
     const fd = new FormData();
-    fd.append('name', form.name);
+    fd.append('name', form.name.trim());
     fd.append('price', form.price);
     fd.append('size', form.size);
     fd.append('color', form.color);
@@ -503,6 +529,11 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
     ? parsedSizes.reduce((sum, s) => sum + (parseInt(getVS(s).qty, 10) || 0), 0)
     : null;
 
+  // ตัวนับความยาวชื่อสินค้า
+  const nameLen = form.name.length;
+  const nameOver = nameLen > PRODUCT_NAME_MAX;
+  const nameCounterColor = nameOver ? '#dc2626' : nameLen >= PRODUCT_NAME_MAX ? '#d97706' : '#6b7280';
+
   return (
     <>
       <div className="modal-overlay">
@@ -548,8 +579,13 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
                 ref={nameRef}
                 placeholder={t('p.name')}
                 value={form.name}
+                maxLength={PRODUCT_NAME_MAX}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
+                style={nameOver ? { borderColor: '#dc2626' } : undefined}
               />
+              <div style={{ margin: '-6px 0 8px', textAlign: 'right', fontSize: '0.78rem', color: nameCounterColor }}>
+                {nameLen}/{PRODUCT_NAME_MAX}
+              </div>
 
               <div style={{ fontWeight: 600, margin: '6px 0' }}>{t('p.category')}</div>
               <select
@@ -1112,7 +1148,14 @@ export default function AdminProducts() {
             {lowItems.slice(0, 12).map((it) => (
               <span
                 key={it.key}
+                title={it.label}
                 style={{
+                  display: 'inline-block',
+                  maxWidth: 'min(100%, 340px)',
+                  minWidth: 0,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
                   fontSize: '0.82rem', padding: '3px 10px', borderRadius: 999,
                   background: it.qty <= 0 ? '#fee2e2' : '#fef3c7',
                   color: it.qty <= 0 ? '#b91c1c' : '#92400e',
@@ -1163,7 +1206,9 @@ export default function AdminProducts() {
                   >
                     <td style={{ color: '#9ca3af', fontSize: 18, textAlign: 'center' }}>⠿</td>
                     <td>{p.image ? <img src={p.image} width={50} height={50} style={{ objectFit: 'cover', borderRadius: 6 }} alt="" /> : '-'}</td>
-                    <td>{p.name}</td>
+                    <td style={{ minWidth: 120, maxWidth: 220 }}>
+                      <div title={p.name} style={nameCellStyle}>{p.name}</div>
+                    </td>
                     <td>{p.category || '-'}</td>
                     <td>
                       {p.is_promo ? (
@@ -1206,8 +1251,8 @@ export default function AdminProducts() {
         />
       )}
 
-     {qrOpen && <PaymentQrModal onClose={() => setQrOpen(false)} />}
-      
+      {qrOpen && <PaymentQrModal onClose={() => setQrOpen(false)} />}
+
       {bestsellerModalOpen && (
         <div className="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) setBestsellerModalOpen(false); }}>
           <div className="modal-box" style={{ background: '#fff', color: '#1f2937', maxWidth: 380 }}>

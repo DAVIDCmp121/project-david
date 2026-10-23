@@ -19,6 +19,9 @@ const {
 
 const MAX_IMAGES = 6;
 
+// ความยาวชื่อสินค้าสูงสุด — ต้องตรงกับ frontend/src/constants/limits.js (PRODUCT_NAME_MAX)
+const PRODUCT_NAME_MAX = 25;
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, path.join(__dirname, '../public/uploads'));
@@ -227,9 +230,13 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', requireAuth, uploadImages, async (req, res) => {
   try {
-    const { name, price, size, color, stock, description } = req.body;
+    const { price, size, color, stock, description } = req.body;
+    const name = String(req.body.name || '').trim();
     if (!name || price === undefined || price === '') {
       return res.status(400).json({ error: 'ກະລຸນາໃສ່ຊື່ສິນຄ້າ ແລະ ລາຄາ' });
+    }
+    if (name.length > PRODUCT_NAME_MAX) {
+      return res.status(400).json({ error: `ຊື່ສິນຄ້າຍາວເກີນ ${PRODUCT_NAME_MAX} ຕົວອັກສອນ` });
     }
 
     const images = buildImageList(req);
@@ -344,12 +351,27 @@ router.delete('/:id', requireAuth, async (req, res) => {
 
 router.put('/:id', requireAuth, uploadImages, async (req, res) => {
   try {
-    const { name, price, size, color, stock, description } = req.body;
+    const { price, size, color, stock, description } = req.body;
+    const name = req.body.name;
     const productId = req.params.id;
 
     const fields = [];
     const values = [];
-    if (name !== undefined) { fields.push('name = ?'); values.push(name); }
+    if (name !== undefined) {
+      const cleanedName = String(name).trim();
+      if (!cleanedName) {
+        return res.status(400).json({ error: 'ກະລຸນາໃສ່ຊື່ສິນຄ້າ' });
+      }
+      if (cleanedName.length > PRODUCT_NAME_MAX) {
+        // ອະນຸຍາດຊື່ເກົ່າທີ່ຍາວເກີນ ຖ້າບໍ່ໄດ້ແກ້ຊື່ (ສົ່ງຊື່ເດີມກັບມາ) — ແຕ່ຖ້າແກ້ຊື່ ຕ້ອງບໍ່ເກີນກຳນົດ
+        const [[cur]] = await pool.query('SELECT name FROM products WHERE id = ?', [productId]);
+        if (!cur || cur.name !== cleanedName) {
+          return res.status(400).json({ error: `ຊື່ສິນຄ້າຍາວເກີນ ${PRODUCT_NAME_MAX} ຕົວອັກສອນ` });
+        }
+      }
+      fields.push('name = ?');
+      values.push(cleanedName);
+    }
     if (price !== undefined) { fields.push('price = ?'); values.push(price); }
     if (size !== undefined) { fields.push('size = ?'); values.push(size); }
     if (color !== undefined) { fields.push('color = ?'); values.push(color); }

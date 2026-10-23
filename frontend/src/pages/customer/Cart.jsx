@@ -1,17 +1,54 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import TopBar from '../../components/TopBar.jsx';
+import ConfirmModal from '../../components/ConfirmModal.jsx';
 import { CartProvider, useCart } from '../../context/CartContext.jsx';
 import { API_BASE, apiGet, apiPut, apiDelete } from '../../api.js';
 import { usePageT } from '../../useT.js';
-import dict from '../../locales/cust-cart.js';
+import baseDict from '../../locales/cust-cart.js';
+
+// ข้อความเพิ่มของหน้านี้ (รวมกับข้อความเดิม)
+const extraDict = {
+  lo: {
+    'cart.clearAll': 'ລຶບທັງໝົດ',
+    'cart.clearConfirm': 'ລຶບສິນຄ້າທັງໝົດ {n} ລາຍການອອກຈາກກະຕ່າ?',
+    'cart.clearFail': 'ລຶບສິນຄ້າບໍ່ສຳເລັດ ກະລຸນາລອງໃໝ່',
+  },
+  th: {
+    'cart.clearAll': 'ลบทั้งหมด',
+    'cart.clearConfirm': 'ลบสินค้าทั้งหมด {n} รายการออกจากตะกร้า?',
+    'cart.clearFail': 'ลบสินค้าไม่สำเร็จ กรุณาลองใหม่',
+  },
+  en: {
+    'cart.clearAll': 'Remove all',
+    'cart.clearConfirm': 'Remove all {n} items from your cart?',
+    'cart.clearFail': 'Could not clear the cart. Please try again.',
+  },
+};
+const dict = {
+  lo: { ...(baseDict.lo || {}), ...extraDict.lo },
+  th: { ...(baseDict.th || {}), ...extraDict.th },
+  en: { ...(baseDict.en || {}), ...extraDict.en },
+};
 
 // คีย์ที่ใช้ส่งต่อคูปองที่เลือกจากตะกร้า ไปหน้าชำระเงิน (ต้องตรงกับ Checkout.jsx)
 const COUPON_KEY = 'polo_coupon_key';
 
 const css = `
 .ct-wrap { max-width: 900px; margin: 0 auto; padding: 20px 16px 0; }
-.ct-title { margin: 0 0 16px; font-size: 1.3rem; font-weight: 700; color: var(--cust-text, #1f2937); }
+.ct-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 16px; }
+.ct-title { margin: 0; font-size: 1.3rem; font-weight: 700; color: var(--cust-text, #1f2937); }
+.ct-clear {
+  display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto;
+  height: 36px; padding: 0 14px; border-radius: 999px; cursor: pointer; font-family: inherit;
+  border: 1px solid #fca5a5; background: #fff; color: #dc2626; font-size: 0.85rem; font-weight: 700;
+  transition: background-color .15s, color .15s, border-color .15s;
+}
+.ct-clear:hover:not(:disabled) { background: #dc2626; border-color: #dc2626; color: #fff; }
+.ct-clear:disabled { opacity: 0.5; cursor: not-allowed; }
+:root[data-theme='dark'] .ct-clear { background: #1c1c20; border-color: rgba(248, 113, 113, 0.5); color: #f87171; }
+:root[data-theme='dark'] .ct-clear:hover:not(:disabled) { background: #dc2626; border-color: #dc2626; color: #fff; }
+
 .ct-list { display: flex; flex-direction: column; gap: 12px; }
 .ct-item {
   display: flex; gap: 14px; align-items: center; background: #fff;
@@ -197,6 +234,17 @@ function TruckIcon({ size = 18 }) {
   );
 }
 
+function TrashIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 6h18" />
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  );
+}
+
 function CartInner() {
   const [items, setItems] = useState(null);
   const [shipping, setShipping] = useState(null); // { flat_fee, free_min }
@@ -204,6 +252,9 @@ function CartInner() {
   const [couponKey, setCouponKey] = useState(readSavedCouponKey);
   const [loadError, setLoadError] = useState(false);
   const [busyId, setBusyId] = useState(null);
+  const [clearAsk, setClearAsk] = useState(false); // เปิดกล่องยืนยันลบทั้งหมด
+  const [clearing, setClearing] = useState(false);
+  const [notice, setNotice] = useState(''); // ข้อความแจ้งแทน alert()
   const navigate = useNavigate();
   const { refreshCartCount } = useCart();
   const { t } = usePageT(dict);
@@ -280,6 +331,30 @@ function CartInner() {
     }
   }
 
+  // ลบสินค้าทั้งหมดในตะกร้า (เรียก DELETE /api/cart)
+  async function clearCart() {
+    setClearAsk(false);
+    setClearing(true);
+    try {
+      const { ok } = await apiDelete('/api/cart');
+      if (ok) {
+        setItems([]);
+        // ตะกร้าว่างแล้ว คูปองที่จำไว้จากตะกร้าไม่ต้องใช้ต่อ
+        setCouponKey(null);
+        saveCouponKey(null);
+        refreshCartCount();
+      } else {
+        setNotice(t('cart.clearFail'));
+        await loadCart();
+      }
+    } catch (err) {
+      console.error(err);
+      setNotice(t('cart.clearFail'));
+    } finally {
+      setClearing(false);
+    }
+  }
+
   function goCheckout() {
     navigate('/menu/checkout');
   }
@@ -318,7 +393,20 @@ function CartInner() {
       <TopBar />
 
       <main className="ct-wrap">
-        <h2 className="ct-title">{t('cart.title')}</h2>
+        <div className="ct-head">
+          <h2 className="ct-title">{t('cart.title')}</h2>
+          {hasItems && (
+            <button
+              type="button"
+              className="ct-clear"
+              disabled={clearing || busyId !== null}
+              onClick={() => setClearAsk(true)}
+            >
+              <TrashIcon />
+              {t('cart.clearAll')}
+            </button>
+          )}
+        </div>
 
         {items === null && !loadError && (
           <p style={{ color: 'var(--cust-text-muted, #6b7280)' }}>{t('common.loading')}</p>
@@ -471,6 +559,24 @@ function CartInner() {
           </div>
         </div>
       )}
+
+      {/* กล่องยืนยันลบทั้งหมด */}
+      <ConfirmModal
+        open={clearAsk}
+        message={t('cart.clearConfirm', { n: items ? items.length : 0 })}
+        danger
+        onConfirm={clearCart}
+        onCancel={() => setClearAsk(false)}
+      />
+
+      {/* กล่องแจ้งข้อผิดพลาด */}
+      <ConfirmModal
+        open={!!notice}
+        message={notice}
+        hideCancel
+        onConfirm={() => setNotice('')}
+        onCancel={() => setNotice('')}
+      />
     </div>
   );
 }

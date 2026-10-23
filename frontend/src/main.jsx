@@ -6,6 +6,7 @@ import { LangProvider } from './i18n.jsx';
 import './styles/global.css';
 import './styles/admin-actions.css';
 import './styles/theme.css';
+import './styles/overflow-fix.css';
 
 // ໂຫຼດທີມທີ່ບັນທຶກໄວ້ກ່ອນ render ເພື່ອບໍ່ໃຫ້ຈໍກະພິບສີຂາວກ່ອນ
 try {

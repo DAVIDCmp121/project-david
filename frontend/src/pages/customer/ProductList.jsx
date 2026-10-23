@@ -19,7 +19,6 @@ const SHOP = {
 };
 const ROUTES = { home: '/menu', fav: '/menu/favorites', cart: '/menu/cart', account: '/menu/account' };
 
-const LOW_STOCK = 10;        // เหลือไม่เกินนี้ = แสดง "เหลือ n ชิ้น" สีส้ม
 const SHOW_BEST_TAG = false; // true = แสดงป้าย "ขายดี" บนรูปสินค้า
 const BEST_SOLD = 50;        // ขายเกินนี้ = ป้ายขายดี (ใช้เมื่อ SHOW_BEST_TAG = true)
 const PAGE_SIZE = 12;        // จำนวนสินค้าต่อการโหลด
@@ -92,35 +91,30 @@ const dict = {
 
 const extraCss = `
 /* =====================================================
-   แถบความมั่นใจ: 3 การ์ดเท่ากัน เต็มความกว้างกรอบเนื้อหา
+   แถบความมั่นใจ: 3 ช่องเท่ากัน ขนาดกะทัดรัด
    ===================================================== */
 .pc-trust {
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 0 0 24px;
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 0 0 20px;
 }
 .pc-trust-item {
-  display: flex; align-items: center; justify-content: center; gap: 12px; min-width: 0;
-  padding: 14px 16px; border-radius: 16px;
+  display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0;
+  padding: 8px 12px; border-radius: 12px;
   background: var(--cust-surface, #fff);
   border: 1px solid var(--cust-border, #eceae3);
-  box-shadow: 0 1px 2px rgba(60, 45, 10, 0.04);
-  color: var(--cust-text, #1f2937); font-size: 1rem; font-weight: 700; line-height: 1.3;
+  color: var(--cust-text, #1f2937); font-size: 0.85rem; font-weight: 700; line-height: 1.3;
 }
 .pc-trust-ic {
-  flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%;
+  flex: 0 0 auto; width: 30px; height: 30px; border-radius: 50%;
   display: grid; place-items: center;
   background: rgba(201, 162, 39, 0.14); color: var(--cust-gold-text, #b8862b);
 }
 .pc-trust-item span { min-width: 0; }
-@media (max-width: 900px) {
-  .pc-trust-item { font-size: 0.9rem; gap: 10px; padding: 12px 10px; }
-  .pc-trust-ic { width: 40px; height: 40px; }
-}
 @media (max-width: 560px) {
-  .pc-trust { gap: 8px; margin-bottom: 20px; }
-  .pc-trust-item { flex-direction: column; gap: 8px; padding: 12px 6px; text-align: center; font-size: 0.78rem; }
-  .pc-trust-ic { width: 40px; height: 40px; }
+  .pc-trust { gap: 6px; margin-bottom: 16px; }
+  .pc-trust-item { flex-direction: column; gap: 4px; padding: 8px 4px; text-align: center; font-size: 0.72rem; }
+  .pc-trust-ic { width: 28px; height: 28px; }
 }
-:root[data-theme='dark'] .pc-trust-item { background: #1c1c20; border-color: rgba(255, 255, 255, 0.08); color: #e4e4e7; box-shadow: none; }
+:root[data-theme='dark'] .pc-trust-item { background: #1c1c20; border-color: rgba(255, 255, 255, 0.08); color: #e4e4e7; }
 :root[data-theme='dark'] .pc-trust-ic { background: rgba(201, 162, 39, 0.18); color: #e8c25a; }
 
 /* จำนวนรายการ: ต่อท้ายหัวข้อ */
@@ -194,17 +188,9 @@ const extraCss = `
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere;
 }
 
-/* ดาวรีวิว: เรียงดาว 5 ดวง เติมสีตามคะแนน */
-.pc-rate { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; line-height: 16px; color: var(--cust-text-muted, #6b7280); }
-.pc-stars { position: relative; display: inline-flex; flex: 0 0 auto; }
-.pc-stars-base, .pc-stars-fill { display: inline-flex; white-space: nowrap; }
-.pc-stars-base svg { fill: #dcd9cf; }
-.pc-stars-fill { position: absolute; left: 0; top: 0; overflow: hidden; }
-.pc-stars-fill svg { flex: 0 0 auto; fill: var(--gold); }
-
-/* ไซส์: ชิปเล็ก */
-.pc-meta { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 0; }
-.pc-sizes { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; max-height: 22px; overflow: hidden; }
+/* ไซส์ + สี: อยู่แถวเดียวกัน */
+.pc-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 4px 0 0; min-width: 0; }
+.pc-sizes { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
 .pc-size {
   height: 22px; min-width: 24px; padding: 0 7px; box-sizing: border-box; border-radius: 6px;
   border: 1px solid var(--cust-border, #e0ddd2); color: var(--cust-text, #1f2937);
@@ -212,30 +198,36 @@ const extraCss = `
 }
 .pc-size.off { opacity: 0.4; text-decoration: line-through; font-weight: 500; }
 .pc-size.more { border-style: dashed; color: var(--cust-text-muted, #6b7280); }
-.pc-color { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; line-height: 16px; color: var(--cust-text, #1f2937); }
+.pc-color { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: 12px; line-height: 16px; color: var(--cust-text, #1f2937); }
 .pc-color-dots { display: inline-flex; flex: 0 0 auto; }
 .pc-color-dot { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0, 0, 0, 0.18); box-sizing: border-box; }
 .pc-color-dot + .pc-color-dot { margin-left: -4px; }
 .pc-color-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-/* ส่วนล่าง: ราคา + ยอดขาย + ปุ่ม (ชิดล่างเสมอ) */
+/* ส่วนล่าง: ราคา+ดาว / สต็อก+ยอดขาย / ปุ่ม (ชิดล่างเสมอ) */
 .pc-bottom { margin-top: auto; padding-top: 8px; display: flex; flex-direction: column; gap: 2px; }
+.pc-priceline { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 2px 8px; min-width: 0; }
 .pc-price { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0 8px; min-width: 0; }
 .pc-now { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; line-height: 1.25; color: var(--cust-gold-text, #b8862b); white-space: nowrap; }
 .pc-now small { font-size: 11px; font-weight: 700; margin-left: 3px; }
 .pc-now.sale { color: #dc2626; }
 .pc-was { font-size: 12px; color: #9ca3af; text-decoration: line-through; white-space: nowrap; }
 
-/* ยอดขายใต้ราคา (ซ้าย) + ในตะกร้า (ขวา) */
+/* ดาวรีวิว (มุมขวาของแถวราคา): 5 ดวง เติมสีตามคะแนน */
+.pc-rate { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; flex: 0 0 auto; font-size: 11px; line-height: 14px; color: var(--cust-text-muted, #6b7280); }
+.pc-stars { position: relative; display: inline-flex; flex: 0 0 auto; }
+.pc-stars-base, .pc-stars-fill { display: inline-flex; white-space: nowrap; }
+.pc-stars-base svg { fill: #dcd9cf; }
+.pc-stars-fill { position: absolute; left: 0; top: 0; overflow: hidden; }
+.pc-stars-fill svg { flex: 0 0 auto; fill: var(--gold); }
+
+/* สต็อก (ซ้าย) + ขายแล้ว (ขวา) */
 .pc-soldline {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   min-height: 16px; font-size: 12px; line-height: 16px; white-space: nowrap;
   color: var(--cust-text-muted, #6b7280);
 }
-.pc-soldline .incart { margin-left: auto; color: var(--cust-gold-text, #b8862b); font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
-.pc-stocknote { font-size: 12px; line-height: 16px; font-weight: 600; }
-.pc-stocknote.low { color: #c2410c; }
-.pc-stocknote.out { color: #9ca3af; }
+.pc-soldline .out { color: #9ca3af; font-weight: 600; }
 .pc-gap { height: 6px; }
 
 .pc-actions { display: flex; gap: 8px; }
@@ -248,14 +240,20 @@ const extraCss = `
 .pc-buy:active:not(:disabled) { transform: scale(0.98); }
 .pc-buy:disabled { background: #e5e7eb; color: #9ca3af; cursor: not-allowed; }
 .pc-cart {
-  flex: 0 0 44px; width: 44px; height: 44px; padding: 0; border-radius: 10px;
+  position: relative; flex: 0 0 44px; width: 44px; height: 44px; padding: 0; border-radius: 10px;
   border: 1.5px solid var(--gold); background: transparent; color: var(--cust-gold-text, #b8862b);
-  display: grid; place-items: center; cursor: pointer;
+  display: grid; place-items: center; cursor: pointer; overflow: visible;
   transition: background-color .15s ease, transform .15s ease;
 }
 .pc-cart:hover:not(:disabled) { background: rgba(201, 162, 39, 0.1); }
 .pc-cart:active:not(:disabled) { transform: scale(0.94); }
 .pc-cart:disabled { opacity: 0.4; cursor: not-allowed; border-color: var(--cust-border, #e0ddd2); }
+.pc-badge {
+  position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px; padding: 0 5px;
+  box-sizing: border-box; border-radius: 999px; background: #e53935; color: #fff;
+  font-size: 11px; font-weight: 700; line-height: 1; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 0 0 2px var(--cust-surface, #fff); pointer-events: none;
+}
 
 /* โครงตอนโหลด */
 .pc-skel-card { pointer-events: none; cursor: default; }
@@ -335,14 +333,13 @@ const extraCss = `
 :root[data-theme='dark'] .pc-soldout span { background: #2a2a30; color: #d4d4d8; }
 :root[data-theme='dark'] .pc-was { color: #7d7d86; }
 :root[data-theme='dark'] .pc-now.sale { color: #f87171; }
-:root[data-theme='dark'] .pc-stocknote.low { color: #fdba74; }
-:root[data-theme='dark'] .pc-soldline .incart { color: #e8c25a; }
 :root[data-theme='dark'] .pc-stars-base svg { fill: #3a3a42; }
 :root[data-theme='dark'] .pc-size { border-color: rgba(255, 255, 255, 0.14); color: #e4e4e7; }
 :root[data-theme='dark'] .pc-buy { background: linear-gradient(135deg, #f0d77a, #c9a227); color: #1c1505; box-shadow: 0 4px 14px rgba(201, 162, 39, 0.3); }
 :root[data-theme='dark'] .pc-buy:disabled { background: #2a2a30; color: #6b6b74; box-shadow: none; }
 :root[data-theme='dark'] .pc-cart { border-color: rgba(201, 162, 39, 0.5); color: #e8c25a; }
 :root[data-theme='dark'] .pc-cart:hover:not(:disabled) { background: rgba(201, 162, 39, 0.15); }
+:root[data-theme='dark'] .pc-badge { box-shadow: 0 0 0 2px #19191d; }
 :root[data-theme='dark'] .pc-skel { background: linear-gradient(90deg, #232328 25%, #2c2c32 37%, #232328 63%); background-size: 400% 100%; }
 :root[data-theme='dark'] .pc-empty-ic { background: #232328; color: #6b6b74; }
 :root[data-theme='dark'] .pc-toast { background: #232328; border: 1px solid rgba(201, 162, 39, 0.4); color: #e8c25a; }
@@ -435,7 +432,7 @@ function colorDots(text) {
 const STAR_POINTS = '12,2 15,9 22,9.3 16.5,14 18.2,21 12,17 5.8,21 7.5,14 2,9.3 9,9';
 function StarRow() {
   return [0, 1, 2, 3, 4].map((i) => (
-    <svg key={i} width="14" height="14" viewBox="0 0 24 24" aria-hidden="true">
+    <svg key={i} width="13" height="13" viewBox="0 0 24 24" aria-hidden="true">
       <polygon points={STAR_POINTS} strokeWidth="1.2" strokeLinejoin="round" stroke="none" />
     </svg>
   ));
@@ -448,7 +445,7 @@ function Stars({ average, count }) {
         <span className="pc-stars-base"><StarRow /></span>
         <span className="pc-stars-fill" style={{ width: `${(avg / 5) * 100}%` }}><StarRow /></span>
       </span>
-      <span>({count})</span>
+      {count > 0 && <span>({count})</span>}
     </span>
   );
 }
@@ -477,7 +474,6 @@ function MiniCard({ p, rating, isFav, busy, cartCount, onOpen, onFav, onCart, on
   const kip = t('common.kip');
   const stock = totalStock(p);
   const soldOut = stock <= 0;
-  const lowStock = !soldOut && stock <= LOW_STOCK;
   const hasRating = !!rating && Number(rating.count) > 0;
   const soldCount = Number(p.sold_count) || 0;
   const hasSold = soldCount > 0;
@@ -538,9 +534,7 @@ function MiniCard({ p, rating, isFav, busy, cartCount, onOpen, onFav, onCart, on
       <div className="pc-body">
         <h3 className="pc-name" title={p.name}>{p.name}</h3>
 
-        {/* ดาวรีวิว (ไม่มีรีวิว = ไม่แสดง) */}
-        {hasRating && <Stars average={rating.average} count={rating.count} />}
-
+        {/* ไซส์ + สี: แถวเดียวกัน */}
         {(sizes.length > 0 || colorText) && (
           <div className="pc-meta">
             {sizes.length > 0 && (
@@ -565,25 +559,27 @@ function MiniCard({ p, rating, isFav, busy, cartCount, onOpen, onFav, onCart, on
         )}
 
         <div className="pc-bottom">
-          <div className="pc-price">
-            <span className={`pc-now${onSale ? ' sale' : ''}`}>
-              {formatPrice(nowPrice)}<small>{kip}</small>
-            </span>
-            {onSale && <span className="pc-was">{formatPrice(p.price)}</span>}
+          {/* ราคา (ซ้าย) + ดาว (ขวา) — ไม่มีรีวิว = 5 ดาวเต็ม */}
+          <div className="pc-priceline">
+            <div className="pc-price">
+              <span className={`pc-now${onSale ? ' sale' : ''}`}>
+                {formatPrice(nowPrice)}<small>{kip}</small>
+              </span>
+              {onSale && <span className="pc-was">{formatPrice(p.price)}</span>}
+            </div>
+            <Stars
+              average={hasRating ? rating.average : 5}
+              count={hasRating ? Number(rating.count) : 0}
+            />
           </div>
 
-          {/* ยอดขายใต้ราคา (ซ้าย) / ในตะกร้า (ขวา) */}
+          {/* สต็อก (ซ้าย) + ขายแล้ว (ขวา) */}
           <div className="pc-soldline">
+            {soldOut
+              ? <span className="out">{t('common.soldOut')}</span>
+              : <span>{t('common.stockLeft', { n: stock })}</span>}
             {hasSold ? <span>{t('ch.sold', { n: soldCount })}</span> : <span />}
-            {cartCount > 0 && <span className="incart">{t('ch.inCart', { n: cartCount })}</span>}
           </div>
-
-          {/* เหลือน้อย / หมด (แสดงเมื่อจำเป็น) */}
-          {soldOut ? (
-            <div className="pc-stocknote out">{t('common.soldOut')}</div>
-          ) : lowStock ? (
-            <div className="pc-stocknote low">{t('common.stockLeft', { n: stock })}</div>
-          ) : null}
 
           <div className="pc-gap" />
 
@@ -607,6 +603,7 @@ function MiniCard({ p, rating, isFav, busy, cartCount, onOpen, onFav, onCart, on
                 <circle cx="20" cy="21" r="1" />
                 <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6" />
               </svg>
+              {cartCount > 0 && <span className="pc-badge">{cartCount > 99 ? '99+' : cartCount}</span>}
             </button>
           </div>
         </div>
@@ -943,24 +940,24 @@ function ProductListInner() {
 
         {products && products.length > 0 && (
           <section className="hm-section">
-            {/* แถบความมั่นใจ: 3 การ์ดเท่ากัน ไอคอนวงกลมทอง */}
+            {/* แถบความมั่นใจ: 3 ช่องเท่ากัน กะทัดรัด */}
             {!keyword && (
               <div className="pc-trust">
                 <div className="pc-trust-item">
                   <span className="pc-trust-ic">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13" /><path d="M16 8h4l3 3v5h-7z" /><circle cx="5.5" cy="18.5" r="2" /><circle cx="18.5" cy="18.5" r="2" /></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="3" width="15" height="13" /><path d="M16 8h4l3 3v5h-7z" /><circle cx="5.5" cy="18.5" r="2" /><circle cx="18.5" cy="18.5" r="2" /></svg>
                   </span>
                   <span>{t('pc.trust1')}</span>
                 </div>
                 <div className="pc-trust-item">
                   <span className="pc-trust-ic">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="6" width="20" height="12" rx="2" /><circle cx="12" cy="12" r="2.5" /></svg>
                   </span>
                   <span>{t('pc.trust2')}</span>
                 </div>
                 <div className="pc-trust-item">
                   <span className="pc-trust-ic">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5z" /><path d="m9 12 2 2 4-4" /></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.4 8 11 4.6-1.6 8-6 8-11V5z" /><path d="m9 12 2 2 4-4" /></svg>
                   </span>
                   <span>{t('pc.trust3')}</span>
                 </div>
