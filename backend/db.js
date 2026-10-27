@@ -446,6 +446,9 @@ async function initDb() {
   `);
   // ຮູບທີ່ແນບ — ເກັບເປັນ JSON array ຂອງ URL
   await addColumnIfMissing('product_reviews', 'images', 'TEXT NULL');
+  // ນັບຈຳນວນຄັ້ງທີ່ແກ້ໄຂຣີວິວ (ແກ້ໄດ້ 1 ຄັ້ງ) + ເວລາທີ່ແກ້ຫຼ້າສຸດ
+  await addColumnIfMissing('product_reviews', 'edit_count', 'TINYINT NOT NULL DEFAULT 0');
+  await addColumnIfMissing('product_reviews', 'updated_at', 'DATETIME NULL');
   // ລຶບ unique key ເກົ່າ (ແຕ່ກ່ອນຣີວິວໄດ້ຄັ້ງດຽວ) — ກວດກ່ອນ ຖ້າລຶບແລ້ວຈະບໍ່ລຶບຊ້ຳ
   try {
     const [oldIdx] = await pool.query(

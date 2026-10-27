@@ -55,6 +55,8 @@ router.post('/login', async (req, res) => {
     );
 
     res.cookie('token', token, COOKIE_OPTIONS);
+    // ล็อกอินแอดมิน → เตะลูกค้าออก (ล้าง cookie ลูกค้า)
+    res.clearCookie('customer_token', COOKIE_OPTIONS);
     // ສົ່ງ token ກັບໄປໃນ response body ນຳ
     res.json({ success: true, name: admin.name, role: admin.role || 'admin', token });
   } catch (err) {

@@ -67,6 +67,8 @@ router.post('/register', async (req, res) => {
     ...COOKIE_OPTIONS,
     maxAge: 90 * 24 * 60 * 60 * 1000
   });
+  // สมัคร/ล็อกอินลูกค้า → เตะแอดมินออก (ล้าง cookie แอดมิน)
+  res.clearCookie('token', COOKIE_OPTIONS);
 
   // ສົ່ງ token ກັບໄປໃນ response body ນຳ ເພື່ອໃຫ້ frontend ເກັບໄວ້ໃນ localStorage
   res.json({ success: true, customerId, token });
@@ -109,6 +111,8 @@ router.post('/login', async (req, res) => {
     ...COOKIE_OPTIONS,
     maxAge: 90 * 24 * 60 * 60 * 1000
   });
+  // ล็อกอินลูกค้า → เตะแอดมินออก (ล้าง cookie แอดมิน)
+  res.clearCookie('token', COOKIE_OPTIONS);
 
   res.json({ success: true, customerId: customer.id, token });
 });

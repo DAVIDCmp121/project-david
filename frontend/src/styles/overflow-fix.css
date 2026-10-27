@@ -1,0 +1,39 @@
+/* =====================================================
+   กันชื่อสินค้ายาว / คำติดกันล้นขอบ (ใช้ทั้งเว็บ)
+   ===================================================== */
+
+/* ตะกร้า / ออเดอร์ลูกค้า / ป๊อปอัปเลือกไซส์ / สินค้าที่เกี่ยวข้อง / ป๊อปอัปแอดมิน */
+.ct-name,
+.ct-meta,
+.od-name,
+.sz-name,
+.sz-sub,
+.pd-rel-name,
+.ao-li > span:first-child,
+.modal-box {
+  overflow-wrap: anywhere !important;
+  word-break: break-word;
+}
+.ao-li > span:first-child { min-width: 0; }
+
+/* หน้ารายละเอียดสินค้า: หัวชื่ออยู่ข้างปุ่มแชร์/หัวใจ ต้องยอมหดและตัดบรรทัดได้ */
+.pd-right h1 {
+  flex: 1 1 auto;
+  min-width: 0 !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word;
+}
+
+/* หน้าชำระเงิน ขั้นที่ 1: รายการสินค้า (โค้ดเดิมใช้ inline style ไม่มี class) */
+.checkout-page .step-panel div[style*="align-items: center"] > img {
+  flex: 0 0 auto;
+}
+.checkout-page .step-panel div[style*="flex: 1"] {
+  min-width: 0 !important;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.checkout-page .step-panel div[style*="align-items: center"] > div:last-child {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}

@@ -40,9 +40,13 @@ const allowedOrigins = [
   'https://polo-shop-4e1c0.firebaseapp.com',
   'http://localhost:8081',                 // Docker (nginx)
 ];
+
+// ລິງທົດສອບ (preview channel) ຂອງໂປຣເຈັກນີ້ເທົ່ານັ້ນ ເຊັ່ນ polo-shop-4e1c0--preview-xxxx.web.app
+const previewOriginPattern = /^https:\/\/polo-shop-4e1c0--[a-z0-9-]+\.(web\.app|firebaseapp\.com)$/;
+
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || previewOriginPattern.test(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));

@@ -3,3 +3,4 @@ node_modules/
 *.traineddata
 backend/public/uploads/*
 frontend/.firebase/
+backup.sql

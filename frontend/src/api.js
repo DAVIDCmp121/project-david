@@ -28,11 +28,23 @@ function migrateLegacyCustomerToken() {
 }
 
 export function saveToken(token) {
-  if (token) localStorage.setItem(tokenKey(), token);
+  if (!token) return;
+  localStorage.setItem(tokenKey(), token);
+  // ล็อกอินฝั่งนี้ → เตะอีกฝั่งออก (ล้าง token ของอีกฝั่งทิ้ง)
+  localStorage.removeItem(inStaffArea() ? CUSTOMER_TOKEN_KEY : ADMIN_TOKEN_KEY);
 }
 
 export function clearToken() {
   localStorage.removeItem(tokenKey());
+}
+
+// แท็บอื่นล็อกอินอีกฝั่ง หรือกดออกจากระบบ → token ของฝั่งนี้ถูกลบ → รีโหลดแท็บนี้
+// (event นี้ยิงเฉพาะแท็บอื่น ไม่ยิงในแท็บที่เป็นคนเปลี่ยนเอง)
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key !== tokenKey()) return;
+    if (e.oldValue && !e.newValue) window.location.reload();
+  });
 }
 
 // export ไว้ให้ไฟล์ที่ยังใช้ fetch() ตรงๆ (ไม่ผ่าน helper) เรียกใช้ได้

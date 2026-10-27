@@ -11,6 +11,13 @@ const dict = {
     'rv.none': 'ຍັງບໍ່ມີຣີວິວ',
     'rv.reviews': 'ຣີວິວ',
     'rv.write': 'ຂຽນຣີວິວ',
+    'rv.mine': 'ຣີວິວຂອງເຈົ້າ',
+    'rv.edit': 'ແກ້ໄຂ',
+    'rv.editTitle': 'ແກ້ໄຂຣີວິວ',
+    'rv.editedTag': 'ແກ້ໄຂແລ້ວ',
+    'rv.editOnce': 'ແກ້ໄຂໄດ້ 1 ຄັ້ງເທົ່ານັ້ນ ກະລຸນາກວດໃຫ້ດີກ່ອນບັນທຶກ',
+    'rv.editUsed': 'ເຈົ້າແກ້ໄຂຄົບ 1 ຄັ້ງແລ້ວ',
+    'rv.save': 'ບັນທຶກການແກ້ໄຂ',
     'rv.tapStar': 'ແຕະດາວເພື່ອໃຫ້ຄະແນນ',
     'rv.star1': 'ແຍ່',
     'rv.star2': 'ບໍ່ຄ່ອຍດີ',
@@ -24,6 +31,7 @@ const dict = {
     'rv.submit': 'ສົ່ງຣີວິວ',
     'rv.sending': 'ກຳລັງສົ່ງ...',
     'rv.thanks': 'ຂອບໃຈສຳລັບຣີວິວ!',
+    'rv.saved': 'ບັນທຶກການແກ້ໄຂແລ້ວ',
     'rv.onlyBuyers': 'ຣີວິວໄດ້ສະເພາະຜູ້ທີ່ຊື້ ແລະ ໄດ້ຮັບສິນຄ້າແລ້ວ',
     'rv.fail': 'ສົ່ງຣີວິວບໍ່ສຳເລັດ',
     'rv.pickStars': 'ກະລຸນາເລືອກຈຳນວນດາວ',
@@ -35,6 +43,13 @@ const dict = {
     'rv.none': 'ยังไม่มีรีวิว',
     'rv.reviews': 'รีวิว',
     'rv.write': 'เขียนรีวิว',
+    'rv.mine': 'รีวิวของคุณ',
+    'rv.edit': 'แก้ไข',
+    'rv.editTitle': 'แก้ไขรีวิว',
+    'rv.editedTag': 'แก้ไขแล้ว',
+    'rv.editOnce': 'แก้ไขได้ 1 ครั้งเท่านั้น กรุณาตรวจให้ดีก่อนบันทึก',
+    'rv.editUsed': 'คุณแก้ไขครบ 1 ครั้งแล้ว',
+    'rv.save': 'บันทึกการแก้ไข',
     'rv.tapStar': 'แตะดาวเพื่อให้คะแนน',
     'rv.star1': 'แย่',
     'rv.star2': 'ไม่ค่อยดี',
@@ -48,6 +63,7 @@ const dict = {
     'rv.submit': 'ส่งรีวิว',
     'rv.sending': 'กำลังส่ง...',
     'rv.thanks': 'ขอบคุณสำหรับรีวิว!',
+    'rv.saved': 'บันทึกการแก้ไขแล้ว',
     'rv.onlyBuyers': 'รีวิวได้เฉพาะผู้ที่ซื้อและได้รับสินค้าแล้ว',
     'rv.fail': 'ส่งรีวิวไม่สำเร็จ',
     'rv.pickStars': 'กรุณาเลือกจำนวนดาว',
@@ -59,6 +75,13 @@ const dict = {
     'rv.none': 'No reviews yet',
     'rv.reviews': 'reviews',
     'rv.write': 'Write a review',
+    'rv.mine': 'Your review',
+    'rv.edit': 'Edit',
+    'rv.editTitle': 'Edit review',
+    'rv.editedTag': 'Edited',
+    'rv.editOnce': 'You can edit only once. Please check carefully before saving',
+    'rv.editUsed': 'You have already used your one edit',
+    'rv.save': 'Save changes',
     'rv.tapStar': 'Tap a star to rate',
     'rv.star1': 'Poor',
     'rv.star2': 'Fair',
@@ -72,6 +95,7 @@ const dict = {
     'rv.submit': 'Submit review',
     'rv.sending': 'Sending...',
     'rv.thanks': 'Thanks for your review!',
+    'rv.saved': 'Changes saved',
     'rv.onlyBuyers': 'Only customers who bought and received this item can review it',
     'rv.fail': 'Could not submit review',
     'rv.pickStars': 'Please select a star rating',
@@ -113,6 +137,7 @@ const css = `
   background: var(--cust-card); border: 1px solid var(--cust-border);
   border-radius: 14px; padding: 12px 14px;
 }
+.rv-card.rv-own { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(201, 162, 39, 0.12); }
 .rv-card-head { display: flex; align-items: center; gap: 10px; }
 .rv-avatar {
   width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
@@ -120,9 +145,20 @@ const css = `
   display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 0.95rem;
 }
 .rv-who { min-width: 0; flex: 1; }
-.rv-name { font-weight: 700; font-size: 0.88rem; color: var(--cust-text); line-height: 1.2; }
+.rv-name { font-weight: 700; font-size: 0.88rem; color: var(--cust-text); line-height: 1.2; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .rv-sub { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
 .rv-date { font-size: 0.74rem; color: var(--cust-text-muted); }
+.rv-tag {
+  font-size: 0.68rem; font-weight: 700; padding: 1px 8px; border-radius: 999px;
+  background: #faf0cf; color: #9a7412;
+}
+.rv-tag.soft { background: rgba(127, 127, 127, 0.14); color: var(--cust-text-muted); font-weight: 600; }
+.rv-edit-btn {
+  border: 1px solid var(--gold); background: transparent; color: #b8862b; cursor: pointer;
+  font-family: inherit; font-weight: 700; font-size: 0.78rem; padding: 5px 12px; border-radius: 999px;
+  flex: 0 0 auto;
+}
+.rv-edit-btn:hover { background: var(--gold); color: #fff; }
 .rv-comment {
   margin: 8px 0 0; white-space: pre-wrap; line-height: 1.5; font-size: 0.9rem;
   color: var(--cust-text); word-break: break-word;
@@ -139,7 +175,7 @@ const css = `
 }
 .rv-more:hover { border-color: var(--gold); color: var(--gold); }
 
-/* ---------- popup เขียนรีวิว ---------- */
+/* ---------- popup เขียน/แก้ไขรีวิว ---------- */
 .rv-overlay {
   position: fixed; inset: 0; z-index: 3000; background: rgba(0, 0, 0, 0.55);
   display: flex; align-items: flex-end; justify-content: center;
@@ -161,6 +197,10 @@ const css = `
   background: rgba(127, 127, 127, 0.15); color: var(--cust-text); font-size: 14px; padding: 0;
 }
 .rv-modal-body { padding: 4px 18px 8px; overflow-y: auto; }
+.rv-warn {
+  background: #fffbeb; border: 1px solid #fde68a; color: #92400e; border-radius: 10px;
+  padding: 8px 12px; font-size: 0.82rem; margin-bottom: 10px;
+}
 .rv-pick { display: flex; justify-content: center; gap: 6px; margin: 6px 0 2px; }
 .rv-pick button { background: none; border: none; padding: 2px; cursor: pointer; line-height: 0; transition: transform 0.12s; }
 .rv-pick button:hover { transform: scale(1.12); }
@@ -224,6 +264,7 @@ const css = `
 :root[data-theme='dark'] .rv-modal { background: #1b1b1f; box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.6); }
 :root[data-theme='dark'] .rv-card,
 :root[data-theme='dark'] .rv-summary { background: linear-gradient(160deg, #1f1f24 0%, #151518 100%); }
+:root[data-theme='dark'] .rv-warn { background: rgba(245, 158, 11, 0.12); border-color: rgba(245, 158, 11, 0.4); color: #fcd34d; }
 `;
 
 // ດາວ 1 ດວງ (SVG)
@@ -291,13 +332,17 @@ export default function ProductReviews({ productId, onStats }) {
   const { t } = usePageT(dict);
 
   const [data, setData] = useState({ average: 0, count: 0, reviews: [] });
-  const [canReview, setCanReview] = useState(false);
+  const [canReview, setCanReview] = useState(false); // ຍັງບໍ່ເຄີຍຣີວິວ + ຊື້ແລ້ວ
+  const [myReview, setMyReview] = useState(null); // ຣີວິວຂອງຕົນເອງ (ຖ້າມີ)
+  const [canEdit, setCanEdit] = useState(false); // ຍັງແກ້ໄຂໄດ້ບໍ
   const [showAll, setShowAll] = useState(false);
 
-  const [open, setOpen] = useState(false); // popup เขียนรีวิว
+  const [open, setOpen] = useState(false); // popup
+  const [mode, setMode] = useState('create'); // create | edit
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState('');
-  const [files, setFiles] = useState([]); // [{ blob, preview }]
+  const [keepImgs, setKeepImgs] = useState([]); // ຮູບເກົ່າທີ່ເກັບໄວ້ (ໂໝດແກ້ໄຂ)
+  const [files, setFiles] = useState([]); // ຮູບໃໝ່ [{ blob, preview }]
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState('');
   const [viewImg, setViewImg] = useState('');
@@ -334,6 +379,7 @@ export default function ProductReviews({ productId, onStats }) {
       prev.forEach((f) => URL.revokeObjectURL(f.preview));
       return [];
     });
+    setKeepImgs([]);
     setRating(0);
     setComment('');
     setMsg('');
@@ -352,10 +398,34 @@ export default function ProductReviews({ productId, onStats }) {
     }
     try {
       const { ok, data: d } = await apiGet(`/api/reviews/can-review/${productId}`);
-      if (ok && d && d.success) setCanReview(!!d.canReview);
+      if (ok && d && d.success) {
+        setCanReview(!!d.canReview);
+        setMyReview(d.myReview || null);
+        setCanEdit(!!d.canEdit);
+      } else {
+        setCanReview(false);
+        setMyReview(null);
+        setCanEdit(false);
+      }
     } catch (err) {
       // ບໍ່ login — ຂຽນຣີວິວບໍ່ໄດ້
     }
+  }
+
+  function openCreate() {
+    resetForm();
+    setMode('create');
+    setOpen(true);
+  }
+
+  function openEdit() {
+    if (!myReview) return;
+    resetForm();
+    setMode('edit');
+    setRating(myReview.rating);
+    setComment(myReview.comment || '');
+    setKeepImgs([...(myReview.images || [])]);
+    setOpen(true);
   }
 
   function closeModal() {
@@ -363,26 +433,32 @@ export default function ProductReviews({ productId, onStats }) {
     setOpen(false);
   }
 
+  const totalPhotos = keepImgs.length + files.length;
+
   async function onPickPhotos(e) {
     const picked = Array.from(e.target.files || []);
     e.target.value = ''; // ໃຫ້ເລືອກໄຟລ໌ເດີມຊ້ຳໄດ້
     if (picked.length === 0) return;
-    const room = MAX_PHOTOS - files.length;
+    const room = MAX_PHOTOS - totalPhotos;
     const take = picked.slice(0, Math.max(0, room));
     const added = [];
     for (const file of take) {
       const blob = await compressImage(file);
       added.push({ blob, preview: URL.createObjectURL(blob) });
     }
-    setFiles((prev) => [...prev, ...added].slice(0, MAX_PHOTOS));
+    setFiles((prev) => [...prev, ...added].slice(0, Math.max(0, MAX_PHOTOS - keepImgs.length)));
   }
 
-  function removePhoto(idx) {
+  function removeNewPhoto(idx) {
     setFiles((prev) => {
       const f = prev[idx];
       if (f) URL.revokeObjectURL(f.preview);
       return prev.filter((_, i) => i !== idx);
     });
+  }
+
+  function removeOldPhoto(url) {
+    setKeepImgs((prev) => prev.filter((u) => u !== url));
   }
 
   async function submit() {
@@ -395,26 +471,33 @@ export default function ProductReviews({ productId, onStats }) {
     try {
       // ສົ່ງແບບ FormData (ມີຮູບ) — ຫ້າມຕັ້ງ Content-Type ເອງ ໃຫ້ເບົາເຊີຕັ້ງ boundary
       const fd = new FormData();
-      fd.append('productId', String(productId));
       fd.append('rating', String(rating));
       fd.append('comment', comment);
       files.forEach((f, i) => fd.append('images', f.blob, `review-${i}.jpg`));
+
+      let url;
+      let method;
+      if (mode === 'edit' && myReview) {
+        method = 'PUT';
+        url = `${API_BASE}/api/reviews/${myReview.id}`;
+        fd.append('keepImages', JSON.stringify(keepImgs));
+      } else {
+        method = 'POST';
+        url = `${API_BASE}/api/reviews`;
+        fd.append('productId', String(productId));
+      }
 
       const headers = { ...getAuthHeader() };
       delete headers['Content-Type'];
       delete headers['content-type'];
 
-      const res = await fetch(`${API_BASE}/api/reviews`, {
-        method: 'POST',
-        credentials: 'include',
-        headers,
-        body: fd,
-      });
+      const res = await fetch(url, { method, credentials: 'include', headers, body: fd });
       const d = await res.json().catch(() => ({}));
       if (res.ok && d && d.success) {
+        const wasEdit = mode === 'edit';
         setOpen(false);
         resetForm();
-        showToast(t('rv.thanks'));
+        showToast(wasEdit ? t('rv.saved') : t('rv.thanks'));
         await loadReviews();
       } else {
         setMsg((d && d.message) || t('rv.fail'));
@@ -427,7 +510,14 @@ export default function ProductReviews({ productId, onStats }) {
     }
   }
 
-  const list = showAll ? data.reviews : data.reviews.slice(0, PREVIEW_COUNT);
+  // ຣີວິວຂອງຕົນເອງຂຶ້ນກ່ອນ ແລ້ວຕາມດ້ວຍຄົນອື່ນ
+  const ordered = myReview
+    ? [
+        ...data.reviews.filter((r) => r.id === myReview.id),
+        ...data.reviews.filter((r) => r.id !== myReview.id),
+      ]
+    : data.reviews;
+  const list = showAll ? ordered : ordered.slice(0, PREVIEW_COUNT);
 
   return (
     <section className="rv-wrap" id="reviews">
@@ -452,7 +542,7 @@ export default function ProductReviews({ productId, onStats }) {
         </div>
 
         {canReview && (
-          <button type="button" className="rv-write-btn" onClick={() => setOpen(true)}>
+          <button type="button" className="rv-write-btn" onClick={openCreate}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 20h9" />
               <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
@@ -462,7 +552,7 @@ export default function ProductReviews({ productId, onStats }) {
         )}
       </div>
 
-      {!canReview && <div className="rv-hint">{t('rv.onlyBuyers')}</div>}
+      {!canReview && !myReview && <div className="rv-hint">{t('rv.onlyBuyers')}</div>}
 
       {/* ---------- รายการรีวิว ---------- */}
       {data.reviews.length === 0 ? (
@@ -470,34 +560,49 @@ export default function ProductReviews({ productId, onStats }) {
       ) : (
         <>
           <div className="rv-list">
-            {list.map((r) => (
-              <div className="rv-card" key={r.id}>
-                <div className="rv-card-head">
-                  <div className="rv-avatar">{Array.from(r.display_name || '?')[0]}</div>
-                  <div className="rv-who">
-                    <div className="rv-name">{r.display_name}</div>
-                    <div className="rv-sub">
-                      <Stars value={r.rating} size={13} />
-                      <span className="rv-date">{new Date(r.created_at).toLocaleDateString('en-GB')}</span>
+            {list.map((r) => {
+              const own = !!myReview && r.id === myReview.id;
+              return (
+                <div className={`rv-card${own ? ' rv-own' : ''}`} key={r.id}>
+                  <div className="rv-card-head">
+                    <div className="rv-avatar">{Array.from(r.display_name || '?')[0]}</div>
+                    <div className="rv-who">
+                      <div className="rv-name">
+                        {r.display_name}
+                        {own && <span className="rv-tag">{t('rv.mine')}</span>}
+                        {r.edited && <span className="rv-tag soft">{t('rv.editedTag')}</span>}
+                      </div>
+                      <div className="rv-sub">
+                        <Stars value={r.rating} size={13} />
+                        <span className="rv-date">{new Date(r.created_at).toLocaleDateString('en-GB')}</span>
+                      </div>
                     </div>
+                    {own && canEdit && (
+                      <button type="button" className="rv-edit-btn" onClick={openEdit}>
+                        ✎ {t('rv.edit')}
+                      </button>
+                    )}
                   </div>
+                  {r.comment && <p className="rv-comment">{r.comment}</p>}
+                  {Array.isArray(r.images) && r.images.length > 0 && (
+                    <div className="rv-imgs">
+                      {r.images.map((u, i) => (
+                        <img
+                          key={u + i}
+                          src={imgSrc(u)}
+                          alt=""
+                          loading="lazy"
+                          onClick={() => setViewImg(imgSrc(u))}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  {own && !canEdit && (
+                    <div className="rv-hint" style={{ margin: '8px 0 0' }}>{t('rv.editUsed')}</div>
+                  )}
                 </div>
-                {r.comment && <p className="rv-comment">{r.comment}</p>}
-                {Array.isArray(r.images) && r.images.length > 0 && (
-                  <div className="rv-imgs">
-                    {r.images.map((u, i) => (
-                      <img
-                        key={u + i}
-                        src={imgSrc(u)}
-                        alt=""
-                        loading="lazy"
-                        onClick={() => setViewImg(imgSrc(u))}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {data.reviews.length > PREVIEW_COUNT && (
@@ -508,7 +613,7 @@ export default function ProductReviews({ productId, onStats }) {
         </>
       )}
 
-      {/* ---------- popup เขียนรีวิว ---------- */}
+      {/* ---------- popup เขียน / แก้ไขรีวิว ---------- */}
       {open && (
         <div
           className="rv-overlay"
@@ -518,11 +623,13 @@ export default function ProductReviews({ productId, onStats }) {
         >
           <div className="rv-modal" role="dialog" aria-modal="true">
             <div className="rv-modal-head">
-              <h3>{t('rv.write')}</h3>
+              <h3>{mode === 'edit' ? t('rv.editTitle') : t('rv.write')}</h3>
               <button type="button" className="rv-x" onClick={closeModal} aria-label="close">✕</button>
             </div>
 
             <div className="rv-modal-body">
+              {mode === 'edit' && <div className="rv-warn">⚠️ {t('rv.editOnce')}</div>}
+
               <div className="rv-pick">
                 {[1, 2, 3, 4, 5].map((n) => (
                   <button
@@ -551,15 +658,23 @@ export default function ProductReviews({ productId, onStats }) {
               />
 
               <div className="rv-photos">
-                {files.map((f, i) => (
-                  <div className="rv-thumb" key={f.preview}>
-                    <img src={f.preview} alt="" onClick={() => setViewImg(f.preview)} />
-                    <button type="button" className="rm" aria-label={t('rv.removePhoto')} onClick={() => removePhoto(i)}>
+                {keepImgs.map((u) => (
+                  <div className="rv-thumb" key={u}>
+                    <img src={imgSrc(u)} alt="" onClick={() => setViewImg(imgSrc(u))} />
+                    <button type="button" className="rm" aria-label={t('rv.removePhoto')} onClick={() => removeOldPhoto(u)}>
                       ✕
                     </button>
                   </div>
                 ))}
-                {files.length < MAX_PHOTOS && (
+                {files.map((f, i) => (
+                  <div className="rv-thumb" key={f.preview}>
+                    <img src={f.preview} alt="" onClick={() => setViewImg(f.preview)} />
+                    <button type="button" className="rm" aria-label={t('rv.removePhoto')} onClick={() => removeNewPhoto(i)}>
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                {totalPhotos < MAX_PHOTOS && (
                   <button type="button" className="rv-add" onClick={() => fileRef.current && fileRef.current.click()}>
                     <b>＋</b>
                     {t('rv.addPhoto')}
@@ -574,14 +689,14 @@ export default function ProductReviews({ productId, onStats }) {
                 style={{ display: 'none' }}
                 onChange={onPickPhotos}
               />
-              <div className="rv-photo-hint">{t('rv.photoLimit')} ({files.length}/{MAX_PHOTOS})</div>
+              <div className="rv-photo-hint">{t('rv.photoLimit')} ({totalPhotos}/{MAX_PHOTOS})</div>
 
               {msg && <div className="rv-err">{msg}</div>}
             </div>
 
             <div className="rv-modal-foot">
               <button type="button" className="rv-submit" disabled={busy} onClick={submit}>
-                {busy ? t('rv.sending') : t('rv.submit')}
+                {busy ? t('rv.sending') : mode === 'edit' ? t('rv.save') : t('rv.submit')}
               </button>
             </div>
           </div>
