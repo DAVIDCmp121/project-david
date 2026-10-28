@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { getAuthHeader } from '../../api.js';
+import { API_BASE, getAuthHeader } from '../../api.js';
 import ConfirmModal from '../../components/ConfirmModal.jsx';
 import DateField from '../../components/DateField.jsx';
 import PaymentQrModal from '../../components/PaymentQrModal.jsx';
@@ -25,6 +25,13 @@ const SIZE_OPTIONS = ['S', 'M', 'L', 'XL', 'XXL', '3XL'];
 const DEFAULTS_KEY = 'adminProductDefaults';
 const DEFAULT_LOW_ALERT = 2; // ເຕືອນເມື່ອເຫຼືອບໍ່ເກີນນີ້ (ຄ່າເລີ່ມຕົ້ນ)
 const emptyForm = { name: '', price: '', size: '', color: '', stock: '', description: '' };
+
+// ที่อยู่รูป: ถ้าเป็น /uploads/... ให้เติมที่อยู่ backend นำหน้า (จำเป็นเมื่อเว็บอยู่บน Firebase)
+function imgUrl(u) {
+  if (!u) return u;
+  if (/^(https?:|data:|blob:)/i.test(u)) return u;
+  return `${API_BASE}${u}`;
+}
 
 const primaryBtnStyle = {
   background: 'var(--blue)', color: '#fff', border: 'none',
@@ -743,7 +750,7 @@ function ProductFormModal({ mode, productId, categories, onClose, onSaved }) {
                 {images.map((img, idx) => (
                   <div key={img.key} style={{ position: 'relative', width: 84 }}>
                     <img
-                      src={img.preview || img.url}
+                      src={imgUrl(img.preview || img.url)}
                       alt=""
                       style={{
                         width: 84, height: 84, objectFit: 'cover', borderRadius: 8, display: 'block',
@@ -1205,7 +1212,7 @@ export default function AdminProducts() {
                     style={{ opacity: dragging && dragItem.current === idx ? 0.4 : 1, cursor: 'grab' }}
                   >
                     <td style={{ color: '#9ca3af', fontSize: 18, textAlign: 'center' }}>⠿</td>
-                    <td>{p.image ? <img src={p.image} width={50} height={50} style={{ objectFit: 'cover', borderRadius: 6 }} alt="" /> : '-'}</td>
+                    <td>{p.image ? <img src={imgUrl(p.image)} width={50} height={50} style={{ objectFit: 'cover', borderRadius: 6 }} alt="" /> : '-'}</td>
                     <td style={{ minWidth: 120, maxWidth: 220 }}>
                       <div title={p.name} style={nameCellStyle}>{p.name}</div>
                     </td>
