@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const path = require('path');
+const fs = require('fs');
 const { initDb, pool } = require('./db');
 const productsRouter = require('./routes/products');
 const ordersRouter = require('./routes/orders');
@@ -43,10 +44,11 @@ const allowedOrigins = [
 
 // ລິງທົດສອບ (preview channel) ຂອງໂປຣເຈັກນີ້ເທົ່ານັ້ນ ເຊັ່ນ polo-shop-4e1c0--preview-xxxx.web.app
 const previewOriginPattern = /^https:\/\/polo-shop-4e1c0--[a-z0-9-]+\.(web\.app|firebaseapp\.com)$/;
+const cloudflarePattern = /^https:\/\/([a-z0-9-]+\.)?(trycloudflare\.com|pages\.dev)$/;
 
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin) || previewOriginPattern.test(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || previewOriginPattern.test(origin) || cloudflarePattern.test(origin)) {
       callback(null, true);
     } else {
       callback(new Error('Not allowed by CORS'));
@@ -61,7 +63,11 @@ app.use(cookieParser());
 app.use('/uploads', express.static(path.join(__dirname, './public/uploads')));
 
 // Serve ໄຟລ໌ React ທີ່ Build ແລ້ວ
-app.use(express.static(path.join(__dirname, '../frontend/dist')));
+const frontendDistPath = path.join(__dirname, '../frontend/dist');
+const frontendIndexPath = path.join(frontendDistPath, 'index.html');
+if (fs.existsSync(frontendDistPath)) {
+  app.use(express.static(frontendDistPath));
+}
 
 app.use('/api/shipping-config', require('./routes/shipping-settings'));
 app.use('/api/settings', settingsRouter);
@@ -156,7 +162,18 @@ app.get('/share/product/:id', async (req, res) => {
 // SPA fallback — ທຸກເສັ້ນທາງທີ່ບໍ່ແມ່ນ /api ໃຫ້ສົ່ງ index.html ຂອງ React ໄປແທນ
 // ຕ້ອງຢູ່ຫຼັງສຸດ (ຫຼັງທຸກ /api routes ແລະ /share) ບໍ່ຢ່າງນັ້ນຈະໄປທັບ
 app.get(/^(?!\/api).*/, (req, res) => {
-  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
+  if (fs.existsSync(frontendIndexPath)) {
+    return res.sendFile(frontendIndexPath);
+  }
+  res.status(200).send(`<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><title>POLO SHOP API Server</title></head>
+<body style="font-family: system-ui, sans-serif; text-align: center; padding: 50px;">
+  <h2>🚀 Backend API Server is running</h2>
+  <p>Frontend is available at: <a href="http://localhost:8081">http://localhost:8081</a></p>
+  <p>API Health Check: <a href="/api/health">/api/health</a></p>
+</body>
+</html>`);
 });
 
 initDb()

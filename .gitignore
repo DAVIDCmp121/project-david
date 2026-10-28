@@ -4,3 +4,4 @@ node_modules/
 backend/public/uploads/*
 frontend/.firebase/
 backup.sql
+cloudflared.exe
