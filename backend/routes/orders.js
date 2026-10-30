@@ -159,13 +159,14 @@ async function getCartWithTotal(customerId) {
   return { items, total };
 }
 
-// ດຶງລາຍການອໍເດີທັງໝົດ (ແອັດມິນ/ພະນັກງານ) — ດຶງ order_items ມາຮ່ວມນຳ ເພື່ອຮອງຮັບຫຼາຍສິນຄ້າຕໍ່ 1 ອໍເດີ
-// total = ຍອດສິນຄ້າລວມ − ສ່ວນລົດຄູປອງ + ຄ່າສົ່ງ (ຍອດທີ່ລູກຄ້າຈ່າຍຈິງ)
-// ★ ຫົວ route ນີ້ຫາຍໄປໃນໄຟລ໌ທີ່ສົ່ງມາ — ກວດ path/middleware ກັບ git ອີກຄັ້ງ
+// ດຶງລາຍການອໍເດີທັງໝົດ (ແອັດມິນ/ພະນັກງານ) — ທັງອອນລາຍ ແລະ ບິນໜ້າຮ້ານ (POS)
+// ດຶງ order_items ມາຮ່ວມນຳ ເພື່ອຮອງຮັບຫຼາຍສິນຄ້າຕໍ່ 1 ອໍເດີ
+// total = ຍອດສິນຄ້າລວມ − ສ່ວນລົດ + ຄ່າສົ່ງ (ຍອດທີ່ລູກຄ້າຈ່າຍຈິງ)
+// ★ ແກ້ແລ້ວ: ເອົາ WHERE channel = 'online' ອອກ ເພື່ອໃຫ້ບິນໜ້າຮ້ານ (channel = 'pos') ສະແດງໃນໜ້າແອດມິນດ້ວຍ
 router.get('/', requireAuth, async (req, res) => {
   try {
     const [orders] = await pool.query(`
-      SELECT * FROM orders WHERE channel = 'online' ORDER BY created_at DESC
+      SELECT * FROM orders ORDER BY created_at DESC
     `);
 
     if (orders.length === 0) {
